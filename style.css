@@ -477,6 +477,13 @@ table.data.data-clickable tbody tr:hover{background:var(--accent-soft);transform
 .bku-summary{font-size:12.5px;color:var(--muted);margin-bottom:10px;}
 .bku-summary b{color:var(--navy);}
 .bku-table-wrap{max-height:52vh;}
+/* Kolom "Uraian" (kolom ke-4: No, No Bukti, Tanggal, Uraian, Kode Rekening,
+   Pengeluaran) ikut aturan default table.data yaitu rata kanan -- tidak enak
+   dibaca untuk teks panjang. Rata kiri khusus di tabel BKU ini saja. */
+.bku-table-wrap table.data thead th:nth-child(4),
+.bku-table-wrap table.data tbody td:nth-child(4){
+  text-align:left;white-space:normal;
+}
 @media (max-width:640px){
   .bku-filter-toolbar{flex-direction:column;}
   .bku-modal-head{padding:16px 16px 4px;}

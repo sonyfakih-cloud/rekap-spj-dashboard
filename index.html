@@ -87,10 +87,11 @@
     <!-- ===== PERBANDINGAN ===== -->
     <section id="view-perbandingan" class="view">
       <div class="card">
-        <h3>Perbandingan Belanja Bulan Ini per Akun <span id="countPerbandingan"></span></h3>
+        <h3>Perbandingan Belanja per Akun <span id="countPerbandingan"></span></h3>
         <div class="toolbar">
           <input type="text" id="searchPerbandingan" placeholder="Cari kode / nama rekening...">
-          <span class="pill">Des 2024 · Des 2025 · Jul 2026</span>
+          <select id="filterBulanPerbandingan"></select>
+          <span class="pill" id="pillPerbandingan">Des 2024 · Des 2025 · Jul 2026</span>
         </div>
         <div class="table-wrap">
           <table class="data" id="tblPerbandingan">

@@ -238,21 +238,65 @@ function renderTren(){
 }
 
 /* ---------------- Perbandingan ---------------- */
+const MONTH_NAMES = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Ags","Sep","Okt","Nov","Des"];
+// null = pakai nilai "Bulan Ini" bawaan (snapshot terakhir tiap tahun, seperti semula).
+// angka 0-11 = bulan spesifik yang dipilih user, dicari dari data bulanan STATE.khusus
+// (bukan dari STATE.perbandingan yang cuma simpan 1 nilai per tahun).
+let PERBANDINGAN_BULAN_SEL = null;
+
+function populatePerbandinganBulan(){
+  const sel = $('#filterBulanPerbandingan');
+  if(!sel) return;
+  const opts = ['<option value="">Bulan Ini (terakhir)</option>']
+    .concat(MONTH_NAMES.map((m,i)=>`<option value="${i}">${m}</option>`));
+  sel.innerHTML = opts.join('');
+}
+
+// Cari nilai belanja akun tertentu di bulan spesifik, dari data khusus tahun
+// tsb (yang punya rincian bulanan lengkap) -- bukan dari STATE.perbandingan
+// yang cuma menyimpan 1 angka "bulan ini" per tahun.
+function getPerbandinganBulanValue(kode, year, bulanIdx){
+  const data = STATE.khusus[year];
+  if(!data) return null;
+  const row = data.rows.find(x=>x.kode===kode);
+  if(!row) return null;
+  return (bulanIdx < row.bulanan.length) ? row.bulanan[bulanIdx] : null;
+}
+
+function updatePerbandinganPill(){
+  const pill = $('#pillPerbandingan');
+  if(!pill) return;
+  if(PERBANDINGAN_BULAN_SEL === null){
+    const labels = ['2024','2025','2026'].map(y=>{
+      const d = STATE.ringkasan[y];
+      return d && d.label_bulan ? `${d.label_bulan} ${y}` : y;
+    });
+    pill.textContent = labels.join(' · ');
+  } else {
+    const m = MONTH_NAMES[PERBANDINGAN_BULAN_SEL];
+    pill.textContent = ['2024','2025','2026'].map(y=>`${m} ${y}`).join(' · ');
+  }
+}
+
 function renderPerbandingan(){
   const tbody = $('#tblPerbandingan tbody');
   const q = ($('#searchPerbandingan').value||'').toLowerCase();
   const rows = STATE.perbandingan.filter(r => r.nama.toLowerCase().includes(q) || r.kode.includes(q));
+  const bulanIdx = PERBANDINGAN_BULAN_SEL;
   tbody.innerHTML = rows.map(r=>{
-    const trend = (r['2026']||r['2025']||0) - (r['2025']||r['2024']||0);
+    const v24 = bulanIdx===null ? r['2024'] : getPerbandinganBulanValue(r.kode,'2024',bulanIdx);
+    const v25 = bulanIdx===null ? r['2025'] : getPerbandinganBulanValue(r.kode,'2025',bulanIdx);
+    const v26 = bulanIdx===null ? r['2026'] : getPerbandinganBulanValue(r.kode,'2026',bulanIdx);
     return `<tr>
       <td class="lvl-${r.depth}">${r.kode}</td>
       <td class="lvl-${r.depth}">${r.nama}</td>
-      <td>${fmt(r['2024'])}</td>
-      <td>${fmt(r['2025'])}</td>
-      <td>${fmt(r['2026'])}</td>
+      <td>${fmt(v24)}</td>
+      <td>${fmt(v25)}</td>
+      <td>${fmt(v26)}</td>
     </tr>`;
   }).join('');
   $('#countPerbandingan').textContent = rows.length + ' akun';
+  updatePerbandinganPill();
 }
 
 /* ---------------- Filter (Rekening / Bulan / Tahun) ---------------- */
@@ -648,12 +692,18 @@ function initNav(){
 async function main(){
   updateLiveBadge();
   renderRingkasan();
+  populatePerbandinganBulan();
   renderPerbandingan();
   ['2024','2025','2026'].forEach(renderKhusus);
   initFilter();
   initNav();
   initBkuModal();
   $('#searchPerbandingan').addEventListener('input', renderPerbandingan);
+  $('#filterBulanPerbandingan').addEventListener('change', (e)=>{
+    const v = e.target.value;
+    PERBANDINGAN_BULAN_SEL = v === '' ? null : parseInt(v, 10);
+    renderPerbandingan();
+  });
   ['2024','2025','2026'].forEach(y=>{
     $(`#searchKhusus${y}`).addEventListener('input', ()=>renderKhusus(y));
   });
