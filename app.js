@@ -108,7 +108,8 @@ function renderTren(){
         y1:{position:'right', grid:{drawOnChartArea:false}, ticks:{callback:v=>(v/1e9).toFixed(1)+'M'}},
         x:{ticks:{maxRotation:90,minRotation:60, font:{size:9}}}
       }
-    }
+    },
+    plugins:[lineShadowPlugin]
   });
 }
 
@@ -181,11 +182,13 @@ function renderFilterResult(){
           <div class="sub">Total SPJ Bulan Ini, akumulasi ${labels[0]}–${labels[labels.length-1]} ${year}</div>
         </div>
       </div>
+      <div class="chart-wrap" style="height:240px;margin-top:14px;"><canvas id="filterChart"></canvas></div>
       <table class="subtable" style="margin-top:14px;">
         <thead><tr>${labels.map(m=>`<th>${m}</th>`).join('')}</tr></thead>
         <tbody><tr>${row.bulanan.map(v=>`<td>${fmt(v)}</td>`).join('')}</tr></tbody>
       </table>
     `;
+    renderFilterChart(labels, row.bulanan);
     return;
   }
 
@@ -211,6 +214,63 @@ function renderFilterResult(){
     </div>
     <div class="filter-compare">${compareHtml}</div>
   `;
+}
+
+let filterChartInstance;
+const lineShadowPlugin = {
+  id: 'lineShadow3d',
+  beforeDatasetsDraw(chart){
+    const {ctx} = chart;
+    ctx.save();
+    ctx.shadowColor = 'rgba(79,99,210,0.35)';
+    ctx.shadowBlur = 14;
+    ctx.shadowOffsetY = 10;
+  },
+  afterDatasetsDraw(chart){
+    chart.ctx.restore();
+  }
+};
+
+function renderFilterChart(labels, values){
+  const canvas = $('#filterChart');
+  if(!canvas || typeof Chart === 'undefined') return;
+  const ctx = canvas.getContext('2d');
+  if(!ctx) return;
+  const gradient = ctx.createLinearGradient(0, 0, 0, 240);
+  gradient.addColorStop(0, 'rgba(79,99,210,0.48)');
+  gradient.addColorStop(1, 'rgba(79,99,210,0.02)');
+  if(filterChartInstance) filterChartInstance.destroy();
+  filterChartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        borderColor: '#4f63d2',
+        borderWidth: 3,
+        backgroundColor: gradient,
+        fill: true,
+        tension: .35,
+        pointRadius: 4,
+        pointBackgroundColor: '#ffffff',
+        pointBorderColor: '#4f63d2',
+        pointBorderWidth: 2,
+        pointHoverRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: {display: false},
+        tooltip: {callbacks: {label: c => 'Rp ' + fmt(c.parsed.y)}}
+      },
+      scales: {
+        y: {ticks: {callback: v => (v/1e6).toFixed(0)+'jt'}, grid: {color:'#eef0fb'}},
+        x: {grid: {display:false}}
+      }
+    },
+    plugins: [lineShadowPlugin]
+  });
 }
 
 function initFilter(){
