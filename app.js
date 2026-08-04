@@ -133,26 +133,35 @@ function renderKomponenFallbackTable(d){
 }
 
 const KOMPONEN_WARNA = {
-  pegawai:     { top:'#F1A7A0', dark:'#C97F79', label:'Belanja Pegawai' },
-  barang_jasa: { top:'#B9A6EE', dark:'#8C7BC4', label:'Belanja Barang & Jasa' },
-  modal:       { top:'#8FD0DE', dark:'#5FA4B2', label:'Belanja Modal' },
-  lainnya:     { top:'#D3D8E4', dark:'#A4AABB', label:'Lainnya' },
+  pegawai:     { color:'#5b8def', label:'Belanja Pegawai' },
+  barang_jasa: { color:'#2fb8c4', label:'Belanja Barang & Jasa' },
+  modal:       { color:'#f0a35b', label:'Belanja Modal' },
 };
 
+// PENTING: "Lainnya" (kode 2.1.1 dkk) BUKAN belanja -- itu pos Utang/Kewajiban
+// (mis. utang PPh/PPN pihak ketiga) yang ikut tercatat di buku kas BKU yang
+// sama. Sudah dicek langsung ke data mentah (lihat percakapan). Jadi sengaja
+// TIDAK diikutkan di grafik ini -- persentase dihitung murni dari 3 kategori
+// belanja (Pegawai + Barang Jasa + Modal) saja, bukan dari k.total (yang masih
+// mengandung utang).
 function renderKomponenBlock(year, d){
   const k = STATE.komponen && STATE.komponen[year];
-  if(!k || !k.total){
+  if(!k){
     return renderKomponenFallbackTable(d);
   }
-  const segments = ['pegawai','barang_jasa','modal','lainnya']
+  const belanjaTotal = (k.pegawai||0) + (k.barang_jasa||0) + (k.modal||0);
+  if(!belanjaTotal){
+    return renderKomponenFallbackTable(d);
+  }
+  const segments = ['pegawai','barang_jasa','modal']
     .map(key => ({ key, value: k[key]||0, ...KOMPONEN_WARNA[key] }))
     .filter(s => s.value > 0);
-  const svg = build3DDonutSVG(segments, k.total);
+  const svg = buildDonutSVG(segments, belanjaTotal);
   const legend = segments.map(s => `
     <div class="komp-legend-item">
-      <span class="komp-dot" style="background:${s.top}"></span>
+      <span class="komp-dot" style="background:${s.color}"></span>
       <span class="komp-legend-label">${s.label}</span>
-      <span class="komp-legend-pct">${fmtPct(s.value/k.total*100)}</span>
+      <span class="komp-legend-pct">${fmtPct(s.value/belanjaTotal*100)}</span>
     </div>
   `).join('');
   return `
@@ -163,15 +172,12 @@ function renderKomponenBlock(year, d){
   `;
 }
 
-// Grafik donat 3D "meledak" (exploded), meniru gaya infografis: tiap potongan
-// ditarik keluar dari pusat, punya dinding samping (sisi lebih gelap) yang
-// dibuat dengan trik lapis-ganda -- salinan gelap digambar sedikit lebih ke
-// bawah dulu, baru salinan warna asli di atasnya. Bagian dinding yang tidak
-// tertutup salinan atas (di tepi luar) itulah yang kelihatan sebagai "sisi"
-// extruded. Murni SVG, tanpa library chart tambahan.
-function build3DDonutSVG(segments, total){
-  const size = 190, cx = size/2, cy = size/2 - 2;
-  const outerR = 62, innerR = 30, depth = 9, explode = 7;
+// Grafik donat gaya flat/clean, senada dengan kpi-ring yang sudah ada di
+// dashboard ini (cincin tipis, warna solid, drop-shadow tipis) -- bukan gaya
+// 3D "meledak" yang sebelumnya dicoba. Murni SVG, tanpa library chart baru.
+function buildDonutSVG(segments, total){
+  const size = 176, cx = size/2, cy = size/2;
+  const outerR = 66, innerR = 44;
 
   function polar(r, angleDeg){
     const a = (angleDeg - 90) * Math.PI/180;
@@ -185,28 +191,17 @@ function build3DDonutSVG(segments, total){
            `L ${x2.toFixed(2)} ${y2.toFixed(2)} A ${innerR} ${innerR} 0 ${large} 0 ${x3.toFixed(2)} ${y3.toFixed(2)} Z`;
   }
 
-  let angle = -1; // celah kecil antar potongan
-  const slices = segments.map(seg=>{
-    const sweep = Math.max((seg.value/total)*360 - 2, 0);
+  let angle = 0;
+  const paths = segments.map(seg=>{
+    const sweep = (seg.value/total)*360;
     const a0 = angle, a1 = angle + sweep;
-    angle = a1 + 2;
-    const mid = (a0+a1)/2;
-    const rad = (mid-90)*Math.PI/180;
-    return { seg, path: wedgePath(a0,a1), ex: Math.cos(rad)*explode, ey: Math.sin(rad)*explode };
-  });
-
-  const walls = slices.map(s=>
-    `<path d="${s.path}" fill="${s.seg.dark}" transform="translate(${(s.ex).toFixed(2)},${(s.ey+depth).toFixed(2)})"/>`
-  ).join('');
-  const tops = slices.map(s=>
-    `<path d="${s.path}" fill="${s.seg.top}" stroke="#ffffff" stroke-width="1.5" transform="translate(${s.ex.toFixed(2)},${s.ey.toFixed(2)})"/>`
-  ).join('');
+    angle = a1;
+    return `<path d="${wedgePath(a0,a1)}" fill="${seg.color}" stroke="#ffffff" stroke-width="2"/>`;
+  }).join('');
 
   return `
     <svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" class="komp-donut-svg">
-      <ellipse cx="${cx}" cy="${cy+outerR+depth-2}" rx="${outerR*0.82}" ry="7" fill="#000" opacity="0.10"/>
-      ${walls}
-      ${tops}
+      ${paths}
     </svg>
   `;
 }
@@ -535,7 +530,6 @@ function openBkuModal(year, kode, nama){
   $('#bkuFilterTanggalFrom').max = `${year}-12-31`;
   $('#bkuFilterTanggalTo').min = `${year}-01-01`;
   $('#bkuFilterTanggalTo').max = `${year}-12-31`;
-  $('#bkuFilterKode').value = '';
   $('#bkuModalBody').innerHTML = '<div class="bku-status">Memuat data transaksi dari BKU '+year+'...</div>';
   $('#bkuModal').classList.add('active');
   fetchBkuTransaksi(year, kode);
@@ -577,14 +571,12 @@ function parseTanggalDMY(str){
 }
 
 function renderBkuTable(){
-  const qKode = ($('#bkuFilterKode').value||'').toLowerCase().trim();
   const fromStr = $('#bkuFilterTanggalFrom').value; // format yyyy-mm-dd dari <input type=date>
   const toStr = $('#bkuFilterTanggalTo').value;
   const dateFrom = fromStr ? new Date(fromStr+'T00:00:00') : null;
   const dateTo = toStr ? new Date(toStr+'T23:59:59') : null;
 
   const rows = BKU_STATE.rows.filter(r=>{
-    if(qKode && !r.kode_rekening.toLowerCase().includes(qKode)) return false;
     if(dateFrom || dateTo){
       const d = parseTanggalDMY(r.tanggal);
       if(!d) return false;
@@ -634,7 +626,6 @@ function initBkuModal(){
     $('#bkuFilterTanggalTo').value = '';
     renderBkuTable();
   });
-  $('#bkuFilterKode').addEventListener('input', renderBkuTable);
 }
 
 /* ---------------- Nav ---------------- */
