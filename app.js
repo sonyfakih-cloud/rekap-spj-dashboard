@@ -867,13 +867,63 @@ function showView(name){
 
 function initNav(){
   $$('.nav-item').forEach(item=>{
+    // #btnHomeMenu ("Menu Utama") juga pakai class nav-item supaya ikut gaya
+    // sidebar yang sama, tapi dia bukan pengganti view (tidak punya data-view)
+    // -- diberi handler sendiri di initHub(), jangan didaftarkan di sini.
+    if(!item.dataset.view) return;
     item.addEventListener('click', ()=>showView(item.dataset.view));
   });
   const initial = (location.hash||'#ringkasan').slice(1);
   showView(['ringkasan','tren','perbandingan','filter','2024','2025','2026'].includes(initial) ? initial : 'ringkasan');
 }
 
+/* ---------------- Menu Utama (Hub: Belanja / Pendapatan / Gabungan) ---------------- */
+// Struktur halaman sekarang: authOverlay (gerbang password) -> hubScreen (menu
+// pilihan modul) -> appRoot (dashboard Belanja yang sudah ada). Pendapatan dan
+// gabungan Pendapatan+Belanja belum ada sumber datanya, jadi untuk saat ini
+// keduanya mengarah ke comingSoonScreen ("Segera Hadir") yang sama, teksnya
+// tinggal diganti sesuai modul yang diklik.
+function showHub(){
+  $('#hubScreen').style.display = 'flex';
+  $('#comingSoonScreen').style.display = 'none';
+  $('#appRoot').style.display = 'none';
+}
+
+function showComingSoon(title, desc){
+  $('#comingSoonTitle').textContent = title;
+  $('#comingSoonDesc').textContent = desc;
+  $('#hubScreen').style.display = 'none';
+  $('#comingSoonScreen').style.display = 'flex';
+  $('#appRoot').style.display = 'none';
+}
+
+function showBelanjaApp(){
+  $('#hubScreen').style.display = 'none';
+  $('#comingSoonScreen').style.display = 'none';
+  $('#appRoot').style.display = 'flex';
+}
+
+function initHub(){
+  $$('.hub-menu-card').forEach(card=>{
+    card.addEventListener('click', ()=>{
+      const target = card.dataset.hub;
+      if(target === 'belanja'){
+        showBelanjaApp();
+      } else if(target === 'pendapatan'){
+        showComingSoon('Pendapatan — Segera Hadir', 'Modul Pendapatan RSUD dr. R. Soeprapto Cepu belum tersedia -- sumber datanya belum terhubung. Silakan gunakan modul Belanja untuk saat ini.');
+      } else if(target === 'gabungan'){
+        showComingSoon('Pendapatan & Belanja — Segera Hadir', 'Ringkasan gabungan Pendapatan dan Belanja akan tersedia setelah data Pendapatan terhubung ke dashboard ini.');
+      }
+    });
+  });
+  const back = $('#comingSoonBack');
+  if(back) back.addEventListener('click', showHub);
+  const home = $('#btnHomeMenu');
+  if(home) home.addEventListener('click', showHub);
+}
+
 async function main(){
+  initHub();
   updateLiveBadge();
   renderRingkasan();
   populatePerbandinganBulan();
