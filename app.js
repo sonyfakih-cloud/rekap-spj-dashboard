@@ -467,6 +467,59 @@ const lineShadowPlugin = {
   }
 };
 
+// Efek "3D": karena garis sekarang lurus per-segmen (tension:0, bukan melengkung),
+// tiap segmen digambar sebagai dinding/pita (parallelogram) yang diekstrusi ke
+// bawah-kanan (mirip grafik 3-D Line di Excel), lalu titik data dikasih highlight
+// radial di sudut kiri-atas supaya terlihat seperti bulatan kaca/glossy 3D --
+// bukan cuma titik datar. Ini dikombinasikan dgn lineShadowPlugin (drop-shadow
+// di garis utama) supaya garis terasa "melayang" di atas pita ekstrusinya.
+const ribbon3dPlugin = {
+  id: 'ribbon3d',
+  beforeDatasetsDraw(chart){
+    const meta = chart.getDatasetMeta(0);
+    if(!meta || !meta.data || meta.data.length < 2) return;
+    const points = meta.data;
+    const ds = chart.data.datasets[0];
+    const base = (ds && ds.borderColor) || '#5b8def';
+    const depthX = 7, depthY = 12;
+    const {ctx} = chart;
+    ctx.save();
+    for(let i = 0; i < points.length - 1; i++){
+      const p0 = points[i], p1 = points[i+1];
+      const grad = ctx.createLinearGradient(p0.x, p0.y, p0.x, p0.y + depthY);
+      grad.addColorStop(0, hexA(base, 0.55));
+      grad.addColorStop(1, hexA(base, 0.08));
+      ctx.beginPath();
+      ctx.moveTo(p0.x, p0.y);
+      ctx.lineTo(p1.x, p1.y);
+      ctx.lineTo(p1.x + depthX, p1.y + depthY);
+      ctx.lineTo(p0.x + depthX, p0.y + depthY);
+      ctx.closePath();
+      ctx.fillStyle = grad;
+      ctx.fill();
+    }
+    ctx.restore();
+  },
+  afterDatasetsDraw(chart){
+    const meta = chart.getDatasetMeta(0);
+    if(!meta || !meta.data) return;
+    const {ctx} = chart;
+    ctx.save();
+    meta.data.forEach(p=>{
+      const r = (p.options && p.options.radius) || 4;
+      const grad = ctx.createRadialGradient(p.x - r*0.35, p.y - r*0.35, 0.4, p.x, p.y, r*1.3);
+      grad.addColorStop(0, 'rgba(255,255,255,0.95)');
+      grad.addColorStop(0.55, 'rgba(255,255,255,0.15)');
+      grad.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r*1.3, 0, Math.PI*2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+    });
+    ctx.restore();
+  }
+};
+
 function renderFilterChart(labels, values){
   const canvas = $('#filterChart');
   if(!canvas || typeof Chart === 'undefined') return;
@@ -486,7 +539,7 @@ function renderFilterChart(labels, values){
         borderWidth: 3,
         backgroundColor: gradient,
         fill: true,
-        tension: .35,
+        tension: 0,
         pointRadius: 4,
         pointBackgroundColor: '#ffffff',
         pointBorderColor: '#5b8def',
@@ -496,6 +549,7 @@ function renderFilterChart(labels, values){
     },
     options: {
       responsive: true, maintainAspectRatio: false,
+      layout: {padding: {bottom: 12, right: 8}},
       plugins: {
         legend: {display: false},
         tooltip: {callbacks: {label: c => 'Rp ' + fmt(c.parsed.y)}}
@@ -505,7 +559,7 @@ function renderFilterChart(labels, values){
         x: {grid: {display:false}}
       }
     },
-    plugins: [lineShadowPlugin]
+    plugins: [ribbon3dPlugin, lineShadowPlugin]
   });
 }
 
