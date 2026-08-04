@@ -1,7 +1,13 @@
 // Isi APPS_SCRIPT_URL setelah Anda deploy Code.gs sebagai Web App (lihat PANDUAN_DEPLOY.md).
 // Contoh: "https://script.google.com/macros/s/AKfycbxxxxxxxxxxxxxxxxxxxxxxxxxxx/exec"
 // Kalau dikosongkan, dashboard tetap jalan pakai data bawaan (data.js / snapshot di REKAP_DATA).
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw2EQouYVdSHVIiwwB3q0TJxtLaQsCIgHSVyHM-UjgorvVAIh9Sdza5eDmjTQuQCCcYew/exec";
+// PENTING: pakai "window.APPS_SCRIPT_URL =" (bukan "const APPS_SCRIPT_URL =").
+// Alasan: app.js mengecek keberadaan variabel ini lewat "window.APPS_SCRIPT_URL".
+// Kalau dideklarasikan dengan const/let di top-level <script>, JS TIDAK
+// menempelkannya ke objek window (beda dengan var) -- jadi window.APPS_SCRIPT_URL
+// akan selalu undefined dan dashboard akan selalu bilang "belum tersambung",
+// walau nilainya sudah benar-benar diisi di sini. Ini akar masalah sebenarnya.
+window.APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw2EQouYVdSHVIiwwB3q0TJxtLaQsCIgHSVyHM-UjgorvVAIh9Sdza5eDmjTQuQCCcYew/exec";
 
 // ============ PASSWORD LOGIN ============
 // Password default (dipakai selama GITHUB_* di bawah masih kosong):
