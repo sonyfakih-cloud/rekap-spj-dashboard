@@ -309,3 +309,9 @@ table.data thead th{ background:linear-gradient(180deg, #ffffff, #f4f5fb); }
   padding:10px;
   box-shadow: var(--top-hl);
 }
+
+.yr-box.current{
+  background:linear-gradient(165deg, var(--accent-soft), #ffffff);
+  box-shadow: var(--shadow-sm), inset 0 0 0 2px rgba(79,99,210,0.35), var(--top-hl);
+}
+.yr-box.current span{ color: var(--accent); }

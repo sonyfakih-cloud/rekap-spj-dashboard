@@ -196,12 +196,17 @@ function renderFilterResult(){
   const label = data.bulan_label[idx];
   const value = row.bulanan[idx];
 
-  const compareHtml = FILTER_YEARS.map(y=>{
+  const compareValues = FILTER_YEARS.map(y=>{
     const yd = STATE.khusus[y];
     const yr = yd ? yd.rows.find(r=>r.kode===kode) : null;
     const yIdx = yd ? yd.bulan_label.indexOf(label) : -1;
-    const has = yr && yIdx > -1;
-    return `<div class="yr-box ${has?'':'dim'}"><b>${label} ${y}</b><span>${has ? 'Rp '+fmt(yr.bulanan[yIdx]) : '-'}</span></div>`;
+    return (yr && yIdx > -1) ? yr.bulanan[yIdx] : null;
+  });
+
+  const compareHtml = FILTER_YEARS.map((y,i)=>{
+    const v = compareValues[i];
+    const has = v !== null;
+    return `<div class="yr-box ${has?'':'dim'} ${y===year?'current':''}"><b>${label} ${y}</b><span>${has ? 'Rp '+fmt(v) : '-'}</span></div>`;
   }).join('');
 
   wrap.innerHTML = `
@@ -212,8 +217,10 @@ function renderFilterResult(){
         <div class="sub">Total SPJ Bulan Ini — ${label} ${year}</div>
       </div>
     </div>
+    <div class="chart-wrap" style="height:230px;margin-top:14px;"><canvas id="filterCompareChart"></canvas></div>
     <div class="filter-compare">${compareHtml}</div>
   `;
+  renderFilterCompareChart(label, year, compareValues);
 }
 
 let filterChartInstance;
@@ -271,6 +278,74 @@ function renderFilterChart(labels, values){
     },
     plugins: [lineShadowPlugin]
   });
+}
+
+let filterCompareChartInstance;
+const barShadowPlugin = {
+  id: 'barShadow3d',
+  beforeDatasetsDraw(chart){
+    const {ctx} = chart;
+    ctx.save();
+    ctx.shadowColor = 'rgba(31,41,71,0.28)';
+    ctx.shadowBlur = 10;
+    ctx.shadowOffsetY = 8;
+  },
+  afterDatasetsDraw(chart){
+    chart.ctx.restore();
+  }
+};
+
+function renderFilterCompareChart(label, currentYear, values){
+  const canvas = $('#filterCompareChart');
+  if(!canvas || typeof Chart === 'undefined') return;
+  const ctx = canvas.getContext('2d');
+  if(!ctx) return;
+
+  const colors = [
+    {top:'#7c8bea', bottom:'#4f63d2'}, // 2024
+    {top:'#6bc78f', bottom:'#3fae6a'}, // 2025
+    {top:'#eec267', bottom:'#d99a2b'}, // 2026
+  ];
+  const backgrounds = FILTER_YEARS.map((y,i)=>{
+    const g = ctx.createLinearGradient(0, 0, 0, 230);
+    const c = colors[i];
+    const dim = y !== currentYear;
+    g.addColorStop(0, dim ? hexA(c.top,0.35) : c.top);
+    g.addColorStop(1, dim ? hexA(c.bottom,0.35) : c.bottom);
+    return g;
+  });
+
+  if(filterCompareChartInstance) filterCompareChartInstance.destroy();
+  filterCompareChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: FILTER_YEARS.map(y => label + ' ' + y),
+      datasets: [{
+        data: values,
+        backgroundColor: backgrounds,
+        borderRadius: 10,
+        borderSkipped: false,
+        maxBarThickness: 70,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: {display:false},
+        tooltip: {callbacks: {label: c => 'Rp ' + fmt(c.parsed.y)}}
+      },
+      scales: {
+        y: {ticks: {callback: v => (v/1e6).toFixed(0)+'jt'}, grid: {color:'#eef0fb'}},
+        x: {grid: {display:false}}
+      }
+    },
+    plugins: [barShadowPlugin]
+  });
+}
+
+function hexA(hex, alpha){
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${alpha})`;
 }
 
 function initFilter(){
