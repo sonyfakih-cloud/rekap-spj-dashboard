@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Rekap Belanja SPJ — RSUD dr. R. Soeprapto Cepu</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+</head>
+<body>
+
+<!-- ===== GERBANG PASSWORD ===== -->
+<div id="authOverlay" class="auth-overlay">
+  <form id="authForm" class="auth-card">
+    <div class="auth-logo">SPJ</div>
+    <h2>Dashboard Rekap Belanja SPJ</h2>
+    <p>RSUD dr. R. Soeprapto Cepu — masukkan password untuk melanjutkan</p>
+    <input type="password" id="authPassword" placeholder="Password" autocomplete="current-password" required>
+    <button type="submit" id="authSubmit">Masuk</button>
+    <div id="authError" class="auth-error"></div>
+  </form>
+</div>
+
+<div class="app" id="appRoot">
+
+  <aside class="sidebar">
+    <div class="logo">SPJ</div>
+
+    <div class="nav-item" data-view="ringkasan">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg>
+      <span class="tip">Ringkasan Bulan Ini &amp; SD Bulan Ini</span>
+    </div>
+
+    <div class="nav-item" data-view="tren">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 6"/><polyline points="14 6 21 6 21 13"/></svg>
+      <span class="tip">Tren Bulanan 2024–2026</span>
+    </div>
+
+    <div class="nav-item" data-view="perbandingan">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="10"/><line x1="12" y1="21" x2="12" y2="4"/><line x1="20" y1="21" x2="20" y2="14"/></svg>
+      <span class="tip">Perbandingan per Akun</span>
+    </div>
+
+    <div class="nav-item" data-view="2024"><span style="font-size:12px;font-weight:700;">24</span><span class="tip">Khusus 2024</span></div>
+    <div class="nav-item" data-view="2025"><span style="font-size:12px;font-weight:700;">25</span><span class="tip">Khusus 2025</span></div>
+    <div class="nav-item" data-view="2026"><span style="font-size:12px;font-weight:700;">26</span><span class="tip">Khusus 2026</span></div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="title-block">
+        <h1>Rekap Belanja SPJ 2024–2025–2026</h1>
+        <p>RSUD dr. R. Soeprapto Cepu — BLUD, Laporan Fungsional Pengeluaran</p>
+      </div>
+      <div class="badge-src" id="liveBadge"><span class="live-dot off"></span>Memuat...</div>
+    </div>
+
+    <!-- ===== RINGKASAN ===== -->
+    <section id="view-ringkasan" class="view">
+      <div class="card">
+        <h3>Ringkasan Bulan Ini &amp; SD Bulan Ini <span>— Desember 2024 / Desember 2025 / Juli 2026</span></h3>
+        <div class="kpi-row"></div>
+      </div>
+    </section>
+
+    <!-- ===== TREN ===== -->
+    <section id="view-tren" class="view">
+      <div class="card">
+        <h3>Tren Total SPJ Bulanan <span>— Januari 2024 s.d Juli 2026</span></h3>
+        <div class="chart-wrap"><canvas id="trenChart"></canvas></div>
+      </div>
+    </section>
+
+    <!-- ===== PERBANDINGAN ===== -->
+    <section id="view-perbandingan" class="view">
+      <div class="card">
+        <h3>Perbandingan Belanja Bulan Ini per Akun <span id="countPerbandingan"></span></h3>
+        <div class="toolbar">
+          <input type="text" id="searchPerbandingan" placeholder="Cari kode / nama rekening...">
+          <span class="pill">Des 2024 · Des 2025 · Jul 2026</span>
+        </div>
+        <div class="table-wrap">
+          <table class="data" id="tblPerbandingan">
+            <thead><tr><th>Kode</th><th>Nama Rekening</th><th>2024</th><th>2025</th><th>2026</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== KHUSUS 2024/2025/2026 ===== -->
+    <section id="view-2024" class="view">
+      <div class="card">
+        <h3>Khusus Tahun 2024 <span id="countKhusus2024"></span></h3>
+        <div class="toolbar"><input type="text" id="searchKhusus2024" placeholder="Cari kode / nama rekening..."></div>
+        <div class="table-wrap"><table class="data" id="tblKhusus2024"><thead><tr></tr></thead><tbody></tbody></table></div>
+      </div>
+    </section>
+
+    <section id="view-2025" class="view">
+      <div class="card">
+        <h3>Khusus Tahun 2025 <span id="countKhusus2025"></span></h3>
+        <div class="toolbar"><input type="text" id="searchKhusus2025" placeholder="Cari kode / nama rekening..."></div>
+        <div class="table-wrap"><table class="data" id="tblKhusus2025"><thead><tr></tr></thead><tbody></tbody></table></div>
+      </div>
+    </section>
+
+    <section id="view-2026" class="view">
+      <div class="card">
+        <h3>Khusus Tahun 2026 <span id="countKhusus2026"></span></h3>
+        <div class="toolbar"><input type="text" id="searchKhusus2026" placeholder="Cari kode / nama rekening..."></div>
+        <div class="table-wrap"><table class="data" id="tblKhusus2026"><thead><tr></tr></thead><tbody></tbody></table></div>
+      </div>
+    </section>
+
+    <p class="footer-note">Data sumber: 31 laporan bulanan RSUD dr. R. Soeprapto Cepu, Jan 2024–Jul 2026. Lihat catatan metodologi di file Rekap_Belanja_SPJ_2024_2025_2026_v2.xlsx.</p>
+  </main>
+
+  <div class="fab-group">
+    <button class="fab" id="btnRefresh" title="Muat ulang data live">⟳</button>
+    <button class="fab" id="btnLogout" title="Keluar">⏻</button>
+  </div>
+
+</div>
+
+<script src="config.js"></script>
+<script src="auth.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
