@@ -32,6 +32,67 @@ async function loadKomponenBelanja(){
   }
 }
 
+// PENTING: sebelum fungsi ini ada, STATE.khusus (dipakai halaman Filter,
+// Perbandingan, dan Khusus Tahun 2024/2025/2026) SELALU dari snapshot statis
+// data.js -- tryLoadLive() di atas cuma meng-update STATE.ringkasan & STATE.tren,
+// tidak pernah menyentuh STATE.khusus. Jadi 3 halaman itu tidak pernah ikut
+// "Live dari Google Sheet" walau badge-nya bilang begitu. Fungsi ini menembak
+// endpoint baru (?view=khusus) yang menghitung pohon akun berjenjang LANGSUNG
+// dari transaksi BKU tiap tahun (lihat getKhususData_ di Code.gs) -- begitu
+// sukses, STATE.khusus diganti dengan hasil live ini, dan STATE.perbandingan
+// diturunkan ulang dari situ. Kalau gagal (mis. APPS_SCRIPT_URL kosong / offline),
+// STATE.khusus/STATE.perbandingan dibiarkan apa adanya (tetap snapshot data.js),
+// sama seperti pola fallback loadKomponenBelanja() di atas.
+//
+// Catatan penting soal cakupan: live tree ini HANYA memuat akun yang benar-benar
+// punya transaksi BKU (total>0) tahun tsb -- berbeda dari snapshot lama yang juga
+// menyertakan baris anggaran dengan realisasi Rp0 (baris "kosong"). Ini konsekuensi
+// tak terhindarkan karena BKU cuma mencatat transaksi riil, bukan struktur pagu
+// anggaran lengkap (yang cuma ada di file xlsx manual). Sudah diverifikasi: jumlah
+// baris live = jumlah baris snapshot dikurangi baris ber-total 0 (cocok persis
+// untuk 2024/2025/2026), jadi bukan data hilang -- cuma baris Rp0 yang tidak lagi
+// ditampilkan.
+async function loadKhususLive(){
+  if(!window.APPS_SCRIPT_URL) return;
+  try{
+    const res = await fetch(`${APPS_SCRIPT_URL}?view=khusus`, {method:'GET'});
+    if(!res.ok) throw new Error('bad status ' + res.status);
+    const json = await res.json();
+    if(!json.khusus) throw new Error('respons tidak berisi field khusus');
+    let any = false;
+    ['2024','2025','2026'].forEach(y=>{
+      const d = json.khusus[y];
+      if(d && d.rows && d.rows.length){
+        STATE.khusus[y] = { bulan_label: d.bulan_label, rows: d.rows };
+        any = true;
+      }
+    });
+    if(any) STATE.perbandingan = buildPerbandinganFromKhusus_();
+  }catch(err){
+    console.warn('Gagal memuat pohon akun (khusus) live, tetap pakai data snapshot:', err);
+  }
+}
+
+// Turunkan ulang daftar "Perbandingan" (flat, {kode,nama,depth,2024,2025,2026})
+// dari STATE.khusus 3 tahun -- gabungan (union) semua kode yang muncul di tahun
+// manapun, nilainya dari field "total" tiap tahun (null kalau kode itu tidak ada
+// transaksinya tahun tsb). Ini menggantikan REKAP_DATA.perbandingan (snapshot)
+// begitu live berhasil.
+function buildPerbandinganFromKhusus_(){
+  const map = {};
+  ['2024','2025','2026'].forEach(y=>{
+    const d = STATE.khusus[y];
+    if(!d) return;
+    d.rows.forEach(r=>{
+      if(!map[r.kode]) map[r.kode] = { kode:r.kode, nama:r.nama, depth:r.depth, '2024':null, '2025':null, '2026':null };
+      map[r.kode][y] = r.total;
+      map[r.kode].nama = r.nama;
+      map[r.kode].depth = r.depth;
+    });
+  });
+  return Object.values(map).sort((a,b)=> a.kode.localeCompare(b.kode, undefined, {numeric:true}));
+}
+
 function normalizePeriode_(v){
   if(!v) return v;
   const s = String(v).trim();
@@ -782,12 +843,34 @@ async function main(){
     if($('#view-tren').classList.contains('active')) renderTren();
     await loadKomponenBelanja();
     renderRingkasan();
+    await loadKhususLive();
+    refreshKhususDependentViews_();
   });
   await tryLoadLive();
   renderRingkasan();
   // Dimuat terpisah (bukan diblok bareng ringkasan/tren) supaya kartu ringkasan
   // sudah kelihatan duluan; grafik donat menyusul begitu datanya siap.
   loadKomponenBelanja().then(renderRingkasan);
+  // Sama halnya: Filter/Perbandingan/Khusus Tahun sudah tampil duluan dari
+  // snapshot data.js, lalu diam-diam diganti live begitu ?view=khusus selesai
+  // dimuat -- tidak memblokir tampilan awal.
+  loadKhususLive().then(refreshKhususDependentViews_);
+}
+
+// Re-render 3 halaman yang bergantung pada STATE.khusus/STATE.perbandingan,
+// dipanggil setelah loadKhususLive() selesai (baik dari main() maupun tombol
+// refresh). Dropdown bulan & rekening di halaman Filter juga di-refresh (bukan
+// cuma tabelnya) karena cakupan bulan/akun live bisa beda dari snapshot --
+// tapi pilihan tahun & rekening yang sedang aktif tetap dipertahankan kalau
+// masih valid.
+function refreshKhususDependentViews_(){
+  renderPerbandingan();
+  ['2024','2025','2026'].forEach(renderKhusus);
+  const curYear = $('#filterTahun').value || '2026';
+  const curKode = $('#filterRekening').value;
+  populateFilterBulan(curYear);
+  populateFilterRekening(curYear, curKode);
+  renderFilterResult();
 }
 
 document.addEventListener('DOMContentLoaded', main);
