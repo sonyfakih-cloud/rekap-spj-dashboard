@@ -4,7 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard Rekap Belanja SPJ — RSUD dr. R. Soeprapto Cepu</title>
-<link rel="stylesheet" href="style.css">
+<!-- PENTING: parameter ?v=... di bawah ini sengaja ditambahkan sebagai "cache-buster".
+     Tanpa ini, browser (dan CDN GitHub Pages) suka menyimpan cache app.js/style.css versi
+     LAMA sampai 10 menit atau lebih, jadi walau file di GitHub sudah benar-benar ter-update,
+     pengunjung yang sudah pernah buka situs ini masih bisa melihat versi lama (ini akar
+     masalah "kok belum berubah" yang pernah dilaporkan). Setiap kali app.js/style.css
+     diupdate, NAIKKAN angka v= di bawah supaya browser dipaksa ambil versi baru. -->
+<link rel="stylesheet" href="style.css?v=3">
 <script src="chart.umd.min.js"></script>
 </head>
 <body>
@@ -170,9 +176,9 @@
   </div>
 </div>
 
-<script src="config.js"></script>
-<script src="auth.js"></script>
-<script src="data.js"></script>
-<script src="app.js"></script>
+<script src="config.js?v=3"></script>
+<script src="auth.js?v=3"></script>
+<script src="data.js?v=3"></script>
+<script src="app.js?v=3"></script>
 </body>
 </html>
