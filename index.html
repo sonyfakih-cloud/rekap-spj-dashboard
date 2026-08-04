@@ -111,7 +111,8 @@
       <div class="card">
         <h3>Khusus Tahun 2024 <span id="countKhusus2024"></span></h3>
         <div class="toolbar"><input type="text" id="searchKhusus2024" placeholder="Cari kode / nama rekening..."></div>
-        <div class="table-wrap"><table class="data" id="tblKhusus2024"><thead><tr></tr></thead><tbody></tbody></table></div>
+        <p class="klik-hint">Klik salah satu baris rekening untuk melihat rincian transaksi dari BKU 2024.</p>
+        <div class="table-wrap"><table class="data data-clickable" id="tblKhusus2024"><thead><tr></tr></thead><tbody></tbody></table></div>
       </div>
     </section>
 
@@ -119,7 +120,8 @@
       <div class="card">
         <h3>Khusus Tahun 2025 <span id="countKhusus2025"></span></h3>
         <div class="toolbar"><input type="text" id="searchKhusus2025" placeholder="Cari kode / nama rekening..."></div>
-        <div class="table-wrap"><table class="data" id="tblKhusus2025"><thead><tr></tr></thead><tbody></tbody></table></div>
+        <p class="klik-hint">Klik salah satu baris rekening untuk melihat rincian transaksi dari BKU 2025.</p>
+        <div class="table-wrap"><table class="data data-clickable" id="tblKhusus2025"><thead><tr></tr></thead><tbody></tbody></table></div>
       </div>
     </section>
 
@@ -127,7 +129,8 @@
       <div class="card">
         <h3>Khusus Tahun 2026 <span id="countKhusus2026"></span></h3>
         <div class="toolbar"><input type="text" id="searchKhusus2026" placeholder="Cari kode / nama rekening..."></div>
-        <div class="table-wrap"><table class="data" id="tblKhusus2026"><thead><tr></tr></thead><tbody></tbody></table></div>
+        <p class="klik-hint">Klik salah satu baris rekening untuk melihat rincian transaksi dari BKU 2026.</p>
+        <div class="table-wrap"><table class="data data-clickable" id="tblKhusus2026"><thead><tr></tr></thead><tbody></tbody></table></div>
       </div>
     </section>
 
@@ -139,6 +142,27 @@
     <button class="fab" id="btnLogout" title="Keluar">⏻</button>
   </div>
 
+</div>
+
+<!-- ===== MODAL DETAIL TRANSAKSI BKU ===== -->
+<div id="bkuModal" class="bku-modal-overlay">
+  <div class="bku-modal">
+    <div class="bku-modal-head">
+      <div>
+        <h3 id="bkuModalTitle">Detail Transaksi</h3>
+        <p id="bkuModalSub"></p>
+      </div>
+      <button id="bkuModalClose" class="bku-close" title="Tutup">&times;</button>
+    </div>
+    <div class="toolbar bku-filter-toolbar">
+      <input type="text" id="bkuFilterNoBukti" placeholder="Filter No Bukti...">
+      <input type="text" id="bkuFilterTanggal" placeholder="Filter Tanggal (mis. 10/01/2025)...">
+      <input type="text" id="bkuFilterKode" placeholder="Filter Kode Rekening...">
+    </div>
+    <div id="bkuModalBody" class="bku-modal-body">
+      <div class="bku-status">Memuat data transaksi...</div>
+    </div>
+  </div>
 </div>
 
 <script src="config.js"></script>

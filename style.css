@@ -3,8 +3,8 @@
   --bg2:#f6f3fd;
   --navy:#1b1f3b;
   --navy2:#262b52;
-  --accent:#4f63d2;
-  --accent-soft:#e7ebfd;
+  --accent:#5b8def;
+  --accent-soft:#e8f0ff;
   --green:#3fae6a;
   --amber:#d99a2b;
   --red:#d0554a;
@@ -315,3 +315,119 @@ table.data thead th{ background:linear-gradient(180deg, #ffffff, #f4f5fb); }
   box-shadow: var(--shadow-sm), inset 0 0 0 2px rgba(79,99,210,0.35), var(--top-hl);
 }
 .yr-box.current span{ color: var(--accent); }
+
+/* ===== TEMA BIRU-PUTIH (mengikuti referensi desain) ===== */
+:root{
+  --accent2:#8fb3ff;
+  --shadow: 0 2px 2px rgba(60,100,200,0.05), 0 10px 20px rgba(60,100,200,0.08), 0 26px 44px -14px rgba(60,100,200,0.16);
+  --shadow-sm: 0 1px 2px rgba(60,100,200,0.05), 0 5px 10px rgba(60,100,200,0.07), 0 12px 20px -8px rgba(60,100,200,0.10);
+}
+
+body{
+  background:
+    radial-gradient(circle at 92% 6%, rgba(91,141,239,0.12) 0%, transparent 35%),
+    radial-gradient(circle at 12% 92%, rgba(91,141,239,0.07) 0%, transparent 42%),
+    linear-gradient(160deg, #eaf1ff 0%, #ffffff 55%, #f4f8ff 100%);
+  position:relative;
+}
+body::before{
+  content:'';
+  position:fixed; top:26px; right:40px; width:150px; height:104px;
+  background-image: radial-gradient(rgba(120,150,220,0.35) 1.6px, transparent 1.6px);
+  background-size:14px 14px;
+  opacity:.55;
+  pointer-events:none;
+  z-index:0;
+}
+
+.sidebar{
+  background:linear-gradient(180deg, #ffffff, #f4f8ff);
+  box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,0.9);
+}
+.sidebar .logo{
+  background:linear-gradient(135deg, var(--accent2), var(--accent));
+  box-shadow: 0 8px 16px rgba(91,141,239,0.45), inset 0 1px 0 rgba(255,255,255,0.55);
+}
+.nav-item{ color:#93a0c2; }
+.nav-item:hover{ background:rgba(91,141,239,0.12); color:var(--accent); box-shadow:none; }
+.nav-item.active{
+  background:linear-gradient(135deg, #ffffff, #eef4ff);
+  color:var(--accent);
+  box-shadow: 0 8px 16px rgba(91,141,239,0.22), inset 0 1px 0 rgba(255,255,255,0.9);
+}
+
+.card, .kpi-card, .big-card, .yr-box, .auth-card, .badge-src, table.data{
+  background:linear-gradient(165deg, #ffffff 0%, #f6f9ff 100%);
+}
+.card{ background:linear-gradient(180deg, rgba(255,255,255,0.92), rgba(246,249,255,0.72)); }
+
+.kpi-ring{
+  background:conic-gradient(var(--accent) calc(var(--pct)*1%), #eaf1ff 0);
+  filter: drop-shadow(0 6px 10px rgba(91,141,239,0.35));
+}
+
+.pill{ background:var(--accent-soft); color:var(--accent); }
+table.data thead th{ background:linear-gradient(180deg, #ffffff, #f0f5ff); }
+
+.fab{ background:linear-gradient(165deg, #ffffff, #eef4ff); color:var(--navy); }
+.fab:hover{ background:linear-gradient(135deg, var(--accent2), var(--accent)); color:#fff; }
+
+.yr-box.current{ background:linear-gradient(165deg, var(--accent-soft), #ffffff); }
+
+.chart-wrap{ background:linear-gradient(180deg, rgba(255,255,255,0.65), rgba(255,255,255,0.25)); }
+
+.toolbar select, .toolbar input[type=text]{ background:linear-gradient(165deg, #ffffff, #f6f9ff); }
+
+.auth-overlay{
+  background:
+    radial-gradient(circle at 92% 6%, rgba(91,141,239,0.12) 0%, transparent 35%),
+    radial-gradient(circle at 12% 92%, rgba(91,141,239,0.07) 0%, transparent 42%),
+    linear-gradient(160deg, #eaf1ff 0%, #ffffff 55%, #f4f8ff 100%);
+}
+.auth-logo{ background:linear-gradient(135deg, var(--accent2), var(--accent)); }
+
+/* ---- Klik hint & baris klikable (Khusus 2024/2025/2026) ---- */
+.klik-hint{margin:0 0 10px;font-size:12px;color:var(--muted);}
+table.data.data-clickable tbody tr{cursor:pointer;transition:background .12s, transform .12s;}
+table.data.data-clickable tbody tr:hover{background:var(--accent-soft);transform:translateX(2px);}
+
+/* ---- Modal Detail Transaksi BKU ---- */
+.bku-modal-overlay{
+  position:fixed;inset:0;z-index:200;display:none;
+  align-items:center;justify-content:center;padding:20px;
+  background:rgba(27,31,59,0.42);backdrop-filter:blur(3px);
+}
+.bku-modal-overlay.active{display:flex;}
+.bku-modal{
+  width:100%;max-width:920px;max-height:86vh;
+  background:var(--card-solid);border-radius:var(--radius-lg);
+  box-shadow:0 4px 4px rgba(31,41,71,0.07), 0 16px 26px rgba(31,41,71,0.12), 0 36px 54px -16px rgba(31,41,71,0.28);
+  display:flex;flex-direction:column;overflow:hidden;
+  animation:bkuPop .18s ease;
+}
+@keyframes bkuPop{from{opacity:0;transform:translateY(10px) scale(.98);}to{opacity:1;transform:none;}}
+.bku-modal-head{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+  padding:20px 24px 4px;
+}
+.bku-modal-head h3{margin:0 0 2px;font-size:17px;color:var(--navy);}
+.bku-modal-head p{margin:0;font-size:12.5px;color:var(--muted);}
+.bku-close{
+  border:none;background:var(--accent-soft);color:var(--accent);
+  width:32px;height:32px;border-radius:10px;font-size:18px;line-height:1;
+  cursor:pointer;flex:none;transition:background .15s;
+}
+.bku-close:hover{background:var(--accent);color:#fff;}
+.bku-filter-toolbar{padding:14px 24px 0;margin-bottom:0;}
+.bku-modal-body{padding:14px 24px 24px;overflow:auto;}
+.bku-status{color:var(--muted);font-size:13px;padding:30px 4px;text-align:center;}
+.bku-status.bku-error{color:var(--red);}
+.bku-summary{font-size:12.5px;color:var(--muted);margin-bottom:10px;}
+.bku-summary b{color:var(--navy);}
+.bku-table-wrap{max-height:52vh;}
+@media (max-width:640px){
+  .bku-filter-toolbar{flex-direction:column;}
+  .bku-modal-head{padding:16px 16px 4px;}
+  .bku-filter-toolbar{padding:12px 16px 0;}
+  .bku-modal-body{padding:10px 16px 16px;}
+}

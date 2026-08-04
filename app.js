@@ -95,8 +95,8 @@ function renderTren(){
     data:{
       labels,
       datasets:[
-        {type:'bar', label:'SPJ Bulan Ini', data:bulanIni, backgroundColor:'rgba(79,99,210,0.55)', borderRadius:6, order:2},
-        {type:'line', label:'SPJ s.d Bulan Ini (kumulatif)', data:sd, borderColor:'#d99a2b', backgroundColor:'rgba(217,154,43,0.15)', tension:.3, yAxisID:'y1', order:1, pointRadius:2},
+        {type:'bar', label:'SPJ Bulan Ini', data:bulanIni, backgroundColor:'rgba(91,141,239,0.55)', borderRadius:6, order:2},
+        {type:'line', label:'SPJ s.d Bulan Ini (kumulatif)', data:sd, borderColor:'#2fb8c4', backgroundColor:'rgba(47,184,196,0.15)', tension:.3, yAxisID:'y1', order:1, pointRadius:2},
       ]
     },
     options:{
@@ -244,8 +244,8 @@ function renderFilterChart(labels, values){
   const ctx = canvas.getContext('2d');
   if(!ctx) return;
   const gradient = ctx.createLinearGradient(0, 0, 0, 240);
-  gradient.addColorStop(0, 'rgba(79,99,210,0.48)');
-  gradient.addColorStop(1, 'rgba(79,99,210,0.02)');
+  gradient.addColorStop(0, 'rgba(91,141,239,0.48)');
+  gradient.addColorStop(1, 'rgba(91,141,239,0.02)');
   if(filterChartInstance) filterChartInstance.destroy();
   filterChartInstance = new Chart(ctx, {
     type: 'line',
@@ -253,14 +253,14 @@ function renderFilterChart(labels, values){
       labels,
       datasets: [{
         data: values,
-        borderColor: '#4f63d2',
+        borderColor: '#5b8def',
         borderWidth: 3,
         backgroundColor: gradient,
         fill: true,
         tension: .35,
         pointRadius: 4,
         pointBackgroundColor: '#ffffff',
-        pointBorderColor: '#4f63d2',
+        pointBorderColor: '#5b8def',
         pointBorderWidth: 2,
         pointHoverRadius: 6,
       }]
@@ -302,9 +302,9 @@ function renderFilterCompareChart(label, currentYear, values){
   if(!ctx) return;
 
   const colors = [
-    {top:'#7c8bea', bottom:'#4f63d2'}, // 2024
-    {top:'#6bc78f', bottom:'#3fae6a'}, // 2025
-    {top:'#eec267', bottom:'#d99a2b'}, // 2026
+    {top:'#a9c4f5', bottom:'#7ba4ef'}, // 2024 (biru muda)
+    {top:'#8fb3ff', bottom:'#5b8def'}, // 2025 (biru sedang)
+    {top:'#5b8def', bottom:'#3566d6'}, // 2026 (biru tua)
   ];
   const backgrounds = FILTER_YEARS.map((y,i)=>{
     const g = ctx.createLinearGradient(0, 0, 0, 230);
@@ -374,13 +374,101 @@ function renderKhusus(year){
   const tbody = $(`#tblKhusus${year} tbody`);
   const q = ($(`#searchKhusus${year}`).value||'').toLowerCase();
   const rows = data.rows.filter(r=>r.nama.toLowerCase().includes(q) || r.kode.includes(q));
-  tbody.innerHTML = rows.map(r=>`<tr>
+  tbody.innerHTML = rows.map(r=>`<tr data-kode="${r.kode}" data-nama="${r.nama.replace(/"/g,'&quot;')}" data-year="${year}" title="Klik untuk lihat rincian transaksi BKU ${year}">
       <td class="lvl-${r.depth}">${r.kode}</td>
       <td class="lvl-${r.depth}">${r.nama}</td>
       ${r.bulanan.map(v=>`<td>${fmt(v)}</td>`).join('')}
       <td><b>${fmt(r.total)}</b></td>
     </tr>`).join('');
   $(`#countKhusus${year}`).textContent = rows.length + ' akun';
+  tbody.querySelectorAll('tr').forEach(tr=>{
+    tr.addEventListener('click', ()=> openBkuModal(tr.dataset.year, tr.dataset.kode, tr.dataset.nama));
+  });
+}
+
+/* ---------------- Detail Transaksi BKU (drill-down) ---------------- */
+let BKU_STATE = { rows: [], year: null, kode: null, nama: null };
+
+function openBkuModal(year, kode, nama){
+  BKU_STATE = { rows: [], year, kode, nama };
+  $('#bkuModalTitle').textContent = nama || kode;
+  $('#bkuModalSub').textContent = `Kode Rekening ${kode} — BKU Tahun ${year}`;
+  $('#bkuFilterNoBukti').value = '';
+  $('#bkuFilterTanggal').value = '';
+  $('#bkuFilterKode').value = '';
+  $('#bkuModalBody').innerHTML = '<div class="bku-status">Memuat data transaksi dari BKU '+year+'...</div>';
+  $('#bkuModal').classList.add('active');
+  fetchBkuTransaksi(year, kode);
+}
+
+function closeBkuModal(){
+  $('#bkuModal').classList.remove('active');
+}
+
+async function fetchBkuTransaksi(year, kode){
+  if(!window.APPS_SCRIPT_URL){
+    $('#bkuModalBody').innerHTML = '<div class="bku-status bku-error">Data live belum tersambung (APPS_SCRIPT_URL kosong di config.js). Rincian transaksi BKU memerlukan koneksi live ke Google Sheet — lihat PANDUAN_DEPLOY.md.</div>';
+    return;
+  }
+  try{
+    const url = `${APPS_SCRIPT_URL}?view=bku&tahun=${encodeURIComponent(year)}&kode=${encodeURIComponent(kode)}`;
+    const res = await fetch(url, {method:'GET'});
+    if(!res.ok) throw new Error('bad status ' + res.status);
+    const json = await res.json();
+    if(json.error) throw new Error(json.error);
+    BKU_STATE.rows = json.rows || [];
+    renderBkuTable();
+  }catch(err){
+    console.warn('Gagal memuat transaksi BKU:', err);
+    $('#bkuModalBody').innerHTML = '<div class="bku-status bku-error">Gagal memuat data transaksi. Periksa koneksi internet atau coba lagi.<br><small>'+(err.message||err)+'</small></div>';
+  }
+}
+
+function renderBkuTable(){
+  const qNoBukti = ($('#bkuFilterNoBukti').value||'').toLowerCase().trim();
+  const qTanggal = ($('#bkuFilterTanggal').value||'').toLowerCase().trim();
+  const qKode = ($('#bkuFilterKode').value||'').toLowerCase().trim();
+
+  const rows = BKU_STATE.rows.filter(r=>
+    (!qNoBukti || r.no_bukti.toLowerCase().includes(qNoBukti)) &&
+    (!qTanggal || r.tanggal.toLowerCase().includes(qTanggal)) &&
+    (!qKode || r.kode_rekening.toLowerCase().includes(qKode))
+  );
+
+  if(!BKU_STATE.rows.length){
+    $('#bkuModalBody').innerHTML = '<div class="bku-status">Tidak ada transaksi ditemukan untuk rekening ini di BKU '+BKU_STATE.year+'.</div>';
+    return;
+  }
+
+  const total = rows.reduce((s,r)=>s+(r.pengeluaran||0), 0);
+
+  $('#bkuModalBody').innerHTML = `
+    <div class="bku-summary">${rows.length} dari ${BKU_STATE.rows.length} transaksi — Total Pengeluaran: <b>Rp ${fmt(total)}</b></div>
+    <div class="table-wrap bku-table-wrap">
+      <table class="data">
+        <thead><tr><th>No</th><th>No Bukti</th><th>Tanggal</th><th>Uraian</th><th>Kode Rekening</th><th>Pengeluaran</th></tr></thead>
+        <tbody>
+          ${rows.map(r=>`<tr>
+            <td>${r.no}</td>
+            <td>${r.no_bukti}</td>
+            <td>${r.tanggal}</td>
+            <td>${r.uraian}</td>
+            <td>${r.kode_rekening}</td>
+            <td style="text-align:right">${fmt(r.pengeluaran)}</td>
+          </tr>`).join('') || '<tr><td colspan="6" style="text-align:center">Tidak ada hasil untuk filter ini.</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function initBkuModal(){
+  $('#bkuModalClose').addEventListener('click', closeBkuModal);
+  $('#bkuModal').addEventListener('click', (e)=>{ if(e.target.id === 'bkuModal') closeBkuModal(); });
+  document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') closeBkuModal(); });
+  $('#bkuFilterNoBukti').addEventListener('input', renderBkuTable);
+  $('#bkuFilterTanggal').addEventListener('input', renderBkuTable);
+  $('#bkuFilterKode').addEventListener('input', renderBkuTable);
 }
 
 /* ---------------- Nav ---------------- */
@@ -407,6 +495,7 @@ async function main(){
   ['2024','2025','2026'].forEach(renderKhusus);
   initFilter();
   initNav();
+  initBkuModal();
   $('#searchPerbandingan').addEventListener('input', renderPerbandingan);
   ['2024','2025','2026'].forEach(y=>{
     $(`#searchKhusus${y}`).addEventListener('input', ()=>renderKhusus(y));
