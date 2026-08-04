@@ -156,7 +156,12 @@
     </div>
     <div class="toolbar bku-filter-toolbar">
       <input type="text" id="bkuFilterNoBukti" placeholder="Filter No Bukti...">
-      <input type="text" id="bkuFilterTanggal" placeholder="Filter Tanggal (mis. 10/01/2025)...">
+      <div class="bku-date-range">
+        <input type="date" id="bkuFilterTanggalFrom" title="Dari tanggal">
+        <span class="bku-date-sep">s.d.</span>
+        <input type="date" id="bkuFilterTanggalTo" title="Sampai tanggal">
+        <button type="button" id="bkuFilterTanggalClear" class="bku-date-clear" title="Hapus filter tanggal">&times;</button>
+      </div>
       <input type="text" id="bkuFilterKode" placeholder="Filter Kode Rekening...">
     </div>
     <div id="bkuModalBody" class="bku-modal-body">

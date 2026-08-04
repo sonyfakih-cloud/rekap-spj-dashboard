@@ -394,7 +394,8 @@ function openBkuModal(year, kode, nama){
   $('#bkuModalTitle').textContent = nama || kode;
   $('#bkuModalSub').textContent = `Kode Rekening ${kode} — BKU Tahun ${year}`;
   $('#bkuFilterNoBukti').value = '';
-  $('#bkuFilterTanggal').value = '';
+  $('#bkuFilterTanggalFrom').value = '';
+  $('#bkuFilterTanggalTo').value = '';
   $('#bkuFilterKode').value = '';
   $('#bkuModalBody').innerHTML = '<div class="bku-status">Memuat data transaksi dari BKU '+year+'...</div>';
   $('#bkuModal').classList.add('active');
@@ -424,16 +425,37 @@ async function fetchBkuTransaksi(year, kode){
   }
 }
 
+// Parse tanggal format "dd/MM/yyyy" (dari BKU) jadi objek Date, biar bisa
+// dibandingkan dengan filter rentang tanggal. Balikin null kalau formatnya
+// tidak dikenali (baris tetap disembunyikan kalau filter tanggal aktif).
+function parseTanggalDMY(str){
+  if(!str) return null;
+  const m = String(str).trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(!m) return null;
+  const d = parseInt(m[1],10), mo = parseInt(m[2],10)-1, y = parseInt(m[3],10);
+  const dt = new Date(y, mo, d);
+  return isNaN(dt.getTime()) ? null : dt;
+}
+
 function renderBkuTable(){
   const qNoBukti = ($('#bkuFilterNoBukti').value||'').toLowerCase().trim();
-  const qTanggal = ($('#bkuFilterTanggal').value||'').toLowerCase().trim();
   const qKode = ($('#bkuFilterKode').value||'').toLowerCase().trim();
+  const fromStr = $('#bkuFilterTanggalFrom').value; // format yyyy-mm-dd dari <input type=date>
+  const toStr = $('#bkuFilterTanggalTo').value;
+  const dateFrom = fromStr ? new Date(fromStr+'T00:00:00') : null;
+  const dateTo = toStr ? new Date(toStr+'T23:59:59') : null;
 
-  const rows = BKU_STATE.rows.filter(r=>
-    (!qNoBukti || r.no_bukti.toLowerCase().includes(qNoBukti)) &&
-    (!qTanggal || r.tanggal.toLowerCase().includes(qTanggal)) &&
-    (!qKode || r.kode_rekening.toLowerCase().includes(qKode))
-  );
+  const rows = BKU_STATE.rows.filter(r=>{
+    if(qNoBukti && !r.no_bukti.toLowerCase().includes(qNoBukti)) return false;
+    if(qKode && !r.kode_rekening.toLowerCase().includes(qKode)) return false;
+    if(dateFrom || dateTo){
+      const d = parseTanggalDMY(r.tanggal);
+      if(!d) return false;
+      if(dateFrom && d < dateFrom) return false;
+      if(dateTo && d > dateTo) return false;
+    }
+    return true;
+  });
 
   if(!BKU_STATE.rows.length){
     $('#bkuModalBody').innerHTML = '<div class="bku-status">Tidak ada transaksi ditemukan untuk rekening ini di BKU '+BKU_STATE.year+'.</div>';
@@ -467,7 +489,15 @@ function initBkuModal(){
   $('#bkuModal').addEventListener('click', (e)=>{ if(e.target.id === 'bkuModal') closeBkuModal(); });
   document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') closeBkuModal(); });
   $('#bkuFilterNoBukti').addEventListener('input', renderBkuTable);
-  $('#bkuFilterTanggal').addEventListener('input', renderBkuTable);
+  $('#bkuFilterTanggalFrom').addEventListener('input', renderBkuTable);
+  $('#bkuFilterTanggalFrom').addEventListener('change', renderBkuTable);
+  $('#bkuFilterTanggalTo').addEventListener('input', renderBkuTable);
+  $('#bkuFilterTanggalTo').addEventListener('change', renderBkuTable);
+  $('#bkuFilterTanggalClear').addEventListener('click', ()=>{
+    $('#bkuFilterTanggalFrom').value = '';
+    $('#bkuFilterTanggalTo').value = '';
+    renderBkuTable();
+  });
   $('#bkuFilterKode').addEventListener('input', renderBkuTable);
 }
 
