@@ -11,7 +11,35 @@ let STATE = {
   perbandingan: REKAP_DATA.perbandingan,
   khusus: REKAP_DATA.khusus,
   live: false,
+  komponen: null,   // { '2024': {pegawai,barang_jasa,modal,lainnya,total}, ... } -- cuma ada kalau live
 };
+
+// Grafik donat Pegawai/Barang Jasa/Modal butuh rincian per transaksi BKU (kode
+// rekening 6 segmen) yang TIDAK ada di snapshot data.js (data.js cuma simpan
+// hasil rekap yang sudah diringkas). Jadi kalau situs sedang tidak tersambung
+// live ke Google Sheet, grafik ini tidak bisa ditampilkan -- fallback ke tabel
+// ringkas 2 kategori (Operasi/Modal) yang memang sudah ada di snapshot.
+async function loadKomponenBelanja(){
+  if(!window.APPS_SCRIPT_URL) { STATE.komponen = null; return; }
+  try{
+    const res = await fetch(`${APPS_SCRIPT_URL}?view=komponen`, {method:'GET'});
+    if(!res.ok) throw new Error('bad status ' + res.status);
+    const json = await res.json();
+    if(json.komponen) STATE.komponen = json.komponen;
+  }catch(err){
+    console.warn('Gagal memuat komponen belanja (Pegawai/Barang Jasa/Modal):', err);
+    STATE.komponen = null;
+  }
+}
+
+function normalizePeriode_(v){
+  if(!v) return v;
+  const s = String(v).trim();
+  if(/^\d{4}-\d{2}$/.test(s)) return s; // sudah "yyyy-MM"
+  const d = new Date(s);
+  if(isNaN(d.getTime())) return s;
+  return d.toISOString().slice(0,7);
+}
 
 async function tryLoadLive(){
   if(!window.APPS_SCRIPT_URL) return;
@@ -25,13 +53,27 @@ async function tryLoadLive(){
         const y = r.periode;
         if(!byYear[y]) byYear[y] = {total:null, breakdown:[]};
         const rec = {kode:r.kode, nama:r.nama, pagu:+r.pagu, bulan_ini:+r.bulan_ini, sd_bulan_ini:+r.sd_bulan_ini, persen:+r.persen, sisa: +r.sisa_pagu};
-        if(r.kode === '5') { byYear[y].total = rec; byYear[y].label_bulan = STATE.ringkasan[y] ? STATE.ringkasan[y].label_bulan : ''; }
+        // PENTING (bug ditemukan saat verifikasi grafik donat): r.kode datang dari
+        // JSON sebagai NUMBER (5), bukan string. "r.kode === '5'" (strict equality)
+        // selalu false untuk number vs string, jadi "total" tidak pernah keset saat
+        // fetch live betulan berhasil -- kartu Ringkasan jadi kosong total (bukan
+        // fallback ke snapshot, karena STATE.live tetap diset true). Sebelumnya ini
+        // "tersamar" karena situs kebetulan sering jatuh ke data snapshot. Pakai
+        // String(r.kode) supaya konsisten apapun tipe aslinya dari Sheet.
+        if(String(r.kode) === '5') { byYear[y].total = rec; byYear[y].label_bulan = STATE.ringkasan[y] ? STATE.ringkasan[y].label_bulan : ''; }
         else byYear[y].breakdown.push(rec);
       });
       STATE.ringkasan = byYear;
     }
     if(json.tren && json.tren.length){
-      STATE.tren = json.tren.map(r=>({periode:r.periode, bulan_ini:+r.bulan_ini, sd_bulan_ini:+r.sd_bulan_ini, pagu:+r.pagu}));
+      // PENTING (bug ditemukan saat verifikasi grafik tren pakai data live
+      // sungguhan, bukan cuma cek JSON mentah): kolom periode di Sheet
+      // tersimpan sebagai tanggal (Date), jadi lewat JSON jadi string ISO
+      // penuh mis. "2024-01-01T08:00:00.000Z" -- bukan "2024-01" seperti di
+      // snapshot data.js. Kalau dipakai langsung sebagai label sumbu-X,
+      // labelnya jadi timestamp panjang yang tidak terbaca. Dinormalisasi ke
+      // "yyyy-MM" dulu supaya konsisten dengan format snapshot.
+      STATE.tren = json.tren.map(r=>({periode: normalizePeriode_(r.periode), bulan_ini:+r.bulan_ini, sd_bulan_ini:+r.sd_bulan_ini, pagu:+r.pagu}));
     }
     STATE.live = true;
   }catch(err){
@@ -71,15 +113,102 @@ function renderRingkasan(){
         <div><span>SPJ s.d Bulan Ini</span><b>Rp ${fmt(t.sd_bulan_ini)}</b></div>
         <div><span>Sisa Pagu</span><b>Rp ${fmt(t.sisa)}</b></div>
       </div>
-      <table class="subtable">
-        <thead><tr><th>Komponen</th><th>Bulan Ini</th><th>%</th></tr></thead>
-        <tbody>
-          ${(d.breakdown||[]).map(b=>`<tr><td>${b.nama}</td><td style="text-align:right">${fmt(b.bulan_ini)}</td><td style="text-align:right">${fmtPct(b.persen)}</td></tr>`).join('')}
-        </tbody>
-      </table>
+      ${renderKomponenBlock(y, d)}
     `;
     wrap.appendChild(card);
   });
+}
+
+// Fallback lama (2 kategori, dari sheet ringkasan) dipakai kalau grafik donat
+// 3-kategori belum bisa dihitung (butuh data live BKU, tidak ada di snapshot).
+function renderKomponenFallbackTable(d){
+  return `
+    <table class="subtable">
+      <thead><tr><th>Komponen</th><th>Bulan Ini</th><th>%</th></tr></thead>
+      <tbody>
+        ${(d.breakdown||[]).map(b=>`<tr><td>${b.nama}</td><td style="text-align:right">${fmt(b.bulan_ini)}</td><td style="text-align:right">${fmtPct(b.persen)}</td></tr>`).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+const KOMPONEN_WARNA = {
+  pegawai:     { top:'#F1A7A0', dark:'#C97F79', label:'Belanja Pegawai' },
+  barang_jasa: { top:'#B9A6EE', dark:'#8C7BC4', label:'Belanja Barang & Jasa' },
+  modal:       { top:'#8FD0DE', dark:'#5FA4B2', label:'Belanja Modal' },
+  lainnya:     { top:'#D3D8E4', dark:'#A4AABB', label:'Lainnya' },
+};
+
+function renderKomponenBlock(year, d){
+  const k = STATE.komponen && STATE.komponen[year];
+  if(!k || !k.total){
+    return renderKomponenFallbackTable(d);
+  }
+  const segments = ['pegawai','barang_jasa','modal','lainnya']
+    .map(key => ({ key, value: k[key]||0, ...KOMPONEN_WARNA[key] }))
+    .filter(s => s.value > 0);
+  const svg = build3DDonutSVG(segments, k.total);
+  const legend = segments.map(s => `
+    <div class="komp-legend-item">
+      <span class="komp-dot" style="background:${s.top}"></span>
+      <span class="komp-legend-label">${s.label}</span>
+      <span class="komp-legend-pct">${fmtPct(s.value/k.total*100)}</span>
+    </div>
+  `).join('');
+  return `
+    <div class="komp-donut-wrap">
+      ${svg}
+      <div class="komp-legend">${legend}</div>
+    </div>
+  `;
+}
+
+// Grafik donat 3D "meledak" (exploded), meniru gaya infografis: tiap potongan
+// ditarik keluar dari pusat, punya dinding samping (sisi lebih gelap) yang
+// dibuat dengan trik lapis-ganda -- salinan gelap digambar sedikit lebih ke
+// bawah dulu, baru salinan warna asli di atasnya. Bagian dinding yang tidak
+// tertutup salinan atas (di tepi luar) itulah yang kelihatan sebagai "sisi"
+// extruded. Murni SVG, tanpa library chart tambahan.
+function build3DDonutSVG(segments, total){
+  const size = 190, cx = size/2, cy = size/2 - 2;
+  const outerR = 62, innerR = 30, depth = 9, explode = 7;
+
+  function polar(r, angleDeg){
+    const a = (angleDeg - 90) * Math.PI/180;
+    return [cx + r*Math.cos(a), cy + r*Math.sin(a)];
+  }
+  function wedgePath(a0, a1){
+    const large = (a1 - a0) > 180 ? 1 : 0;
+    const [x0,y0] = polar(outerR, a0), [x1,y1] = polar(outerR, a1);
+    const [x2,y2] = polar(innerR, a1), [x3,y3] = polar(innerR, a0);
+    return `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${outerR} ${outerR} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)} `+
+           `L ${x2.toFixed(2)} ${y2.toFixed(2)} A ${innerR} ${innerR} 0 ${large} 0 ${x3.toFixed(2)} ${y3.toFixed(2)} Z`;
+  }
+
+  let angle = -1; // celah kecil antar potongan
+  const slices = segments.map(seg=>{
+    const sweep = Math.max((seg.value/total)*360 - 2, 0);
+    const a0 = angle, a1 = angle + sweep;
+    angle = a1 + 2;
+    const mid = (a0+a1)/2;
+    const rad = (mid-90)*Math.PI/180;
+    return { seg, path: wedgePath(a0,a1), ex: Math.cos(rad)*explode, ey: Math.sin(rad)*explode };
+  });
+
+  const walls = slices.map(s=>
+    `<path d="${s.path}" fill="${s.seg.dark}" transform="translate(${(s.ex).toFixed(2)},${(s.ey+depth).toFixed(2)})"/>`
+  ).join('');
+  const tops = slices.map(s=>
+    `<path d="${s.path}" fill="${s.seg.top}" stroke="#ffffff" stroke-width="1.5" transform="translate(${s.ex.toFixed(2)},${s.ey.toFixed(2)})"/>`
+  ).join('');
+
+  return `
+    <svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" class="komp-donut-svg">
+      <ellipse cx="${cx}" cy="${cy+outerR+depth-2}" rx="${outerR*0.82}" ry="7" fill="#000" opacity="0.10"/>
+      ${walls}
+      ${tops}
+    </svg>
+  `;
 }
 
 /* ---------------- Tren ---------------- */
@@ -96,7 +225,7 @@ function renderTren(){
       labels,
       datasets:[
         {type:'bar', label:'SPJ Bulan Ini', data:bulanIni, backgroundColor:'rgba(91,141,239,0.55)', borderRadius:6, order:2},
-        {type:'line', label:'SPJ s.d Bulan Ini (kumulatif)', data:sd, borderColor:'#2fb8c4', backgroundColor:'rgba(47,184,196,0.15)', tension:.3, yAxisID:'y1', order:1, pointRadius:2},
+        {type:'line', label:'SPJ s.d Bulan Ini (kumulatif)', data:sd, borderColor:'#2fb8c4', backgroundColor:'rgba(47,184,196,0.15)', tension:0, yAxisID:'y1', order:1, pointRadius:2},
       ]
     },
     options:{
@@ -393,9 +522,19 @@ function openBkuModal(year, kode, nama){
   BKU_STATE = { rows: [], year, kode, nama };
   $('#bkuModalTitle').textContent = nama || kode;
   $('#bkuModalSub').textContent = `Kode Rekening ${kode} — BKU Tahun ${year}`;
-  $('#bkuFilterNoBukti').value = '';
   $('#bkuFilterTanggalFrom').value = '';
   $('#bkuFilterTanggalTo').value = '';
+  // PENTING: kunci rentang date-picker ke tahun BKU yang sedang dibuka. Tanpa ini,
+  // browser date-picker default membuka bulan berjalan (tahun sekarang) -- kalau
+  // BKU yang dibuka tahun 2024 tapi user pilih tanggal di kalender yang defaultnya
+  // nongol tahun 2026, hasilnya selalu "0 dari N transaksi" dan kelihatan seperti
+  // filter tanggal rusak/tidak berefek, padahal filternya benar, cuma rentang
+  // tanggalnya di luar tahun datanya. Ini akar masalah "0 dari 277 transaksi" yang
+  // pernah dilaporkan.
+  $('#bkuFilterTanggalFrom').min = `${year}-01-01`;
+  $('#bkuFilterTanggalFrom').max = `${year}-12-31`;
+  $('#bkuFilterTanggalTo').min = `${year}-01-01`;
+  $('#bkuFilterTanggalTo').max = `${year}-12-31`;
   $('#bkuFilterKode').value = '';
   $('#bkuModalBody').innerHTML = '<div class="bku-status">Memuat data transaksi dari BKU '+year+'...</div>';
   $('#bkuModal').classList.add('active');
@@ -438,7 +577,6 @@ function parseTanggalDMY(str){
 }
 
 function renderBkuTable(){
-  const qNoBukti = ($('#bkuFilterNoBukti').value||'').toLowerCase().trim();
   const qKode = ($('#bkuFilterKode').value||'').toLowerCase().trim();
   const fromStr = $('#bkuFilterTanggalFrom').value; // format yyyy-mm-dd dari <input type=date>
   const toStr = $('#bkuFilterTanggalTo').value;
@@ -446,7 +584,6 @@ function renderBkuTable(){
   const dateTo = toStr ? new Date(toStr+'T23:59:59') : null;
 
   const rows = BKU_STATE.rows.filter(r=>{
-    if(qNoBukti && !r.no_bukti.toLowerCase().includes(qNoBukti)) return false;
     if(qKode && !r.kode_rekening.toLowerCase().includes(qKode)) return false;
     if(dateFrom || dateTo){
       const d = parseTanggalDMY(r.tanggal);
@@ -488,7 +625,6 @@ function initBkuModal(){
   $('#bkuModalClose').addEventListener('click', closeBkuModal);
   $('#bkuModal').addEventListener('click', (e)=>{ if(e.target.id === 'bkuModal') closeBkuModal(); });
   document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') closeBkuModal(); });
-  $('#bkuFilterNoBukti').addEventListener('input', renderBkuTable);
   $('#bkuFilterTanggalFrom').addEventListener('input', renderBkuTable);
   $('#bkuFilterTanggalFrom').addEventListener('change', renderBkuTable);
   $('#bkuFilterTanggalTo').addEventListener('input', renderBkuTable);
@@ -534,9 +670,14 @@ async function main(){
     await tryLoadLive();
     renderRingkasan();
     if($('#view-tren').classList.contains('active')) renderTren();
+    await loadKomponenBelanja();
+    renderRingkasan();
   });
   await tryLoadLive();
   renderRingkasan();
+  // Dimuat terpisah (bukan diblok bareng ringkasan/tren) supaya kartu ringkasan
+  // sudah kelihatan duluan; grafik donat menyusul begitu datanya siap.
+  loadKomponenBelanja().then(renderRingkasan);
 }
 
 document.addEventListener('DOMContentLoaded', main);
