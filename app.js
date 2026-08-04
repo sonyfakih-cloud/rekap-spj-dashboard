@@ -614,13 +614,17 @@ function parseTanggalDMY(str){
   return isNaN(dt.getTime()) ? null : dt;
 }
 
-function renderBkuTable(){
+// Dipakai bareng oleh renderBkuTable() dan export Excel, supaya hasil export
+// SELALU sama persis dengan yang lagi ditampilkan di tabel (menghormati
+// filter tanggal yang lagi aktif) -- bukan hasil ngambil ulang logika terpisah
+// yang bisa gampang kebablasan beda kalau salah satunya diubah belakangan.
+function getFilteredBkuRows(){
   const fromStr = $('#bkuFilterTanggalFrom').value; // format yyyy-mm-dd dari <input type=date>
   const toStr = $('#bkuFilterTanggalTo').value;
   const dateFrom = fromStr ? new Date(fromStr+'T00:00:00') : null;
   const dateTo = toStr ? new Date(toStr+'T23:59:59') : null;
 
-  const rows = BKU_STATE.rows.filter(r=>{
+  return BKU_STATE.rows.filter(r=>{
     if(dateFrom || dateTo){
       const d = parseTanggalDMY(r.tanggal);
       if(!d) return false;
@@ -629,6 +633,10 @@ function renderBkuTable(){
     }
     return true;
   });
+}
+
+function renderBkuTable(){
+  const rows = getFilteredBkuRows();
 
   if(!BKU_STATE.rows.length){
     $('#bkuModalBody').innerHTML = '<div class="bku-status">Tidak ada transaksi ditemukan untuk rekening ini di BKU '+BKU_STATE.year+'.</div>';
@@ -657,6 +665,66 @@ function renderBkuTable(){
   `;
 }
 
+// Export hasil transaksi BKU (yang lagi ditampilkan, jadi menghormati filter
+// tanggal aktif) ke file .xlsx. Ukuran kertas diset Folio/F4 (8.5" x 13" --
+// kode paperSize=14 di standar OOXML, paling dekat dengan F4 215x330mm yang
+// umum dipakai di Indonesia), orientasi landscape supaya kolom "Uraian" yang
+// panjang tetap muat dibaca.
+function exportBkuToExcel(){
+  if(typeof XLSX === 'undefined'){
+    alert('Library export Excel gagal dimuat. Coba muat ulang halaman.');
+    return;
+  }
+  const rows = getFilteredBkuRows();
+  if(!rows.length){
+    alert('Tidak ada data untuk diexport (cek filter tanggal).');
+    return;
+  }
+
+  const judul = `${BKU_STATE.nama || BKU_STATE.kode} — Kode Rekening ${BKU_STATE.kode} — BKU Tahun ${BKU_STATE.year}`;
+  const fromStr = $('#bkuFilterTanggalFrom').value;
+  const toStr = $('#bkuFilterTanggalTo').value;
+  const keteranganFilter = (fromStr || toStr)
+    ? `Filter tanggal: ${fromStr || '...'} s.d. ${toStr || '...'}`
+    : 'Tanpa filter tanggal (semua transaksi)';
+  const total = rows.reduce((s,r)=>s+(r.pengeluaran||0), 0);
+
+  const header = ['No','No Bukti','Tanggal','Uraian','Kode Rekening','Pengeluaran'];
+  const body = rows.map(r => [r.no, r.no_bukti, r.tanggal, r.uraian, r.kode_rekening, r.pengeluaran]);
+  const aoa = [
+    [judul], [keteranganFilter], [],
+    header,
+    ...body,
+    [], ['', '', '', '', 'Total', total],
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [
+    {wch:6}, {wch:20}, {wch:12}, {wch:55}, {wch:20}, {wch:18},
+  ];
+  ws['!merges'] = [
+    {s:{r:0,c:0}, e:{r:0,c:5}},
+    {s:{r:1,c:0}, e:{r:1,c:5}},
+  ];
+  // Format kolom Pengeluaran (kolom ke-6 / index 5) sebagai angka ribuan.
+  for(let i = 0; i < body.length; i++){
+    const cellRef = XLSX.utils.encode_cell({r: 4 + i, c: 5});
+    if(ws[cellRef]) ws[cellRef].z = '#,##0';
+  }
+  const totalCellRef = XLSX.utils.encode_cell({r: 4 + body.length + 1, c: 5});
+  if(ws[totalCellRef]) ws[totalCellRef].z = '#,##0';
+
+  // Ukuran kertas Folio/F4 + landscape, supaya kalau dicetak langsung pas.
+  ws['!pageSetup'] = { paperSize: 14, orientation: 'landscape', fitToWidth: 1, fitToHeight: 0 };
+  ws['!margins'] = { left:0.4, right:0.4, top:0.5, bottom:0.5, header:0.2, footer:0.2 };
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'BKU ' + BKU_STATE.year);
+
+  const namaFile = `BKU_${BKU_STATE.year}_${(BKU_STATE.kode||'').replace(/\./g,'-')}.xlsx`;
+  XLSX.writeFile(wb, namaFile);
+}
+
 function initBkuModal(){
   $('#bkuModalClose').addEventListener('click', closeBkuModal);
   $('#bkuModal').addEventListener('click', (e)=>{ if(e.target.id === 'bkuModal') closeBkuModal(); });
@@ -670,6 +738,7 @@ function initBkuModal(){
     $('#bkuFilterTanggalTo').value = '';
     renderBkuTable();
   });
+  $('#bkuExportExcel').addEventListener('click', exportBkuToExcel);
 }
 
 /* ---------------- Nav ---------------- */

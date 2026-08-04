@@ -449,6 +449,16 @@ table.data.data-clickable tbody tr:hover{background:var(--accent-soft);transform
   cursor:pointer;flex:none;transition:background .15s;
 }
 .bku-close:hover{background:var(--accent);color:#fff;}
+.bku-modal-head-actions{display:flex;align-items:center;gap:8px;flex:none;}
+.bku-export-btn{
+  display:flex;align-items:center;gap:6px;border:none;cursor:pointer;
+  background:var(--accent-soft);color:var(--accent);font-weight:600;font-size:12.5px;
+  padding:0 14px;height:32px;border-radius:10px;white-space:nowrap;transition:background .15s,color .15s;
+}
+.bku-export-btn:hover{background:var(--accent);color:#fff;}
+@media (max-width:640px){
+  .bku-export-btn span{display:none;}
+}
 .bku-filter-toolbar{padding:14px 24px 0;margin-bottom:0;}
 .bku-date-range{
   display:flex;align-items:center;gap:6px;

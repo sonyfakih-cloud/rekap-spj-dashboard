@@ -10,8 +10,9 @@
      pengunjung yang sudah pernah buka situs ini masih bisa melihat versi lama (ini akar
      masalah "kok belum berubah" yang pernah dilaporkan). Setiap kali app.js/style.css
      diupdate, NAIKKAN angka v= di bawah supaya browser dipaksa ambil versi baru. -->
-<link rel="stylesheet" href="style.css?v=3">
+<link rel="stylesheet" href="style.css?v=5">
 <script src="chart.umd.min.js"></script>
+<script src="xlsx.full.min.js?v=5"></script>
 </head>
 <body>
 
@@ -161,7 +162,13 @@
         <h3 id="bkuModalTitle">Detail Transaksi</h3>
         <p id="bkuModalSub"></p>
       </div>
-      <button id="bkuModalClose" class="bku-close" title="Tutup">&times;</button>
+      <div class="bku-modal-head-actions">
+        <button type="button" id="bkuExportExcel" class="bku-export-btn" title="Export ke Excel (xlsx)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <span>Export Excel</span>
+        </button>
+        <button id="bkuModalClose" class="bku-close" title="Tutup">&times;</button>
+      </div>
     </div>
     <div class="toolbar bku-filter-toolbar">
       <div class="bku-date-range">
@@ -177,9 +184,9 @@
   </div>
 </div>
 
-<script src="config.js?v=3"></script>
-<script src="auth.js?v=3"></script>
-<script src="data.js?v=3"></script>
-<script src="app.js?v=3"></script>
+<script src="config.js?v=5"></script>
+<script src="auth.js?v=5"></script>
+<script src="data.js?v=5"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>
