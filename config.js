@@ -1,7 +1,7 @@
 // Isi APPS_SCRIPT_URL setelah Anda deploy Code.gs sebagai Web App (lihat PANDUAN_DEPLOY.md).
 // Contoh: "https://script.google.com/macros/s/AKfycbxxxxxxxxxxxxxxxxxxxxxxxxxxx/exec"
 // Kalau dikosongkan, dashboard tetap jalan pakai data bawaan (data.js / snapshot di REKAP_DATA).
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyc6dcBIam9Ugcf7nxNRieDrlzl5wNqWRu64DqmIOfIAi99oMTZYztT9zUV23nkiWWoTg/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw2EQouYVdSHVIiwwB3q0TJxtLaQsCIgHSVyHM-UjgorvVAIh9Sdza5eDmjTQuQCCcYew/exec";
 
 // ============ PASSWORD LOGIN ============
 // Password default (dipakai selama GITHUB_* di bawah masih kosong):
