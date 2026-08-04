@@ -41,6 +41,11 @@
       <span class="tip">Perbandingan per Akun</span>
     </div>
 
+    <div class="nav-item" data-view="filter">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+      <span class="tip">Filter Rekening / Bulan / Tahun</span>
+    </div>
+
     <div class="nav-item" data-view="2024"><span style="font-size:12px;font-weight:700;">24</span><span class="tip">Khusus 2024</span></div>
     <div class="nav-item" data-view="2025"><span style="font-size:12px;font-weight:700;">25</span><span class="tip">Khusus 2025</span></div>
     <div class="nav-item" data-view="2026"><span style="font-size:12px;font-weight:700;">26</span><span class="tip">Khusus 2026</span></div>
@@ -85,6 +90,19 @@
             <tbody></tbody>
           </table>
         </div>
+      </div>
+    </section>
+
+    <!-- ===== FILTER ===== -->
+    <section id="view-filter" class="view">
+      <div class="card">
+        <h3>Filter Rekening, Bulan &amp; Tahun</h3>
+        <div class="toolbar">
+          <select id="filterTahun"></select>
+          <select id="filterBulan"></select>
+          <select id="filterRekening" style="flex:2;min-width:240px;"></select>
+        </div>
+        <div id="filterResult"></div>
       </div>
     </section>
 

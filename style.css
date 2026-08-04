@@ -217,3 +217,25 @@ table.data tbody tr:hover{background:var(--accent-soft);}
 .auth-card button:hover{opacity:.9;}
 .auth-card button:disabled{opacity:.6;cursor:default;}
 .auth-error{min-height:16px;color:var(--red);font-size:12.5px;margin-top:8px;}
+
+/* ---- Filter view ---- */
+.filter-empty{color:var(--muted);font-size:13px;padding:20px 4px;}
+.filter-stat{
+  display:flex;flex-wrap:wrap;gap:16px;margin-top:6px;
+}
+.filter-stat .big-card{
+  flex:1;min-width:240px;
+  background:var(--card-solid);border-radius:var(--radius-md);
+  padding:20px;box-shadow:var(--shadow-sm);
+}
+.filter-stat .big-card .lbl{color:var(--muted);font-size:12px;margin-bottom:6px;}
+.filter-stat .big-card .val{font-size:26px;font-weight:700;color:var(--navy);}
+.filter-stat .big-card .sub{color:var(--muted);font-size:12px;margin-top:4px;}
+.filter-compare{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px;}
+.filter-compare .yr-box{
+  background:var(--card-solid);border-radius:var(--radius-sm);padding:14px;text-align:center;
+  box-shadow:var(--shadow-sm);
+}
+.filter-compare .yr-box b{display:block;font-size:13px;color:var(--muted);margin-bottom:4px;}
+.filter-compare .yr-box span{font-size:16px;font-weight:700;color:var(--navy);}
+.filter-compare .yr-box.dim{opacity:.4;}

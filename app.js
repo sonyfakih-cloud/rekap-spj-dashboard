@@ -130,6 +130,107 @@ function renderPerbandingan(){
   $('#countPerbandingan').textContent = rows.length + ' akun';
 }
 
+/* ---------------- Filter (Rekening / Bulan / Tahun) ---------------- */
+const FILTER_YEARS = ['2024','2025','2026'];
+
+function allAccountsForYear(year){
+  const data = STATE.khusus[year];
+  return data ? data.rows.slice().sort((a,b)=> a.kode.localeCompare(b.kode, undefined, {numeric:true})) : [];
+}
+
+function populateFilterTahun(){
+  const sel = $('#filterTahun');
+  sel.innerHTML = FILTER_YEARS.map(y=>`<option value="${y}">${y}</option>`).join('');
+}
+
+function populateFilterBulan(year){
+  const sel = $('#filterBulan');
+  const labels = (STATE.khusus[year] && STATE.khusus[year].bulan_label) || [];
+  const opts = ['<option value="ALL">Semua Bulan (lihat tren setahun)</option>']
+    .concat(labels.map((m,i)=>`<option value="${i}">${m} ${year}</option>`));
+  sel.innerHTML = opts.join('');
+}
+
+function populateFilterRekening(year, keepKode){
+  const sel = $('#filterRekening');
+  const accounts = allAccountsForYear(year);
+  sel.innerHTML = accounts.map(a=>`<option value="${a.kode}">${a.kode} — ${a.nama}</option>`).join('');
+  if(keepKode && accounts.some(a=>a.kode===keepKode)) sel.value = keepKode;
+}
+
+function renderFilterResult(){
+  const year = $('#filterTahun').value;
+  const bulanVal = $('#filterBulan').value;
+  const kode = $('#filterRekening').value;
+  const wrap = $('#filterResult');
+  const data = STATE.khusus[year];
+  const row = data ? data.rows.find(r=>r.kode===kode) : null;
+
+  if(!row){
+    wrap.innerHTML = '<div class="filter-empty">Data tidak ditemukan untuk kombinasi ini.</div>';
+    return;
+  }
+
+  if(bulanVal === 'ALL'){
+    const labels = data.bulan_label;
+    wrap.innerHTML = `
+      <div class="filter-stat">
+        <div class="big-card">
+          <div class="lbl">${row.kode} — ${row.nama}</div>
+          <div class="val">Rp ${fmt(row.total)}</div>
+          <div class="sub">Total SPJ Bulan Ini, akumulasi ${labels[0]}–${labels[labels.length-1]} ${year}</div>
+        </div>
+      </div>
+      <table class="subtable" style="margin-top:14px;">
+        <thead><tr>${labels.map(m=>`<th>${m}</th>`).join('')}</tr></thead>
+        <tbody><tr>${row.bulanan.map(v=>`<td>${fmt(v)}</td>`).join('')}</tr></tbody>
+      </table>
+    `;
+    return;
+  }
+
+  const idx = parseInt(bulanVal, 10);
+  const label = data.bulan_label[idx];
+  const value = row.bulanan[idx];
+
+  const compareHtml = FILTER_YEARS.map(y=>{
+    const yd = STATE.khusus[y];
+    const yr = yd ? yd.rows.find(r=>r.kode===kode) : null;
+    const yIdx = yd ? yd.bulan_label.indexOf(label) : -1;
+    const has = yr && yIdx > -1;
+    return `<div class="yr-box ${has?'':'dim'}"><b>${label} ${y}</b><span>${has ? 'Rp '+fmt(yr.bulanan[yIdx]) : '-'}</span></div>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <div class="filter-stat">
+      <div class="big-card">
+        <div class="lbl">${row.kode} — ${row.nama}</div>
+        <div class="val">Rp ${fmt(value)}</div>
+        <div class="sub">Total SPJ Bulan Ini — ${label} ${year}</div>
+      </div>
+    </div>
+    <div class="filter-compare">${compareHtml}</div>
+  `;
+}
+
+function initFilter(){
+  populateFilterTahun();
+  $('#filterTahun').value = '2026';
+  populateFilterBulan('2026');
+  populateFilterRekening('2026');
+  renderFilterResult();
+
+  $('#filterTahun').addEventListener('change', ()=>{
+    const year = $('#filterTahun').value;
+    const keepKode = $('#filterRekening').value;
+    populateFilterBulan(year);
+    populateFilterRekening(year, keepKode);
+    renderFilterResult();
+  });
+  $('#filterBulan').addEventListener('change', renderFilterResult);
+  $('#filterRekening').addEventListener('change', renderFilterResult);
+}
+
 /* ---------------- Khusus per tahun ---------------- */
 function renderKhusus(year){
   const data = STATE.khusus[year];
@@ -161,7 +262,7 @@ function initNav(){
     item.addEventListener('click', ()=>showView(item.dataset.view));
   });
   const initial = (location.hash||'#ringkasan').slice(1);
-  showView(['ringkasan','tren','perbandingan','2024','2025','2026'].includes(initial) ? initial : 'ringkasan');
+  showView(['ringkasan','tren','perbandingan','filter','2024','2025','2026'].includes(initial) ? initial : 'ringkasan');
 }
 
 async function main(){
@@ -169,6 +270,7 @@ async function main(){
   renderRingkasan();
   renderPerbandingan();
   ['2024','2025','2026'].forEach(renderKhusus);
+  initFilter();
   initNav();
   $('#searchPerbandingan').addEventListener('input', renderPerbandingan);
   ['2024','2025','2026'].forEach(y=>{
