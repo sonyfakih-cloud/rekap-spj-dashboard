@@ -121,7 +121,7 @@ async function tryLoadLive(){
         // fallback ke snapshot, karena STATE.live tetap diset true). Sebelumnya ini
         // "tersamar" karena situs kebetulan sering jatuh ke data snapshot. Pakai
         // String(r.kode) supaya konsisten apapun tipe aslinya dari Sheet.
-        if(String(r.kode) === '5') { byYear[y].total = rec; byYear[y].label_bulan = STATE.ringkasan[y] ? STATE.ringkasan[y].label_bulan : ''; }
+        if(String(r.kode) === '5') { byYear[y].total = rec; byYear[y].label_bulan = r.label_bulan || (STATE.ringkasan[y] ? STATE.ringkasan[y].label_bulan : ''); }
         else byYear[y].breakdown.push(rec);
       });
       STATE.ringkasan = byYear;
