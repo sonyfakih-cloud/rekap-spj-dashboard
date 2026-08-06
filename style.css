@@ -79,7 +79,25 @@ body{
 .nav-item:hover .tip{opacity:1;transform:translateY(-50%) translateX(0);}
 
 /* ---- Main ---- */
-.main{flex:1;padding:22px 22px 22px 18px;display:flex;flex-direction:column;gap:18px;min-width:0;}
+.main{flex:1;padding:22px 22px 22px 18px;display:flex;flex-direction:column;gap:18px;min-width:0;
+  transition:margin-left .2s ease;
+}
+
+/* ---- PERBAIKAN: dorong (geser+kecilkan) .main saat tooltip/flyout sidebar
+   tampil, supaya teks tooltip/menu "Tahun Khusus" tidak menumpuk kartu di
+   sebelah kanan sama sekali -- bukan cuma soal z-index lagi, tapi kontennya
+   sendiri yang mengalah memberi ruang. Nilai geser dibuat cukup lebar untuk
+   menampung tooltip terpanjang ("Ringkasan Bulan Ini & SD Bulan Ini"). */
+.app:has(.nav-item:hover) .main,
+.app.yearflyout-open .main{
+  margin-left:210px;
+}
+@media (max-width:900px){
+  .app:has(.nav-item:hover) .main,
+  .app.yearflyout-open .main{
+    margin-left:130px;
+  }
+}
 
 /* Pita berjalan (marquee) copyright -- tampil terus di atas, di semua halaman */
 .marquee-bar{

@@ -884,8 +884,15 @@ function initYearMenu(){
   const flyout = $('#yearFlyout');
   if(!btn || !flyout) return;
 
-  const closeFlyout = ()=>{ flyout.classList.remove('open'); btn.classList.remove('flyout-open'); };
-  const openFlyout  = ()=>{ flyout.classList.add('open'); btn.classList.add('flyout-open'); };
+  const appRoot = $('.app');
+  const closeFlyout = ()=>{
+    flyout.classList.remove('open'); btn.classList.remove('flyout-open');
+    appRoot?.classList.remove('yearflyout-open');
+  };
+  const openFlyout  = ()=>{
+    flyout.classList.add('open'); btn.classList.add('flyout-open');
+    appRoot?.classList.add('yearflyout-open');
+  };
 
   btn.addEventListener('click', e=>{
     e.stopPropagation();
