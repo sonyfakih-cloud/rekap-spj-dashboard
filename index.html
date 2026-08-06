@@ -10,7 +10,7 @@
      pengunjung yang sudah pernah buka situs ini masih bisa melihat versi lama (ini akar
      masalah "kok belum berubah" yang pernah dilaporkan). Setiap kali app.js/style.css
      diupdate, NAIKKAN angka v= di bawah supaya browser dipaksa ambil versi baru. -->
-<link rel="stylesheet" href="style.css?v=9">
+<link rel="stylesheet" href="style.css?v=10">
 <script src="chart.umd.min.js"></script>
 <script src="xlsx.full.min.js?v=8"></script>
 </head>
@@ -106,9 +106,16 @@
       <span class="tip">Filter Rekening / Bulan / Tahun</span>
     </div>
 
-    <div class="nav-item" data-view="2024"><span style="font-size:12px;font-weight:700;">24</span><span class="tip">Khusus 2024</span></div>
-    <div class="nav-item" data-view="2025"><span style="font-size:12px;font-weight:700;">25</span><span class="tip">Khusus 2025</span></div>
-    <div class="nav-item" data-view="2026"><span style="font-size:12px;font-weight:700;">26</span><span class="tip">Khusus 2026</span></div>
+    <div class="nav-item nav-yearmenu" id="btnTahunKhusus">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <span class="tip">Tahun Khusus</span>
+      <div class="year-flyout" id="yearFlyout">
+        <div class="year-flyout-label">Tahun Khusus</div>
+        <button type="button" class="year-flyout-item" data-view="2024">2024</button>
+        <button type="button" class="year-flyout-item" data-view="2025">2025</button>
+        <button type="button" class="year-flyout-item" data-view="2026">2026</button>
+      </div>
+    </div>
   </aside>
 
   <main class="main">
@@ -239,6 +246,6 @@
 <script src="config.js?v=8"></script>
 <script src="auth.js?v=8"></script>
 <script src="data.js?v=8"></script>
-<script src="app.js?v=9"></script>
+<script src="app.js?v=10"></script>
 </body>
 </html>

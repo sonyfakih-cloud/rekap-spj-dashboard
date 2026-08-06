@@ -614,3 +614,44 @@ table.data.data-clickable tbody tr:hover{background:var(--accent-soft);transform
    konteks stacking eksplisit dgn z-index tinggi supaya seluruh isinya (termasuk
    tooltip) selalu di atas .main. */
 .sidebar{position:relative;z-index:40;}
+
+/* ---- Menu "Tahun Khusus" (gabungan 24/25/26 jadi 1 tombol + flyout) ---- */
+.nav-yearmenu{position:relative;}
+.year-flyout{
+  position:absolute;left:64px;top:50%;transform:translateY(-50%) scale(.92);
+  transform-origin:left center;
+  background:linear-gradient(165deg, #ffffff 0%, #f6f9ff 100%);
+  border-radius:14px;
+  padding:6px;
+  min-width:112px;
+  box-shadow:0 16px 30px rgba(31,41,71,0.20), 0 4px 10px rgba(31,41,71,0.10), inset 0 1px 0 rgba(255,255,255,0.8);
+  display:flex;flex-direction:column;gap:2px;
+  opacity:0;pointer-events:none;
+  transition:opacity .15s ease, transform .15s ease;
+  z-index:70;
+}
+.year-flyout::before{
+  content:'';position:absolute;left:-4px;top:50%;transform:translateY(-50%) rotate(45deg);
+  width:8px;height:8px;border-radius:2px;
+  background:#ffffff;
+  box-shadow:-1px 1px 1px rgba(31,41,71,0.06);
+}
+.year-flyout.open{opacity:1;pointer-events:auto;transform:translateY(-50%) scale(1);}
+.year-flyout-label{
+  font-size:10px;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.4px;
+  padding:6px 10px 4px;
+}
+.year-flyout-item{
+  border:none;background:transparent;cursor:pointer;font-family:inherit;
+  text-align:left;padding:9px 10px;border-radius:9px;
+  font-size:13px;font-weight:600;color:var(--text);
+  transition:background .12s ease, color .12s ease;
+}
+.year-flyout-item:hover{background:rgba(91,141,239,0.12);color:var(--accent);}
+.year-flyout-item.active{
+  background:linear-gradient(135deg, var(--accent2), var(--accent));color:#fff;
+  box-shadow:0 4px 10px rgba(91,141,239,0.35);
+}
+/* Saat flyout terbuka, sembunyikan tooltip hover "Tahun Khusus" supaya tidak tumpang tindih */
+.nav-yearmenu.flyout-open .tip{opacity:0!important;}

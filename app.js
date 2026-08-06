@@ -857,24 +857,51 @@ function initBkuModal(){
 }
 
 /* ---------------- Nav ---------------- */
+const YEAR_VIEWS = ['2024','2025','2026'];
+
 function showView(name){
   $$('.view').forEach(v=>v.classList.remove('active'));
   $(`#view-${name}`).classList.add('active');
-  $$('.nav-item').forEach(n=>n.classList.toggle('active', n.dataset.view===name));
+  $$('.nav-item[data-view]').forEach(n=>n.classList.toggle('active', n.dataset.view===name));
+  // Tombol "Tahun Khusus" (gabungan 24/25/26) aktif kalau view saat ini salah satu tahun
+  $('#btnTahunKhusus')?.classList.toggle('active', YEAR_VIEWS.includes(name));
+  $$('.year-flyout-item').forEach(b=>b.classList.toggle('active', b.dataset.view===name));
   location.hash = name;
   if(name==='tren') setTimeout(renderTren, 30);
 }
 
 function initNav(){
-  $$('.nav-item').forEach(item=>{
-    // #btnHomeMenu ("Menu Utama") juga pakai class nav-item supaya ikut gaya
-    // sidebar yang sama, tapi dia bukan pengganti view (tidak punya data-view)
-    // -- diberi handler sendiri di initHub(), jangan didaftarkan di sini.
-    if(!item.dataset.view) return;
+  $$('.nav-item[data-view]').forEach(item=>{
     item.addEventListener('click', ()=>showView(item.dataset.view));
   });
   const initial = (location.hash||'#ringkasan').slice(1);
-  showView(['ringkasan','tren','perbandingan','filter','2024','2025','2026'].includes(initial) ? initial : 'ringkasan');
+  showView(['ringkasan','tren','perbandingan','filter',...YEAR_VIEWS].includes(initial) ? initial : 'ringkasan');
+}
+
+/* ---------------- Menu "Tahun Khusus" (flyout 2024/2025/2026) ---------------- */
+function initYearMenu(){
+  const btn = $('#btnTahunKhusus');
+  const flyout = $('#yearFlyout');
+  if(!btn || !flyout) return;
+
+  const closeFlyout = ()=>{ flyout.classList.remove('open'); btn.classList.remove('flyout-open'); };
+  const openFlyout  = ()=>{ flyout.classList.add('open'); btn.classList.add('flyout-open'); };
+
+  btn.addEventListener('click', e=>{
+    e.stopPropagation();
+    flyout.classList.contains('open') ? closeFlyout() : openFlyout();
+  });
+
+  $$('.year-flyout-item').forEach(item=>{
+    item.addEventListener('click', e=>{
+      e.stopPropagation();
+      showView(item.dataset.view);
+      closeFlyout();
+    });
+  });
+
+  document.addEventListener('click', e=>{ if(!btn.contains(e.target)) closeFlyout(); });
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeFlyout(); });
 }
 
 /* ---------------- Menu Utama (Hub: Belanja / Pendapatan / Gabungan) ---------------- */
@@ -931,6 +958,7 @@ async function main(){
   ['2024','2025','2026'].forEach(renderKhusus);
   initFilter();
   initNav();
+  initYearMenu();
   initBkuModal();
   $('#searchPerbandingan').addEventListener('input', renderPerbandingan);
   $('#filterBulanPerbandingan').addEventListener('change', (e)=>{
