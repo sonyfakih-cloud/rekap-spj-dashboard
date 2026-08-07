@@ -155,7 +155,28 @@ function updateLiveBadge(){
 }
 
 /* ---------------- Ringkasan ---------------- */
+// Nama bulan lengkap untuk label header "— Desember 2024 / Desember 2025 / ...".
+// Sebelumnya teks ini HARDCODE statis di index.html ("...Juli 2026") dan tidak
+// pernah ikut ter-update meski data live sudah menunjukkan bulan lebih baru --
+// beda dari kartu KPI di bawahnya yang sudah pakai d.label_bulan (live). Sekarang
+// disamakan: dibangun ulang dari STATE.ringkasan[y].label_bulan tiap render,
+// jadi otomatis ikut maju ke Sep/Okt/.../Des 2026 begitu data live bertambah,
+// tanpa perlu ubah kode lagi.
+const MONTH_FULL_ = {Jan:'Januari',Feb:'Februari',Mar:'Maret',Apr:'April',Mei:'Mei',Jun:'Juni',Jul:'Juli',Ags:'Agustus',Sep:'September',Okt:'Oktober',Nov:'November',Des:'Desember'};
+function updateRingkasanPeriodeLabel_(){
+  const el = document.getElementById('ringkasanPeriodeLabel');
+  if(!el) return;
+  const parts = ['2024','2025','2026'].map(y=>{
+    const d = STATE.ringkasan[y];
+    const lb = d && d.label_bulan;
+    const full = lb ? (MONTH_FULL_[lb] || lb) : '';
+    return full ? `${full} ${y}` : null;
+  }).filter(Boolean);
+  if(parts.length) el.textContent = '— ' + parts.join(' / ');
+}
+
 function renderRingkasan(){
+  updateRingkasanPeriodeLabel_();
   const wrap = $('#view-ringkasan .kpi-row');
   wrap.innerHTML = '';
   ['2024','2025','2026'].forEach(y=>{
