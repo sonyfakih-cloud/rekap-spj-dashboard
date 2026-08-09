@@ -290,7 +290,33 @@ function buildDonutSVG(segments, total){
 
 /* ---------------- Tren ---------------- */
 let trenChart;
+
+// Judul kartu ("— Januari 2024 s.d Juli 2026") dan catatan sumber data di footer
+// SEBELUMNYA hardcode statis di index.html dan tidak pernah ikut maju walau data
+// live sudah bertambah bulan (mis. sudah ada data Agustus, tapi teks masih bilang
+// "s.d Juli"). Sekarang dihitung ulang dari STATE.tren setiap kali data berubah,
+// jadi otomatis mengikuti bulan terakhir yang benar-benar ada datanya.
+function periodeLabelFull_(p){
+  const [y,m] = String(p).split('-');
+  const short = MONTH_NAMES[parseInt(m,10)-1];
+  return `${MONTH_FULL_[short]||short} ${y}`;
+}
+function periodeLabelShort_(p){
+  const [y,m] = String(p).split('-');
+  return `${MONTH_NAMES[parseInt(m,10)-1]} ${y}`;
+}
+function updateTrenMeta_(){
+  if(!STATE.tren || !STATE.tren.length) return;
+  const periods = STATE.tren.map(r=>r.periode).filter(Boolean).slice().sort();
+  const first = periods[0], last = periods[periods.length-1];
+  const h3span = $('#trenPeriodeLabel');
+  if(h3span) h3span.textContent = `— ${periodeLabelFull_(first)} s.d ${periodeLabelFull_(last)}`;
+  const footer = $('#footerDataSumber');
+  if(footer) footer.textContent = `Data sumber: ${STATE.tren.length} laporan bulanan RSUD dr. R. Soeprapto Cepu, ${periodeLabelShort_(first)}–${periodeLabelShort_(last)}. Lihat catatan metodologi di file Rekap_Belanja_SPJ_2024_2025_2026_v2.xlsx.`;
+}
+
 function renderTren(){
+  updateTrenMeta_();
   const ctx = $('#trenChart').getContext('2d');
   const labels = STATE.tren.map(r=>r.periode);
   const bulanIni = STATE.tren.map(r=>r.bulan_ini);
@@ -317,6 +343,215 @@ function renderTren(){
     },
     plugins:[lineShadowPlugin]
   });
+}
+
+/* ---- Tren: Perbandingan Rentang Bulan (line chart, mis. Jan-Jun 2024 vs Jan-Jun 2025) ---- */
+let trenRangeChart;
+
+function trenAvailableYears_(){
+  const years = new Set();
+  STATE.tren.forEach(r=>{ if(r.periode) years.add(String(r.periode).slice(0,4)); });
+  return Array.from(years).sort();
+}
+
+function periodeInRange_(from, to){
+  if(!from || !to) return [];
+  return STATE.tren.filter(r=> r.periode >= from && r.periode <= to)
+    .slice().sort((a,b)=> a.periode.localeCompare(b.periode));
+}
+
+function initTrenRangeCompare(){
+  const years = trenAvailableYears_();
+  const periods = STATE.tren.map(r=>r.periode).filter(Boolean).slice().sort();
+  const minP = periods[0], maxP = periods[periods.length-1];
+  ['trenRangeAFrom','trenRangeATo','trenRangeBFrom','trenRangeBTo'].forEach(id=>{
+    const el = $('#'+id);
+    if(!el) return;
+    if(minP) el.min = minP;
+    if(maxP) el.max = maxP;
+    el.addEventListener('change', renderTrenRangeCompare);
+  });
+  // Default: Jan-Jun tahun kedua-terakhir vs Jan-Jun tahun terakhir yang ada datanya
+  // (mengikuti contoh permintaan: Jan-Jun tahun lalu vs Jan-Jun tahun ini). Kalau
+  // data cuma 1 tahun, kedua rentang default sama (user tinggal ganti manual).
+  if(years.length >= 2){
+    const yA = years[years.length-2], yB = years[years.length-1];
+    $('#trenRangeAFrom').value = `${yA}-01`; $('#trenRangeATo').value = `${yA}-06`;
+    $('#trenRangeBFrom').value = `${yB}-01`; $('#trenRangeBTo').value = `${yB}-06`;
+  } else if(years.length === 1){
+    $('#trenRangeAFrom').value = `${years[0]}-01`; $('#trenRangeATo').value = `${years[0]}-06`;
+    $('#trenRangeBFrom').value = `${years[0]}-01`; $('#trenRangeBTo').value = `${years[0]}-06`;
+  }
+  renderTrenRangeCompare();
+}
+
+function renderTrenRangeCompare(){
+  const canvas = $('#trenRangeChart');
+  const summary = $('#trenRangeSummary');
+  if(!canvas || !summary || typeof Chart === 'undefined') return;
+
+  const fromA = $('#trenRangeAFrom').value, toA = $('#trenRangeATo').value;
+  const fromB = $('#trenRangeBFrom').value, toB = $('#trenRangeBTo').value;
+  const rowsA = periodeInRange_(fromA, toA);
+  const rowsB = periodeInRange_(fromB, toB);
+
+  if(!fromA || !toA || !fromB || !toB || fromA > toA || fromB > toB || (!rowsA.length && !rowsB.length)){
+    summary.innerHTML = '<div class="filter-empty">Pilih rentang bulan yang valid untuk kedua sisi (A dan B).</div>';
+    if(trenRangeChart){ trenRangeChart.destroy(); trenRangeChart = null; }
+    return;
+  }
+
+  const len = Math.max(rowsA.length, rowsB.length);
+  const labels = Array.from({length: len}, (_,i)=>{
+    const src = rowsA[i] || rowsB[i];
+    return src ? MONTH_NAMES[parseInt(String(src.periode).split('-')[1],10)-1] : ('Bulan ke-'+(i+1));
+  });
+  const dataA = Array.from({length: len}, (_,i)=> rowsA[i] ? rowsA[i].bulan_ini : null);
+  const dataB = Array.from({length: len}, (_,i)=> rowsB[i] ? rowsB[i].bulan_ini : null);
+
+  const totalA = rowsA.reduce((s,r)=>s+r.bulan_ini,0);
+  const totalB = rowsB.reduce((s,r)=>s+r.bulan_ini,0);
+  const diff = totalA ? ((totalB-totalA)/totalA*100) : null;
+  const diffClass = diff===null ? '' : (diff>=0?'pos':'neg');
+  const diffText = diff===null ? '-' : (diff>=0?'+':'') + diff.toFixed(1) + '%';
+
+  const labelA = `${periodeLabelShort_(fromA)} – ${periodeLabelShort_(toA)}`;
+  const labelB = `${periodeLabelShort_(fromB)} – ${periodeLabelShort_(toB)}`;
+
+  summary.innerHTML = `
+    <div class="range-stat"><div class="lbl"><span class="range-dot range-dot-a"></span>Total ${labelA}</div><div class="val">Rp ${fmt(totalA)}</div></div>
+    <div class="range-stat"><div class="lbl"><span class="range-dot range-dot-b"></span>Total ${labelB}</div><div class="val">Rp ${fmt(totalB)}</div></div>
+    <div class="range-stat diff"><div class="lbl">Selisih B vs A</div><div class="val ${diffClass}">${diffText}</div></div>
+  `;
+
+  const ctx = canvas.getContext('2d');
+  if(trenRangeChart) trenRangeChart.destroy();
+  trenRangeChart = new Chart(ctx, {
+    type:'line',
+    data:{
+      labels,
+      datasets:[
+        {label: labelA, data:dataA, borderColor:'#5b8def', backgroundColor:'rgba(91,141,239,0.12)', tension:0, pointRadius:4, borderWidth:3, spanGaps:true},
+        {label: labelB, data:dataB, borderColor:'#2fb8c4', backgroundColor:'rgba(47,184,196,0.12)', tension:0, pointRadius:4, borderWidth:3, spanGaps:true},
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index', intersect:false},
+      plugins:{
+        legend:{position:'top', labels:{boxWidth:12, font:{size:11}}},
+        tooltip:{callbacks:{label:c=> c.dataset.label + ': ' + (c.parsed.y===null ? 'tidak ada data' : 'Rp ' + fmt(c.parsed.y))}}
+      },
+      scales:{
+        y:{ticks:{callback:v=>(v/1e6).toFixed(0)+'jt'}, grid:{color:'#eef0fb'}},
+        x:{grid:{display:false}}
+      }
+    },
+    plugins:[lineShadowPlugin]
+  });
+}
+
+/* ---- Tren: Perbandingan Bulan yang Sama Antar Tahun (bar chart, mis. Juni 2025 vs Juni 2026) ---- */
+let trenSameMonthChart;
+let TREN_SAME_MONTH_YEARS_SEL_ = new Set();
+
+function populateTrenSameMonth(){
+  const years = trenAvailableYears_();
+  const monthSel = $('#trenSameMonthSelect');
+  if(!monthSel) return;
+  monthSel.innerHTML = MONTH_NAMES.map((m,i)=>`<option value="${i}">${MONTH_FULL_[m]||m}</option>`).join('');
+
+  const periods = STATE.tren.map(r=>r.periode).filter(Boolean).slice().sort();
+  const lastPeriode = periods[periods.length-1];
+  if(lastPeriode) monthSel.value = String(parseInt(String(lastPeriode).split('-')[1],10)-1);
+
+  TREN_SAME_MONTH_YEARS_SEL_ = new Set(years);
+  const yearsWrap = $('#trenSameMonthYears');
+  yearsWrap.innerHTML = years.map(y=>`
+    <label class="year-check-item checked" data-year="${y}">
+      <input type="checkbox" value="${y}" checked> ${y}
+    </label>
+  `).join('');
+  yearsWrap.querySelectorAll('.year-check-item').forEach(item=>{
+    const cb = item.querySelector('input');
+    cb.addEventListener('change', ()=>{
+      const y = item.dataset.year;
+      if(cb.checked){ TREN_SAME_MONTH_YEARS_SEL_.add(y); item.classList.add('checked'); }
+      else{ TREN_SAME_MONTH_YEARS_SEL_.delete(y); item.classList.remove('checked'); }
+      renderTrenSameMonthCompare();
+    });
+  });
+  monthSel.addEventListener('change', renderTrenSameMonthCompare);
+  renderTrenSameMonthCompare();
+}
+
+const TREN_SAME_MONTH_PALETTE_ = [
+  {top:'#a9c4f5', bottom:'#7ba4ef'},
+  {top:'#8fb3ff', bottom:'#5b8def'},
+  {top:'#5b8def', bottom:'#3566d6'},
+  {top:'#3566d6', bottom:'#1f3f9e'},
+  {top:'#2fb8c4', bottom:'#1f8a93'},
+];
+
+function renderTrenSameMonthCompare(){
+  const canvas = $('#trenSameMonthChart');
+  const monthSel = $('#trenSameMonthSelect');
+  if(!canvas || !monthSel || typeof Chart === 'undefined') return;
+  const monthIdx = parseInt(monthSel.value, 10);
+  const monthNum = String(monthIdx+1).padStart(2,'0');
+  const years = trenAvailableYears_().filter(y=>TREN_SAME_MONTH_YEARS_SEL_.has(y));
+
+  const values = years.map(y=>{
+    const row = STATE.tren.find(r=>r.periode === `${y}-${monthNum}`);
+    return row ? row.bulan_ini : null;
+  });
+
+  const ctx = canvas.getContext('2d');
+  const backgrounds = years.map((y,i)=>{
+    const g = ctx.createLinearGradient(0,0,0,230);
+    const c = TREN_SAME_MONTH_PALETTE_[i % TREN_SAME_MONTH_PALETTE_.length];
+    g.addColorStop(0, c.top);
+    g.addColorStop(1, c.bottom);
+    return g;
+  });
+
+  if(trenSameMonthChart) trenSameMonthChart.destroy();
+  trenSameMonthChart = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels: years.map(y => MONTH_NAMES[monthIdx] + ' ' + y),
+      datasets:[{
+        data: values,
+        backgroundColor: backgrounds,
+        borderRadius: 10,
+        borderSkipped: false,
+        maxBarThickness: 80,
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:c=> c.parsed.y===null ? 'Tidak ada data' : 'Rp ' + fmt(c.parsed.y)}}
+      },
+      scales:{
+        y:{ticks:{callback:v=>(v/1e6).toFixed(0)+'jt'}, grid:{color:'#eef0fb'}},
+        x:{grid:{display:false}}
+      }
+    },
+    plugins:[barShadowPlugin]
+  });
+}
+
+// Dropdown/checkbox rentang & bulan-sama cukup dibangun sekali (biar pilihan
+// user tidak ke-reset tiap pindah halaman) -- dipanggil pertama kali halaman
+// Tren dibuka. Setelah itu cukup panggil ulang fungsi render-nya saja.
+let TREN_EXTRA_INITED_ = false;
+function initTrenExtras_(){
+  if(TREN_EXTRA_INITED_) return;
+  TREN_EXTRA_INITED_ = true;
+  initTrenRangeCompare();
+  populateTrenSameMonth();
 }
 
 /* ---------------- Perbandingan ---------------- */
@@ -888,7 +1123,7 @@ function showView(name){
   $('#btnTahunKhusus')?.classList.toggle('active', YEAR_VIEWS.includes(name));
   $$('.year-flyout-item').forEach(b=>b.classList.toggle('active', b.dataset.view===name));
   location.hash = name;
-  if(name==='tren') setTimeout(renderTren, 30);
+  if(name==='tren') setTimeout(()=>{ renderTren(); initTrenExtras_(); }, 30);
 }
 
 function initNav(){
@@ -1000,7 +1235,12 @@ async function main(){
   $('#btnRefresh').addEventListener('click', async ()=>{
     await tryLoadLive();
     renderRingkasan();
-    if($('#view-tren').classList.contains('active')) renderTren();
+    updateTrenMeta_();
+    if($('#view-tren').classList.contains('active')){
+      renderTren();
+      if(TREN_EXTRA_INITED_){ renderTrenRangeCompare(); populateTrenSameMonth(); }
+      else initTrenExtras_();
+    }
     await loadKomponenBelanja();
     renderRingkasan();
     await loadKhususLive();
@@ -1008,6 +1248,7 @@ async function main(){
   });
   await tryLoadLive();
   renderRingkasan();
+  updateTrenMeta_();
   // Dimuat terpisah (bukan diblok bareng ringkasan/tren) supaya kartu ringkasan
   // sudah kelihatan duluan; grafik donat menyusul begitu datanya siap.
   loadKomponenBelanja().then(renderRingkasan);

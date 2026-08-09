@@ -10,7 +10,7 @@
      pengunjung yang sudah pernah buka situs ini masih bisa melihat versi lama (ini akar
      masalah "kok belum berubah" yang pernah dilaporkan). Setiap kali app.js/style.css
      diupdate, NAIKKAN angka v= di bawah supaya browser dipaksa ambil versi baru. -->
-<link rel="stylesheet" href="style.css?v=11">
+<link rel="stylesheet" href="style.css?v=12">
 <script src="chart.umd.min.js"></script>
 <script src="xlsx.full.min.js?v=8"></script>
 </head>
@@ -139,8 +139,41 @@
     <!-- ===== TREN ===== -->
     <section id="view-tren" class="view">
       <div class="card">
-        <h3>Tren Total SPJ Bulanan <span>— Januari 2024 s.d Juli 2026</span></h3>
+        <h3>Tren Total SPJ Bulanan <span id="trenPeriodeLabel">— Januari 2024 s.d Juli 2026</span></h3>
         <div class="chart-wrap"><canvas id="trenChart"></canvas></div>
+      </div>
+
+      <div class="card">
+        <h3>Perbandingan Rentang Bulan</h3>
+        <p class="card-desc">Bandingkan pola SPJ Bulan Ini antar dua rentang bulan, misalnya Januari–Juni 2024 vs Januari–Juni 2025.</p>
+        <div class="range-toolbar">
+          <div class="range-group">
+            <span class="range-dot range-dot-a"></span>
+            <span class="range-label">Rentang A</span>
+            <input type="month" id="trenRangeAFrom">
+            <span class="range-sep">s.d</span>
+            <input type="month" id="trenRangeATo">
+          </div>
+          <div class="range-group">
+            <span class="range-dot range-dot-b"></span>
+            <span class="range-label">Rentang B</span>
+            <input type="month" id="trenRangeBFrom">
+            <span class="range-sep">s.d</span>
+            <input type="month" id="trenRangeBTo">
+          </div>
+        </div>
+        <div class="range-summary" id="trenRangeSummary"></div>
+        <div class="chart-wrap" style="height:280px;"><canvas id="trenRangeChart"></canvas></div>
+      </div>
+
+      <div class="card">
+        <h3>Perbandingan Bulan yang Sama Antar Tahun</h3>
+        <p class="card-desc">Bandingkan SPJ Bulan Ini pada bulan yang sama di tahun-tahun berbeda, misalnya Juni 2025 vs Juni 2026.</p>
+        <div class="toolbar">
+          <select id="trenSameMonthSelect"></select>
+          <div class="year-checks" id="trenSameMonthYears"></div>
+        </div>
+        <div class="chart-wrap" style="height:280px;"><canvas id="trenSameMonthChart"></canvas></div>
       </div>
     </section>
 
@@ -203,7 +236,7 @@
       </div>
     </section>
 
-    <p class="footer-note">Data sumber: 31 laporan bulanan RSUD dr. R. Soeprapto Cepu, Jan 2024–Jul 2026. Lihat catatan metodologi di file Rekap_Belanja_SPJ_2024_2025_2026_v2.xlsx.</p>
+    <p class="footer-note" id="footerDataSumber">Data sumber: 31 laporan bulanan RSUD dr. R. Soeprapto Cepu, Jan 2024–Jul 2026. Lihat catatan metodologi di file Rekap_Belanja_SPJ_2024_2025_2026_v2.xlsx.</p>
   </main>
 
   <div class="fab-group">
@@ -246,6 +279,6 @@
 <script src="config.js?v=8"></script>
 <script src="auth.js?v=8"></script>
 <script src="data.js?v=8"></script>
-<script src="app.js?v=11"></script>
+<script src="app.js?v=12"></script>
 </body>
 </html>
