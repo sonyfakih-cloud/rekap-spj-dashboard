@@ -303,6 +303,39 @@
         <h3>Tren Total Pendapatan Bulanan <span id="trenPeriodeLabelP">— Januari 2024 s.d Juli 2026</span></h3>
         <div class="chart-wrap"><canvas id="trenChartP"></canvas></div>
       </div>
+
+      <div class="card">
+        <h3>Perbandingan Rentang Bulan</h3>
+        <p class="card-desc">Bandingkan pola Pendapatan Bulan Ini antar dua rentang bulan, misalnya Januari–Juni 2024 vs Januari–Juni 2025.</p>
+        <div class="range-toolbar">
+          <div class="range-group">
+            <span class="range-dot range-dot-a"></span>
+            <span class="range-label">Rentang A</span>
+            <input type="month" id="trenRangeAFromP">
+            <span class="range-sep">s.d</span>
+            <input type="month" id="trenRangeAToP">
+          </div>
+          <div class="range-group">
+            <span class="range-dot range-dot-b"></span>
+            <span class="range-label">Rentang B</span>
+            <input type="month" id="trenRangeBFromP">
+            <span class="range-sep">s.d</span>
+            <input type="month" id="trenRangeBToP">
+          </div>
+        </div>
+        <div class="range-summary" id="trenRangeSummaryP"></div>
+        <div class="chart-wrap" style="height:280px;"><canvas id="trenRangeChartP"></canvas></div>
+      </div>
+
+      <div class="card">
+        <h3>Perbandingan Bulan yang Sama Antar Tahun</h3>
+        <p class="card-desc">Bandingkan Pendapatan Bulan Ini pada bulan yang sama di tahun-tahun berbeda, misalnya Juni 2025 vs Juni 2026.</p>
+        <div class="toolbar">
+          <select id="trenSameMonthSelectP"></select>
+          <div class="year-checks" id="trenSameMonthYearsP"></div>
+        </div>
+        <div class="chart-wrap" style="height:280px;"><canvas id="trenSameMonthChartP"></canvas></div>
+      </div>
     </section>
 
     <!-- ===== KHUSUS 2024/2025/2026 (PENDAPATAN) ===== -->
