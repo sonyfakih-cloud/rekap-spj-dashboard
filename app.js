@@ -921,17 +921,21 @@ function renderKhusus(year){
     </tr>`).join('');
   $(`#countKhusus${year}`).textContent = rows.length + ' akun';
   tbody.querySelectorAll('tr').forEach(tr=>{
-    tr.addEventListener('click', ()=> openBkuModal(tr.dataset.year, tr.dataset.kode, tr.dataset.nama));
+    tr.addEventListener('click', ()=> openBkuModal(tr.dataset.year, tr.dataset.kode, tr.dataset.nama, 'belanja'));
   });
 }
 
 /* ---------------- Detail Transaksi BKU (drill-down) ---------------- */
-let BKU_STATE = { rows: [], year: null, kode: null, nama: null };
+// "modul" membedakan Belanja ('belanja', default -- endpoint ?view=bku, kolom
+// Pengeluaran) dari Pendapatan ('pendapatan' -- endpoint ?view=bku_pendapatan,
+// kolom Penerimaan). Modal & tabelnya SAMA PERSIS, cuma field & endpoint beda.
+let BKU_STATE = { rows: [], year: null, kode: null, nama: null, modul: 'belanja' };
 
-function openBkuModal(year, kode, nama){
-  BKU_STATE = { rows: [], year, kode, nama };
+function openBkuModal(year, kode, nama, modul){
+  modul = modul || 'belanja';
+  BKU_STATE = { rows: [], year, kode, nama, modul };
   $('#bkuModalTitle').textContent = nama || kode;
-  $('#bkuModalSub').textContent = `Kode Rekening ${kode} — BKU Tahun ${year}`;
+  $('#bkuModalSub').textContent = `Kode Rekening ${kode} — BKU ${modul==='pendapatan'?'Pendapatan':''} Tahun ${year}`;
   $('#bkuFilterTanggalFrom').value = '';
   $('#bkuFilterTanggalTo').value = '';
   // PENTING: kunci rentang date-picker ke tahun BKU yang sedang dibuka. Tanpa ini,
@@ -947,20 +951,21 @@ function openBkuModal(year, kode, nama){
   $('#bkuFilterTanggalTo').max = `${year}-12-31`;
   $('#bkuModalBody').innerHTML = '<div class="bku-status">Memuat data transaksi dari BKU '+year+'...</div>';
   $('#bkuModal').classList.add('active');
-  fetchBkuTransaksi(year, kode);
+  fetchBkuTransaksi(year, kode, modul);
 }
 
 function closeBkuModal(){
   $('#bkuModal').classList.remove('active');
 }
 
-async function fetchBkuTransaksi(year, kode){
+async function fetchBkuTransaksi(year, kode, modul){
   if(!window.APPS_SCRIPT_URL){
     $('#bkuModalBody').innerHTML = '<div class="bku-status bku-error">Data live belum tersambung (APPS_SCRIPT_URL kosong di config.js). Rincian transaksi BKU memerlukan koneksi live ke Google Sheet — lihat PANDUAN_DEPLOY.md.</div>';
     return;
   }
   try{
-    const url = `${APPS_SCRIPT_URL}?view=bku&tahun=${encodeURIComponent(year)}&kode=${encodeURIComponent(kode)}`;
+    const view = modul === 'pendapatan' ? 'bku_pendapatan' : 'bku';
+    const url = `${APPS_SCRIPT_URL}?view=${view}&tahun=${encodeURIComponent(year)}&kode=${encodeURIComponent(kode)}`;
     const res = await fetch(url, {method:'GET'});
     if(!res.ok) throw new Error('bad status ' + res.status);
     const json = await res.json();
@@ -1008,19 +1013,22 @@ function getFilteredBkuRows(){
 
 function renderBkuTable(){
   const rows = getFilteredBkuRows();
+  const isP = BKU_STATE.modul === 'pendapatan';
+  const field = isP ? 'penerimaan' : 'pengeluaran';
+  const label = isP ? 'Penerimaan' : 'Pengeluaran';
 
   if(!BKU_STATE.rows.length){
     $('#bkuModalBody').innerHTML = '<div class="bku-status">Tidak ada transaksi ditemukan untuk rekening ini di BKU '+BKU_STATE.year+'.</div>';
     return;
   }
 
-  const total = rows.reduce((s,r)=>s+(r.pengeluaran||0), 0);
+  const total = rows.reduce((s,r)=>s+(r[field]||0), 0);
 
   $('#bkuModalBody').innerHTML = `
-    <div class="bku-summary">${rows.length} dari ${BKU_STATE.rows.length} transaksi — Total Pengeluaran: <b>Rp ${fmt(total)}</b></div>
+    <div class="bku-summary">${rows.length} dari ${BKU_STATE.rows.length} transaksi — Total ${label}: <b>Rp ${fmt(total)}</b></div>
     <div class="table-wrap bku-table-wrap">
       <table class="data">
-        <thead><tr><th>No</th><th>No Bukti</th><th>Tanggal</th><th>Uraian</th><th>Kode Rekening</th><th>Pengeluaran</th></tr></thead>
+        <thead><tr><th>No</th><th>No Bukti</th><th>Tanggal</th><th>Uraian</th><th>Kode Rekening</th><th>${label}</th></tr></thead>
         <tbody>
           ${rows.map(r=>`<tr>
             <td>${r.no}</td>
@@ -1028,7 +1036,7 @@ function renderBkuTable(){
             <td>${r.tanggal}</td>
             <td>${r.uraian}</td>
             <td>${r.kode_rekening}</td>
-            <td style="text-align:right">${fmt(r.pengeluaran)}</td>
+            <td style="text-align:right">${fmt(r[field])}</td>
           </tr>`).join('') || '<tr><td colspan="6" style="text-align:center">Tidak ada hasil untuk filter ini.</td></tr>'}
         </tbody>
       </table>
@@ -1052,16 +1060,19 @@ function exportBkuToExcel(){
     return;
   }
 
-  const judul = `${BKU_STATE.nama || BKU_STATE.kode} — Kode Rekening ${BKU_STATE.kode} — BKU Tahun ${BKU_STATE.year}`;
+  const isP = BKU_STATE.modul === 'pendapatan';
+  const field = isP ? 'penerimaan' : 'pengeluaran';
+  const label = isP ? 'Penerimaan' : 'Pengeluaran';
+  const judul = `${BKU_STATE.nama || BKU_STATE.kode} — Kode Rekening ${BKU_STATE.kode} — BKU ${isP?'Pendapatan ':''}Tahun ${BKU_STATE.year}`;
   const fromStr = $('#bkuFilterTanggalFrom').value;
   const toStr = $('#bkuFilterTanggalTo').value;
   const keteranganFilter = (fromStr || toStr)
     ? `Filter tanggal: ${fromStr || '...'} s.d. ${toStr || '...'}`
     : 'Tanpa filter tanggal (semua transaksi)';
-  const total = rows.reduce((s,r)=>s+(r.pengeluaran||0), 0);
+  const total = rows.reduce((s,r)=>s+(r[field]||0), 0);
 
-  const header = ['No','No Bukti','Tanggal','Uraian','Kode Rekening','Pengeluaran'];
-  const body = rows.map(r => [r.no, r.no_bukti, r.tanggal, r.uraian, r.kode_rekening, r.pengeluaran]);
+  const header = ['No','No Bukti','Tanggal','Uraian','Kode Rekening',label];
+  const body = rows.map(r => [r.no, r.no_bukti, r.tanggal, r.uraian, r.kode_rekening, r[field]]);
   const aoa = [
     [judul], [keteranganFilter], [],
     header,
@@ -1110,6 +1121,273 @@ function initBkuModal(){
     renderBkuTable();
   });
   $('#bkuExportExcel').addEventListener('click', exportBkuToExcel);
+}
+
+/* ================= MODUL PENDAPATAN ================= */
+// Struktur & pola SAMA PERSIS dengan modul Belanja di atas (STATE/renderRingkasan/
+// renderTren/renderKhusus/tryLoadLive), tapi namespace terpisah (STATE_P, elemen
+// id berakhiran "P") supaya tidak bentrok dengan punya Belanja -- keduanya bisa
+// aktif independen. Sumber data: data_pendapatan.js (snapshot REKAP_DATA_PENDAPATAN)
+// di-override live oleh endpoint ?view=ringkasan_pendapatan / tren_pendapatan /
+// khusus_pendapatan begitu APPS_SCRIPT_URL tersambung.
+let STATE_P = {
+  ringkasan: (typeof REKAP_DATA_PENDAPATAN !== 'undefined') ? REKAP_DATA_PENDAPATAN.ringkasan : {},
+  tren: (typeof REKAP_DATA_PENDAPATAN !== 'undefined') ? REKAP_DATA_PENDAPATAN.tren : [],
+  khusus: (typeof REKAP_DATA_PENDAPATAN !== 'undefined') ? REKAP_DATA_PENDAPATAN.khusus : {},
+  live: false,
+};
+
+function updateLiveBadgeP(){
+  const el = $('#liveBadgeP');
+  if(!el) return;
+  if(STATE_P.live){
+    el.innerHTML = '<span class="live-dot"></span>Live dari Google Sheet';
+  } else {
+    const gen = (typeof REKAP_DATA_PENDAPATAN !== 'undefined' && REKAP_DATA_PENDAPATAN.meta) ? REKAP_DATA_PENDAPATAN.meta.generated : '';
+    el.innerHTML = '<span class="live-dot off"></span>Data snapshot ('+gen+')';
+  }
+}
+
+async function tryLoadLivePendapatan(){
+  if(!window.APPS_SCRIPT_URL) return;
+  try{
+    const res = await fetch(`${APPS_SCRIPT_URL}?view=ringkasan_pendapatan`, {method:'GET'});
+    if(!res.ok) throw new Error('bad status ' + res.status);
+    const json = await res.json();
+    if(json.ringkasan_pendapatan && json.ringkasan_pendapatan.length){
+      const byYear = {};
+      json.ringkasan_pendapatan.forEach(r=>{
+        const y = r.periode;
+        if(!byYear[y]) byYear[y] = {breakdown:[]};
+        const rec = {kode:String(r.kode), nama:r.nama, pagu:+r.pagu, bulan_ini:+r.bulan_ini, sd_bulan_ini:+r.sd_bulan_ini, persen:+r.persen, sisa_pagu:+r.sisa_pagu};
+        if(String(r.kode) === '4') Object.assign(byYear[y], rec);
+        else byYear[y].breakdown.push(rec);
+      });
+      // pertahankan label_bulan yg sudah ada kalau live tidak mengirimkannya
+      ['2024','2025','2026'].forEach(y=>{
+        if(byYear[y] && !byYear[y].label_bulan && STATE_P.ringkasan[y]) byYear[y].label_bulan = STATE_P.ringkasan[y].label_bulan;
+      });
+      STATE_P.ringkasan = byYear;
+    }
+  }catch(err){
+    console.warn('Live fetch ringkasan Pendapatan gagal, pakai data bawaan:', err);
+  }
+  try{
+    const res2 = await fetch(`${APPS_SCRIPT_URL}?view=tren_pendapatan`, {method:'GET'});
+    if(!res2.ok) throw new Error('bad status ' + res2.status);
+    const json2 = await res2.json();
+    if(json2.tren_pendapatan && json2.tren_pendapatan.length){
+      STATE_P.tren = json2.tren_pendapatan.map(r=>({periode: normalizePeriode_(r.periode), bulan_ini:+r.bulan_ini, sd_bulan_ini:+r.sd_bulan_ini, pagu:+r.pagu}))
+        .sort((a,b)=> a.periode.localeCompare(b.periode));
+    }
+    STATE_P.live = true;
+  }catch(err){
+    console.warn('Live fetch tren Pendapatan gagal, pakai data bawaan:', err);
+    STATE_P.live = false;
+  }
+  updateLiveBadgeP();
+}
+
+async function loadKhususLivePendapatan(){
+  if(!window.APPS_SCRIPT_URL) return;
+  try{
+    const res = await fetch(`${APPS_SCRIPT_URL}?view=khusus_pendapatan`, {method:'GET'});
+    if(!res.ok) throw new Error('bad status ' + res.status);
+    const json = await res.json();
+    if(!json.khusus) throw new Error('respons tidak berisi field khusus');
+    ['2024','2025','2026'].forEach(y=>{
+      const d = json.khusus[y];
+      if(d && d.rows && d.rows.length){
+        STATE_P.khusus[y] = { bulan_label: d.bulan_label, rows: d.rows };
+      }
+    });
+  }catch(err){
+    console.warn('Gagal memuat pohon akun Pendapatan (khusus) live, tetap pakai data snapshot:', err);
+  }
+}
+
+function updateRingkasanPeriodeLabelP_(){
+  const el = document.getElementById('ringkasanPeriodeLabelP');
+  if(!el) return;
+  const parts = ['2024','2025','2026'].map(y=>{
+    const d = STATE_P.ringkasan[y];
+    const lb = d && d.label_bulan;
+    const full = lb ? (MONTH_FULL_[lb] || lb) : '';
+    return full ? `${full} ${y}` : null;
+  }).filter(Boolean);
+  if(parts.length) el.textContent = '— ' + parts.join(' / ');
+}
+
+const KOMPONEN_WARNA_PENDAPATAN = {
+  retribusi: { color:'#5b8def', label:'Retribusi Daerah' },
+  blud:       { color:'#f0a35b', label:'Lain-lain PAD (BLUD, dst)' },
+};
+
+function renderRingkasanPendapatan(){
+  updateRingkasanPeriodeLabelP_();
+  const wrap = $('#kpiRowP');
+  if(!wrap) return;
+  wrap.innerHTML = '';
+  ['2024','2025','2026'].forEach(y=>{
+    const d = STATE_P.ringkasan[y];
+    if(!d || d.pagu === undefined){ return; }
+    const pct = d.persen || 0;
+    const breakdown = d.breakdown || [];
+    const segments = breakdown.map(b=>{
+      const key = /4\.1\.02/.test(b.kode) ? 'retribusi' : 'blud';
+      return { key, value: b.sd_bulan_ini||0, ...KOMPONEN_WARNA_PENDAPATAN[key] };
+    }).filter(s=>s.value>0);
+    const segTotal = segments.reduce((s,x)=>s+x.value,0);
+    const donutHtml = segTotal ? `
+      <div class="komp-donut-wrap">
+        ${buildDonutSVG(segments, segTotal)}
+        <div class="komp-legend">${segments.map(s=>`
+          <div class="komp-legend-item">
+            <span class="komp-dot" style="background:${s.color}"></span>
+            <span class="komp-legend-label">${s.label}</span>
+            <span class="komp-legend-pct">${fmtPct(s.value/segTotal*100)}</span>
+          </div>`).join('')}</div>
+      </div>` : `
+      <table class="subtable">
+        <thead><tr><th>Komponen</th><th>SD Bulan Ini</th><th>%</th></tr></thead>
+        <tbody>${breakdown.map(b=>`<tr><td>${b.nama}</td><td style="text-align:right">${fmt(b.sd_bulan_ini)}</td><td style="text-align:right">${fmtPct(b.persen)}</td></tr>`).join('')}</tbody>
+      </table>`;
+    const card = document.createElement('div');
+    card.className = 'kpi-card';
+    card.innerHTML = `
+      <div class="kpi-year"><b>Tahun ${y}</b><small>s.d ${d.label_bulan||''}</small></div>
+      <div class="kpi-ring" style="--pct:${Math.min(pct,100)}"><span>${pct.toFixed(1)}%</span></div>
+      <div class="kpi-stats">
+        <div><span>Target Pendapatan</span><b>Rp ${fmt(d.pagu)}</b></div>
+        <div><span>Pendapatan Bulan Ini</span><b>Rp ${fmt(d.bulan_ini)}</b></div>
+        <div><span>Pendapatan s.d Bulan Ini</span><b>Rp ${fmt(d.sd_bulan_ini)}</b></div>
+        <div><span>Sisa Target</span><b>Rp ${fmt(d.sisa_pagu)}</b></div>
+      </div>
+      ${donutHtml}
+    `;
+    wrap.appendChild(card);
+  });
+}
+
+let trenChartP;
+function updateTrenMetaP_(){
+  if(!STATE_P.tren || !STATE_P.tren.length) return;
+  const periods = STATE_P.tren.map(r=>r.periode).filter(Boolean).slice().sort();
+  const first = periods[0], last = periods[periods.length-1];
+  const h3span = $('#trenPeriodeLabelP');
+  if(h3span) h3span.textContent = `— ${periodeLabelFull_(first)} s.d ${periodeLabelFull_(last)}`;
+  const footer = $('#footerDataSumberP');
+  if(footer) footer.textContent = `Data sumber: ${STATE_P.tren.length} laporan bulanan Pendapatan RSUD dr. R. Soeprapto Cepu, ${periodeLabelShort_(first)}–${periodeLabelShort_(last)}. Lihat catatan metodologi di file Rekap_Pendapatan_2024_2025_2026.xlsx.`;
+}
+
+function renderTrenPendapatan(){
+  updateTrenMetaP_();
+  const canvas = $('#trenChartP');
+  if(!canvas || typeof Chart === 'undefined') return;
+  const ctx = canvas.getContext('2d');
+  const labels = STATE_P.tren.map(r=>r.periode);
+  const bulanIni = STATE_P.tren.map(r=>r.bulan_ini);
+  const sd = STATE_P.tren.map(r=>r.sd_bulan_ini);
+  if(trenChartP) trenChartP.destroy();
+  trenChartP = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        {type:'bar', label:'Pendapatan Bulan Ini', data:bulanIni, backgroundColor:'rgba(240,163,91,0.55)', borderRadius:6, order:2},
+        {type:'line', label:'Pendapatan s.d Bulan Ini (kumulatif)', data:sd, borderColor:'#5b8def', backgroundColor:'rgba(91,141,239,0.15)', tension:0, yAxisID:'y1', order:1, pointRadius:2},
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index', intersect:false},
+      plugins:{legend:{position:'top', labels:{boxWidth:12, font:{size:11}}}},
+      scales:{
+        y:{ticks:{callback:v=>(v/1e6).toFixed(0)+'jt'}, grid:{color:'#eef0fb'}},
+        y1:{position:'right', grid:{drawOnChartArea:false}, ticks:{callback:v=>(v/1e9).toFixed(1)+'M'}},
+        x:{ticks:{maxRotation:90,minRotation:60, font:{size:9}}}
+      }
+    },
+    plugins:[lineShadowPlugin]
+  });
+}
+
+function renderKhususPendapatan(year){
+  const data = STATE_P.khusus[year];
+  if(!data) return;
+  const theadRow = $(`#tblKhusus${year}P thead tr`);
+  theadRow.innerHTML = '<th>Kode</th><th>Nama Rekening</th>' + data.bulan_label.map(m=>`<th>${m}</th>`).join('') + '<th>Total</th>';
+  const tbody = $(`#tblKhusus${year}P tbody`);
+  const q = ($(`#searchKhusus${year}P`).value||'').toLowerCase();
+  const rows = data.rows.filter(r=>r.nama.toLowerCase().includes(q) || r.kode.includes(q));
+  tbody.innerHTML = rows.map(r=>`<tr data-kode="${r.kode}" data-nama="${r.nama.replace(/"/g,'&quot;')}" data-year="${year}" title="Klik untuk lihat rincian transaksi BKU Pendapatan ${year}">
+      <td class="lvl-${r.depth}">${r.kode}</td>
+      <td class="lvl-${r.depth}">${r.nama}</td>
+      ${r.bulanan.map(v=>`<td>${fmt(v)}</td>`).join('')}
+      <td><b>${fmt(r.total)}</b></td>
+    </tr>`).join('');
+  $(`#countKhusus${year}P`).textContent = rows.length + ' akun';
+  tbody.querySelectorAll('tr').forEach(tr=>{
+    tr.addEventListener('click', ()=> openBkuModal(tr.dataset.year, tr.dataset.kode, tr.dataset.nama, 'pendapatan'));
+  });
+}
+
+/* ---- Nav modul Pendapatan (paralel dgn showView/initNav Belanja) ---- */
+const YEAR_VIEWS_P = ['2024-p','2025-p','2026-p'];
+
+function showViewP(name){
+  const root = $('#appRootPendapatan');
+  if(!root) return;
+  root.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  const target = document.getElementById(`view-${name}`);
+  if(target) target.classList.add('active');
+  root.querySelectorAll('.nav-item[data-viewp]').forEach(n=>n.classList.toggle('active', n.dataset.viewp===name));
+  $('#btnTahunKhususP')?.classList.toggle('active', YEAR_VIEWS_P.includes(name));
+  root.querySelectorAll('.year-flyout-item').forEach(b=>b.classList.toggle('active', b.dataset.viewp===name));
+  if(name==='tren-p') setTimeout(renderTrenPendapatan, 30);
+}
+
+function initNavP(){
+  const root = $('#appRootPendapatan');
+  if(!root) return;
+  root.querySelectorAll('.nav-item[data-viewp]').forEach(item=>{
+    item.addEventListener('click', ()=>showViewP(item.dataset.viewp));
+  });
+  root.querySelectorAll('.year-flyout-item').forEach(item=>{
+    item.addEventListener('click', e=>{
+      e.stopPropagation();
+      showViewP(item.dataset.viewp);
+      closeYearFlyoutP_();
+    });
+  });
+  showViewP('ringkasan-p');
+}
+
+function closeYearFlyoutP_(){
+  const flyout = $('#yearFlyoutP'), btn = $('#btnTahunKhususP'), root = $('#appRootPendapatan');
+  flyout?.classList.remove('open'); btn?.classList.remove('flyout-open');
+  root?.classList.remove('yearflyout-open');
+}
+
+function initYearMenuP(){
+  const btn = $('#btnTahunKhususP');
+  const flyout = $('#yearFlyoutP');
+  if(!btn || !flyout) return;
+  const root = $('#appRootPendapatan');
+  const openFlyout = ()=>{ flyout.classList.add('open'); btn.classList.add('flyout-open'); root?.classList.add('yearflyout-open'); };
+  btn.addEventListener('click', e=>{
+    e.stopPropagation();
+    flyout.classList.contains('open') ? closeYearFlyoutP_() : openFlyout();
+  });
+  document.addEventListener('click', e=>{ if(!btn.contains(e.target)) closeYearFlyoutP_(); });
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeYearFlyoutP_(); });
+}
+
+function showPendapatanApp(){
+  $('#hubScreen').style.display = 'none';
+  $('#comingSoonScreen').style.display = 'none';
+  $('#appRoot').style.display = 'none';
+  $('#appRootPendapatan').style.display = 'flex';
 }
 
 /* ---------------- Nav ---------------- */
@@ -1177,6 +1455,7 @@ function showHub(){
   $('#hubScreen').style.display = 'flex';
   $('#comingSoonScreen').style.display = 'none';
   $('#appRoot').style.display = 'none';
+  $('#appRootPendapatan').style.display = 'none';
 }
 
 function showComingSoon(title, desc){
@@ -1185,12 +1464,14 @@ function showComingSoon(title, desc){
   $('#hubScreen').style.display = 'none';
   $('#comingSoonScreen').style.display = 'flex';
   $('#appRoot').style.display = 'none';
+  $('#appRootPendapatan').style.display = 'none';
 }
 
 function showBelanjaApp(){
   $('#hubScreen').style.display = 'none';
   $('#comingSoonScreen').style.display = 'none';
   $('#appRoot').style.display = 'flex';
+  $('#appRootPendapatan').style.display = 'none';
 }
 
 function initHub(){
@@ -1200,9 +1481,9 @@ function initHub(){
       if(target === 'belanja'){
         showBelanjaApp();
       } else if(target === 'pendapatan'){
-        showComingSoon('Pendapatan — Segera Hadir', 'Modul Pendapatan RSUD dr. R. Soeprapto Cepu belum tersedia -- sumber datanya belum terhubung. Silakan gunakan modul Belanja untuk saat ini.');
+        showPendapatanApp();
       } else if(target === 'gabungan'){
-        showComingSoon('Pendapatan & Belanja — Segera Hadir', 'Ringkasan gabungan Pendapatan dan Belanja akan tersedia setelah data Pendapatan terhubung ke dashboard ini.');
+        showComingSoon('Pendapatan & Belanja — Segera Hadir', 'Ringkasan gabungan Pendapatan dan Belanja akan tersedia setelah menu ini disiapkan.');
       }
     });
   });
@@ -1210,6 +1491,8 @@ function initHub(){
   if(back) back.addEventListener('click', showHub);
   const home = $('#btnHomeMenu');
   if(home) home.addEventListener('click', showHub);
+  const homeP = $('#btnHomeMenuP');
+  if(homeP) homeP.addEventListener('click', showHub);
 }
 
 async function main(){
@@ -1223,6 +1506,32 @@ async function main(){
   initNav();
   initYearMenu();
   initBkuModal();
+
+  // ---- Modul Pendapatan (independen dari Belanja di atas) ----
+  updateLiveBadgeP();
+  renderRingkasanPendapatan();
+  ['2024','2025','2026'].forEach(renderKhususPendapatan);
+  initNavP();
+  initYearMenuP();
+  ['2024','2025','2026'].forEach(y=>{
+    $(`#searchKhusus${y}P`)?.addEventListener('input', ()=>renderKhususPendapatan(y));
+  });
+  $('#btnRefreshP')?.addEventListener('click', async ()=>{
+    await tryLoadLivePendapatan();
+    renderRingkasanPendapatan();
+    updateTrenMetaP_();
+    if($('#view-tren-p').classList.contains('active')) renderTrenPendapatan();
+    await loadKhususLivePendapatan();
+    ['2024','2025','2026'].forEach(renderKhususPendapatan);
+  });
+  tryLoadLivePendapatan().then(()=>{
+    renderRingkasanPendapatan();
+    updateTrenMetaP_();
+    if($('#view-tren-p').classList.contains('active')) renderTrenPendapatan();
+  });
+  loadKhususLivePendapatan().then(()=>{
+    ['2024','2025','2026'].forEach(renderKhususPendapatan);
+  });
   $('#searchPerbandingan').addEventListener('input', renderPerbandingan);
   $('#filterBulanPerbandingan').addEventListener('change', (e)=>{
     const v = e.target.value;
