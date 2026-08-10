@@ -41,6 +41,8 @@
     document.getElementById('appRoot').style.display = 'none';
     const rootP = document.getElementById('appRootPendapatan');
     if(rootP) rootP.style.display = 'none';
+    const rootG = document.getElementById('appRootGabungan');
+    if(rootG) rootG.style.display = 'none';
   }
 
   async function fetchRemotePassword(){
@@ -92,6 +94,8 @@
     document.getElementById('appRoot').style.display = 'none';
     const rootP0 = document.getElementById('appRootPendapatan');
     if(rootP0) rootP0.style.display = 'none';
+    const rootG0 = document.getElementById('appRootGabungan');
+    if(rootG0) rootG0.style.display = 'none';
     document.getElementById('hubScreen').style.display = 'none';
     document.getElementById('comingSoonScreen').style.display = 'none';
     if(isAuthed()){
@@ -102,7 +106,7 @@
     document.getElementById('authForm').addEventListener('submit', handleSubmit);
     // Dua tombol keluar: satu di dalam modul Belanja (fab #btnLogout), satu lagi
     // di Menu Utama (#hubLogout) -- keduanya pakai logika logout yang sama.
-    ['btnLogout', 'btnLogoutP', 'hubLogout'].forEach(function(id){
+    ['btnLogout', 'btnLogoutP', 'btnLogoutG', 'hubLogout'].forEach(function(id){
       const btn = document.getElementById(id);
       if(btn) btn.addEventListener('click', function(){ clearAuthed(); showGate(); });
     });

@@ -1583,6 +1583,7 @@ function showPendapatanApp(){
   $('#comingSoonScreen').style.display = 'none';
   $('#appRoot').style.display = 'none';
   $('#appRootPendapatan').style.display = 'flex';
+  const rootG_ = $('#appRootGabungan'); if(rootG_) rootG_.style.display = 'none';
 }
 
 /* ---------------- Nav ---------------- */
@@ -1651,6 +1652,7 @@ function showHub(){
   $('#comingSoonScreen').style.display = 'none';
   $('#appRoot').style.display = 'none';
   $('#appRootPendapatan').style.display = 'none';
+  const rootG_ = $('#appRootGabungan'); if(rootG_) rootG_.style.display = 'none';
 }
 
 function showComingSoon(title, desc){
@@ -1660,6 +1662,7 @@ function showComingSoon(title, desc){
   $('#comingSoonScreen').style.display = 'flex';
   $('#appRoot').style.display = 'none';
   $('#appRootPendapatan').style.display = 'none';
+  const rootG_ = $('#appRootGabungan'); if(rootG_) rootG_.style.display = 'none';
 }
 
 function showBelanjaApp(){
@@ -1667,6 +1670,21 @@ function showBelanjaApp(){
   $('#comingSoonScreen').style.display = 'none';
   $('#appRoot').style.display = 'flex';
   $('#appRootPendapatan').style.display = 'none';
+  const rootG_ = $('#appRootGabungan'); if(rootG_) rootG_.style.display = 'none';
+}
+
+// Modul Gabungan tidak punya sumber data sendiri -- cuma menggabungkan STATE.tren
+// (Belanja) & STATE_P.tren (Pendapatan) yang sudah dimuat modul lain. Grafiknya
+// baru di-render saat modul ini pertama kali dibuka (bukan dari main()) karena
+// canvas Chart.js butuh ukuran non-nol saat dibuat -- kalau di-render lebih dulu
+// sementara appRootGabungan masih display:none, grafiknya akan kosong/gepeng.
+function showGabunganApp(){
+  $('#hubScreen').style.display = 'none';
+  $('#comingSoonScreen').style.display = 'none';
+  $('#appRoot').style.display = 'none';
+  $('#appRootPendapatan').style.display = 'none';
+  $('#appRootGabungan').style.display = 'flex';
+  setTimeout(()=>{ renderTrenGabungan(); initTrenExtrasG_(); }, 30);
 }
 
 function initHub(){
@@ -1678,7 +1696,7 @@ function initHub(){
       } else if(target === 'pendapatan'){
         showPendapatanApp();
       } else if(target === 'gabungan'){
-        showComingSoon('Pendapatan & Belanja — Segera Hadir', 'Ringkasan gabungan Pendapatan dan Belanja akan tersedia setelah menu ini disiapkan.');
+        showGabunganApp();
       }
     });
   });
@@ -1688,6 +1706,273 @@ function initHub(){
   if(home) home.addEventListener('click', showHub);
   const homeP = $('#btnHomeMenuP');
   if(homeP) homeP.addEventListener('click', showHub);
+  const homeG = $('#btnHomeMenuG');
+  if(homeG) homeG.addEventListener('click', showHub);
+}
+
+/* ================================================================
+   MODUL GABUNGAN: Pendapatan Vs Belanja
+   Tidak punya sumber data sendiri -- murni menggabungkan STATE.tren
+   (Belanja, sudah dimuat modul Belanja) & STATE_P.tren (Pendapatan,
+   sudah dimuat modul Pendapatan). Warna konsisten dipakai di ketiga
+   grafik: Belanja = biru (#5b8def), Pendapatan = oranye (#f0a35b) --
+   sama dengan warna aksen utama tiap modul aslinya.
+   ================================================================ */
+
+/* ---- Gabungan: kumpulan periode & tahun (union dari kedua sumber) ---- */
+function gabunganAllPeriods_(){
+  const set = new Set();
+  (STATE.tren||[]).forEach(r=>{ if(r.periode) set.add(r.periode); });
+  (STATE_P.tren||[]).forEach(r=>{ if(r.periode) set.add(r.periode); });
+  return Array.from(set).sort();
+}
+
+function gabunganAvailableYears_(){
+  const years = new Set();
+  (STATE.tren||[]).forEach(r=>{ if(r.periode) years.add(String(r.periode).slice(0,4)); });
+  (STATE_P.tren||[]).forEach(r=>{ if(r.periode) years.add(String(r.periode).slice(0,4)); });
+  return Array.from(years).sort();
+}
+
+function updateTrenMetaG_(){
+  const periods = gabunganAllPeriods_();
+  if(!periods.length) return;
+  const first = periods[0], last = periods[periods.length-1];
+  const h3span = $('#trenPeriodeLabelG');
+  if(h3span) h3span.textContent = `— ${periodeLabelFull_(first)} s.d ${periodeLabelFull_(last)}`;
+  const footer = $('#footerDataSumberG');
+  if(footer) footer.textContent = `Data gabungan Pendapatan & Belanja RSUD dr. R. Soeprapto Cepu, ${periodeLabelShort_(first)}–${periodeLabelShort_(last)}.`;
+}
+
+/* ---- Card 1: Tren Total SPJ Bulanan Pendapatan Vs Belanja (line chart, 2 series) ---- */
+let trenChartG;
+
+function renderTrenGabungan(){
+  updateTrenMetaG_();
+  const canvas = $('#trenChartG');
+  if(!canvas || typeof Chart === 'undefined') return;
+
+  const periods = gabunganAllPeriods_();
+  const belanjaMap = {}; (STATE.tren||[]).forEach(r=>{ belanjaMap[r.periode] = r.bulan_ini; });
+  const pendapatanMap = {}; (STATE_P.tren||[]).forEach(r=>{ pendapatanMap[r.periode] = r.bulan_ini; });
+  const dataBelanja = periods.map(p=> p in belanjaMap ? belanjaMap[p] : null);
+  const dataPendapatan = periods.map(p=> p in pendapatanMap ? pendapatanMap[p] : null);
+
+  const ctx = canvas.getContext('2d');
+  if(trenChartG) trenChartG.destroy();
+  trenChartG = new Chart(ctx, {
+    type:'line',
+    data:{
+      labels: periods,
+      datasets:[
+        {label:'Belanja', data:dataBelanja, borderColor:'#5b8def', backgroundColor:'rgba(91,141,239,0.12)', tension:0, pointRadius:2, borderWidth:2.5, spanGaps:true},
+        {label:'Pendapatan', data:dataPendapatan, borderColor:'#f0a35b', backgroundColor:'rgba(240,163,91,0.12)', tension:0, pointRadius:2, borderWidth:2.5, spanGaps:true},
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index', intersect:false},
+      plugins:{
+        legend:{position:'top', labels:{boxWidth:12, font:{size:11}}},
+        tooltip:{callbacks:{label:c=> c.dataset.label + ': ' + (c.parsed.y===null ? 'tidak ada data' : 'Rp ' + fmt(c.parsed.y))}}
+      },
+      scales:{
+        y:{ticks:{callback:v=>(v/1e6).toFixed(0)+'jt'}, grid:{color:'#eef0fb'}},
+        x:{ticks:{maxRotation:90,minRotation:60, font:{size:9}}}
+      }
+    },
+    plugins:[lineShadowPlugin]
+  });
+}
+
+/* ---- Card 2: Perbandingan Rentang Bulan (1 rentang, 2 garis Belanja vs Pendapatan) ---- */
+let trenRangeChartG;
+
+function initTrenRangeCompareG(){
+  const periods = gabunganAllPeriods_();
+  const minP = periods[0], maxP = periods[periods.length-1];
+  ['trenRangeFromG','trenRangeToG'].forEach(id=>{
+    const el = $('#'+id);
+    if(!el) return;
+    if(minP) el.min = minP;
+    if(maxP) el.max = maxP;
+    el.addEventListener('change', renderTrenRangeCompareG);
+  });
+  // Default: Januari s.d bulan terakhir yang ada datanya (tahun terbaru)
+  if(maxP){
+    const yLast = maxP.slice(0,4);
+    const fromEl = $('#trenRangeFromG'), toEl = $('#trenRangeToG');
+    if(fromEl) fromEl.value = `${yLast}-01`;
+    if(toEl) toEl.value = maxP;
+  }
+  renderTrenRangeCompareG();
+}
+
+function renderTrenRangeCompareG(){
+  const canvas = $('#trenRangeChartG');
+  const summary = $('#trenRangeSummaryG');
+  if(!canvas || !summary || typeof Chart === 'undefined') return;
+
+  const fromEl = $('#trenRangeFromG'), toEl = $('#trenRangeToG');
+  const from = fromEl ? fromEl.value : '', to = toEl ? toEl.value : '';
+
+  if(!from || !to || from > to){
+    summary.innerHTML = '<div class="filter-empty">Pilih rentang bulan yang valid.</div>';
+    if(trenRangeChartG){ trenRangeChartG.destroy(); trenRangeChartG = null; }
+    return;
+  }
+
+  const rowsBelanja = (STATE.tren||[]).filter(r=> r.periode>=from && r.periode<=to).slice().sort((a,b)=>a.periode.localeCompare(b.periode));
+  const rowsPendapatan = (STATE_P.tren||[]).filter(r=> r.periode>=from && r.periode<=to).slice().sort((a,b)=>a.periode.localeCompare(b.periode));
+
+  if(!rowsBelanja.length && !rowsPendapatan.length){
+    summary.innerHTML = '<div class="filter-empty">Tidak ada data pada rentang ini.</div>';
+    if(trenRangeChartG){ trenRangeChartG.destroy(); trenRangeChartG = null; }
+    return;
+  }
+
+  const periodSet = new Set([...rowsBelanja.map(r=>r.periode), ...rowsPendapatan.map(r=>r.periode)]);
+  const periods = Array.from(periodSet).sort();
+  const belanjaMap = {}; rowsBelanja.forEach(r=>{ belanjaMap[r.periode]=r.bulan_ini; });
+  const pendapatanMap = {}; rowsPendapatan.forEach(r=>{ pendapatanMap[r.periode]=r.bulan_ini; });
+  const labels = periods.map(p=> MONTH_NAMES[parseInt(p.split('-')[1],10)-1] + ' ' + p.slice(0,4));
+  const dataBelanja = periods.map(p=> p in belanjaMap ? belanjaMap[p] : null);
+  const dataPendapatan = periods.map(p=> p in pendapatanMap ? pendapatanMap[p] : null);
+
+  const totalBelanja = rowsBelanja.reduce((s,r)=>s+r.bulan_ini,0);
+  const totalPendapatan = rowsPendapatan.reduce((s,r)=>s+r.bulan_ini,0);
+  const selisih = totalPendapatan - totalBelanja;
+  const selisihClass = selisih>=0 ? 'pos' : 'neg';
+  const selisihLabel = selisih>=0 ? 'Surplus' : 'Defisit';
+  const selisihText = (selisih>=0?'+':'-') + 'Rp ' + fmt(Math.abs(selisih));
+  const rangeLabel = `${periodeLabelShort_(from)} – ${periodeLabelShort_(to)}`;
+
+  summary.innerHTML = `
+    <div class="range-stat"><div class="lbl"><span class="range-dot" style="background:#5b8def"></span>Total Belanja ${rangeLabel}</div><div class="val">Rp ${fmt(totalBelanja)}</div></div>
+    <div class="range-stat"><div class="lbl"><span class="range-dot" style="background:#f0a35b"></span>Total Pendapatan ${rangeLabel}</div><div class="val">Rp ${fmt(totalPendapatan)}</div></div>
+    <div class="range-stat diff"><div class="lbl">${selisihLabel} (Pendapatan − Belanja)</div><div class="val ${selisihClass}">${selisihText}</div></div>
+  `;
+
+  const ctx = canvas.getContext('2d');
+  if(trenRangeChartG) trenRangeChartG.destroy();
+  trenRangeChartG = new Chart(ctx, {
+    type:'line',
+    data:{
+      labels,
+      datasets:[
+        {label:'Belanja', data:dataBelanja, borderColor:'#5b8def', backgroundColor:'rgba(91,141,239,0.12)', tension:0, pointRadius:4, borderWidth:3, spanGaps:true},
+        {label:'Pendapatan', data:dataPendapatan, borderColor:'#f0a35b', backgroundColor:'rgba(240,163,91,0.12)', tension:0, pointRadius:4, borderWidth:3, spanGaps:true},
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index', intersect:false},
+      plugins:{
+        legend:{position:'top', labels:{boxWidth:12, font:{size:11}}},
+        tooltip:{callbacks:{label:c=> c.dataset.label + ': ' + (c.parsed.y===null ? 'tidak ada data' : 'Rp ' + fmt(c.parsed.y))}}
+      },
+      scales:{
+        y:{ticks:{callback:v=>(v/1e6).toFixed(0)+'jt'}, grid:{color:'#eef0fb'}},
+        x:{grid:{display:false}}
+      }
+    },
+    plugins:[lineShadowPlugin]
+  });
+}
+
+/* ---- Card 3: Perbandingan Bulan yang Sama Antar Tahun (grouped bar: Belanja vs Pendapatan) ---- */
+let trenSameMonthChartG;
+let TREN_SAME_MONTH_YEARS_SEL_G_ = new Set();
+
+function populateTrenSameMonthG(){
+  const years = gabunganAvailableYears_();
+  const monthSel = $('#trenSameMonthSelectG');
+  if(!monthSel) return;
+  monthSel.innerHTML = MONTH_NAMES.map((m,i)=>`<option value="${i}">${MONTH_FULL_[m]||m}</option>`).join('');
+
+  const periods = gabunganAllPeriods_();
+  const lastPeriode = periods[periods.length-1];
+  if(lastPeriode) monthSel.value = String(parseInt(String(lastPeriode).split('-')[1],10)-1);
+
+  TREN_SAME_MONTH_YEARS_SEL_G_ = new Set(years);
+  const yearsWrap = $('#trenSameMonthYearsG');
+  yearsWrap.innerHTML = years.map(y=>`
+    <label class="year-check-item checked" data-year="${y}">
+      <input type="checkbox" value="${y}" checked> ${y}
+    </label>
+  `).join('');
+  yearsWrap.querySelectorAll('.year-check-item').forEach(item=>{
+    const cb = item.querySelector('input');
+    cb.addEventListener('change', ()=>{
+      const y = item.dataset.year;
+      if(cb.checked){ TREN_SAME_MONTH_YEARS_SEL_G_.add(y); item.classList.add('checked'); }
+      else{ TREN_SAME_MONTH_YEARS_SEL_G_.delete(y); item.classList.remove('checked'); }
+      renderTrenSameMonthCompareG();
+    });
+  });
+  monthSel.addEventListener('change', renderTrenSameMonthCompareG);
+  renderTrenSameMonthCompareG();
+}
+
+function renderTrenSameMonthCompareG(){
+  const canvas = $('#trenSameMonthChartG');
+  const monthSel = $('#trenSameMonthSelectG');
+  if(!canvas || !monthSel || typeof Chart === 'undefined') return;
+  const monthIdx = parseInt(monthSel.value, 10);
+  const monthNum = String(monthIdx+1).padStart(2,'0');
+  const years = gabunganAvailableYears_().filter(y=>TREN_SAME_MONTH_YEARS_SEL_G_.has(y));
+
+  const belanjaValues = years.map(y=>{
+    const row = (STATE.tren||[]).find(r=>r.periode === `${y}-${monthNum}`);
+    return row ? row.bulan_ini : null;
+  });
+  const pendapatanValues = years.map(y=>{
+    const row = (STATE_P.tren||[]).find(r=>r.periode === `${y}-${monthNum}`);
+    return row ? row.bulan_ini : null;
+  });
+
+  const ctx = canvas.getContext('2d');
+  if(trenSameMonthChartG) trenSameMonthChartG.destroy();
+  trenSameMonthChartG = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels: years,
+      datasets:[
+        {label:'Belanja', data:belanjaValues, backgroundColor:'#5b8def', borderRadius:8, borderSkipped:false, maxBarThickness:60},
+        {label:'Pendapatan', data:pendapatanValues, backgroundColor:'#f0a35b', borderRadius:8, borderSkipped:false, maxBarThickness:60},
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{position:'top', labels:{boxWidth:12, font:{size:11}}},
+        tooltip:{callbacks:{label:c=> c.dataset.label + ': ' + (c.parsed.y===null ? 'Tidak ada data' : 'Rp ' + fmt(c.parsed.y))}}
+      },
+      scales:{
+        y:{ticks:{callback:v=>(v/1e6).toFixed(0)+'jt'}, grid:{color:'#eef0fb'}},
+        x:{grid:{display:false}}
+      }
+    },
+    plugins:[barShadowPlugin]
+  });
+}
+
+let TREN_EXTRA_INITED_G_ = false;
+function initTrenExtrasG_(){
+  if(TREN_EXTRA_INITED_G_) return;
+  TREN_EXTRA_INITED_G_ = true;
+  initTrenRangeCompareG();
+  populateTrenSameMonthG();
+}
+
+// Dipanggil dari tombol refresh modul Belanja/Pendapatan -- kalau modul Gabungan
+// kebetulan sedang terbuka saat itu, ikut di-render ulang supaya datanya tetap
+// sinkron (Gabungan tidak fetch sendiri, cuma menggabungkan STATE/STATE_P).
+function refreshGabunganIfVisible_(){
+  const root = $('#appRootGabungan');
+  if(!root || root.style.display !== 'flex') return;
+  renderTrenGabungan();
+  if(TREN_EXTRA_INITED_G_){ renderTrenRangeCompareG(); renderTrenSameMonthCompareG(); }
 }
 
 async function main(){
@@ -1718,6 +2003,7 @@ async function main(){
     if($('#view-tren-p').classList.contains('active')) renderTrenPendapatan();
     await loadKhususLivePendapatan();
     ['2024','2025','2026'].forEach(renderKhususPendapatan);
+    refreshGabunganIfVisible_();
   });
   tryLoadLivePendapatan().then(()=>{
     renderRingkasanPendapatan();
@@ -1727,6 +2013,17 @@ async function main(){
   loadKhususLivePendapatan().then(()=>{
     ['2024','2025','2026'].forEach(renderKhususPendapatan);
   });
+
+  // ---- Modul Gabungan (Pendapatan Vs Belanja) -- cuma turunan dari STATE/STATE_P,
+  // render pertamanya dipicu showGabunganApp() saat kartu diklik (bukan di sini,
+  // supaya canvas Chart.js tidak dibuat saat masih display:none). Refresh tinggal
+  // render ulang dari data STATE/STATE_P yang sudah ter-update oleh modul lain.
+  $('#btnRefreshG')?.addEventListener('click', ()=>{
+    renderTrenGabungan();
+    renderTrenRangeCompareG();
+    renderTrenSameMonthCompareG();
+  });
+
   $('#searchPerbandingan').addEventListener('input', renderPerbandingan);
   $('#filterBulanPerbandingan').addEventListener('change', (e)=>{
     const v = e.target.value;
@@ -1749,6 +2046,7 @@ async function main(){
     renderRingkasan();
     await loadKhususLive();
     refreshKhususDependentViews_();
+    refreshGabunganIfVisible_();
   });
   await tryLoadLive();
   renderRingkasan();

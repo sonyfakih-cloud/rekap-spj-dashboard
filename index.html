@@ -59,7 +59,7 @@
       <div class="hub-menu-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></div>
       <h3>Pendapatan &amp; Belanja</h3>
       <p>Ringkasan gabungan Pendapatan dan Belanja dalam satu tampilan.</p>
-      <span class="hub-menu-status hub-status-soon">Segera Hadir</span>
+      <span class="hub-menu-status hub-status-ready">Tersedia</span>
     </button>
   </div>
 
@@ -376,6 +376,78 @@
 
 </div>
 
+<!-- ===== MODUL GABUNGAN: Pendapatan & Belanja (struktur sederhana -- cuma 1
+     halaman konten "Pendapatan Vs Belanja", isinya mengikuti pola Tren Bulanan
+     Belanja tapi menggabungkan 2 sumber data STATE.tren + STATE_P.tren) ===== -->
+<div class="app" id="appRootGabungan">
+
+  <aside class="sidebar">
+    <div class="logo">SPJ</div>
+
+    <div class="nav-item nav-home" id="btnHomeMenuG" title="Menu Utama">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <span class="tip">Menu Utama</span>
+    </div>
+
+    <div class="nav-item active" data-viewg="tren-g">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 6"/><polyline points="14 6 21 6 21 13"/></svg>
+      <span class="tip">Pendapatan Vs Belanja</span>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="marquee-bar"><span class="marquee-text">Copyright &copy; 2026, Sony Fakih</span></div>
+    <div class="topbar">
+      <div class="title-block">
+        <h1>Pendapatan &amp; Belanja 2024–2025–2026</h1>
+        <p>RSUD dr. R. Soeprapto Cepu — BLUD, Ringkasan Gabungan Pendapatan &amp; Belanja</p>
+      </div>
+    </div>
+
+    <!-- ===== PENDAPATAN VS BELANJA (gabungan tren) ===== -->
+    <section id="view-tren-g" class="view active">
+      <div class="card">
+        <h3>Tren Total SPJ Bulanan Pendapatan Vs Belanja <span id="trenPeriodeLabelG">— Januari 2024 s.d Juli 2026</span></h3>
+        <div class="chart-wrap"><canvas id="trenChartG"></canvas></div>
+      </div>
+
+      <div class="card">
+        <h3>Perbandingan Rentang Bulan</h3>
+        <p class="card-desc">Bandingkan total Pendapatan vs Belanja dalam satu rentang bulan yang dipilih.</p>
+        <div class="range-toolbar">
+          <div class="range-group">
+            <span class="range-dot range-dot-a"></span>
+            <span class="range-label">Rentang</span>
+            <input type="month" id="trenRangeFromG">
+            <span class="range-sep">s.d</span>
+            <input type="month" id="trenRangeToG">
+          </div>
+        </div>
+        <div class="range-summary" id="trenRangeSummaryG"></div>
+        <div class="chart-wrap" style="height:280px;"><canvas id="trenRangeChartG"></canvas></div>
+      </div>
+
+      <div class="card">
+        <h3>Perbandingan Bulan yang Sama Antar Tahun</h3>
+        <p class="card-desc">Bandingkan Pendapatan vs Belanja pada bulan yang sama di tahun-tahun berbeda.</p>
+        <div class="toolbar">
+          <select id="trenSameMonthSelectG"></select>
+          <div class="year-checks" id="trenSameMonthYearsG"></div>
+        </div>
+        <div class="chart-wrap" style="height:280px;"><canvas id="trenSameMonthChartG"></canvas></div>
+      </div>
+    </section>
+
+    <p class="footer-note" id="footerDataSumberG">Data gabungan Pendapatan &amp; Belanja RSUD dr. R. Soeprapto Cepu (Rekap_Belanja_SPJ_2024_2025_2026_v2.xlsx &amp; Rekap_Pendapatan_2024_2025_2026.xlsx).</p>
+  </main>
+
+  <div class="fab-group">
+    <button class="fab" id="btnRefreshG" title="Muat ulang tampilan">⟳</button>
+    <button class="fab" id="btnLogoutG" title="Keluar">⏻</button>
+  </div>
+
+</div>
+
 <!-- ===== MODAL DETAIL TRANSAKSI BKU ===== -->
 <div id="bkuModal" class="bku-modal-overlay">
   <div class="bku-modal">
@@ -410,6 +482,6 @@
 <script src="auth.js?v=9"></script>
 <script src="data.js?v=8"></script>
 <script src="data_pendapatan.js?v=1"></script>
-<script src="app.js?v=13"></script>
+<script src="app.js?v=14"></script>
 </body>
 </html>
