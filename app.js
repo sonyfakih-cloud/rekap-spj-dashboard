@@ -1678,12 +1678,24 @@ function showBelanjaApp(){
 // baru di-render saat modul ini pertama kali dibuka (bukan dari main()) karena
 // canvas Chart.js butuh ukuran non-nol saat dibuat -- kalau di-render lebih dulu
 // sementara appRootGabungan masih display:none, grafiknya akan kosong/gepeng.
+//
+// PENTING (bug ditemukan setelah deploy): showView() milik modul Belanja pakai
+// $$('.view') -- selector GLOBAL ke seluruh dokumen, bukan cuma di dalam
+// #appRoot. Jadi begitu halaman dimuat (initNav() -> showView('ringkasan')),
+// class "active" ikut DICABUT dari section #view-tren-g milik modul Gabungan
+// ini (sama-sama pakai class .view), padahal section itu sudah di-hardcode
+// class="view active" di HTML. Akibatnya section-nya ketutup CSS (.view tanpa
+// .active = display:none) walau HTML & data-nya sudah benar -- makanya cuma
+// judul & footer (di luar section) yang kelihatan, isi card & grafik kosong.
+// Fix: pastikan class "active" ditambahkan ulang setiap kali modul ini dibuka.
 function showGabunganApp(){
   $('#hubScreen').style.display = 'none';
   $('#comingSoonScreen').style.display = 'none';
   $('#appRoot').style.display = 'none';
   $('#appRootPendapatan').style.display = 'none';
   $('#appRootGabungan').style.display = 'flex';
+  const secG = document.getElementById('view-tren-g');
+  if(secG) secG.classList.add('active');
   setTimeout(()=>{ renderTrenGabungan(); initTrenExtrasG_(); }, 30);
 }
 
