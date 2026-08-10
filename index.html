@@ -3,24 +3,72 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard Rekap Belanja SPJ — RSUD dr. R. Soeprapto Cepu</title>
+<title>MonEv P3A — RSUD dr. R. Soeprapto Cepu</title>
 <!-- PENTING: parameter ?v=... di bawah ini sengaja ditambahkan sebagai "cache-buster".
      Tanpa ini, browser (dan CDN GitHub Pages) suka menyimpan cache app.js/style.css versi
      LAMA sampai 10 menit atau lebih, jadi walau file di GitHub sudah benar-benar ter-update,
      pengunjung yang sudah pernah buka situs ini masih bisa melihat versi lama (ini akar
      masalah "kok belum berubah" yang pernah dilaporkan). Setiap kali app.js/style.css
      diupdate, NAIKKAN angka v= di bawah supaya browser dipaksa ambil versi baru. -->
-<link rel="stylesheet" href="style.css?v=13">
+<link rel="stylesheet" href="style.css?v=14">
 <script src="chart.umd.min.js"></script>
 <script src="xlsx.full.min.js?v=8"></script>
 </head>
 <body>
 
+<!-- ===== SPRITE LOGO (badge panah+koin, dipakai berulang lewat <use>) =====
+     Versi statis (tanpa animasi) dari animasi logo di #introAnimScreen di bawah --
+     dipakai sebagai ikon logo kecil di gerbang password, menu utama, dan sidebar
+     tiap modul. Disembunyikan (display:none) karena cuma berfungsi sbg definisi,
+     dirender lewat <svg><use href="#logoBadge"/></svg> di tempat lain. -->
+<svg style="display:none" aria-hidden="true">
+  <defs>
+    <symbol id="logoBadge" viewBox="0 0 400 400">
+      <g id="logoCoinShape">
+        <ellipse cx="0" cy="12" rx="30" ry="8" fill="#c69a44" stroke="#a8823a"/>
+        <rect x="-30" y="0" width="60" height="12" fill="#d8b45c" stroke="#a8823a"/>
+        <rect x="-30" y="4" width="60" height="4" fill="#1c7a4a"/>
+        <ellipse cx="0" cy="0" rx="30" ry="8" fill="#e8c878" stroke="#a8823a"/>
+      </g>
+      <circle cx="200" cy="200" r="170" fill="#1e4a6d"/>
+      <circle cx="200" cy="200" r="146" fill="#f7f3e9"/>
+      <circle cx="200" cy="200" r="128" fill="#1e4a6d"/>
+      <circle cx="200" cy="200" r="104" fill="#1a4260"/>
+      <circle cx="200" cy="200" r="80"  fill="#163a55"/>
+      <circle cx="200" cy="200" r="56"  fill="#12324a"/>
+      <path d="M105 265 L175 180 L205 220 L268 140" fill="none" stroke="#d8b45c" stroke-width="24" stroke-linejoin="miter"/>
+      <polygon points="305,95 245,112 288,152" fill="#d8b45c"/>
+      <g fill="#1c8a4e">
+        <rect x="260" y="118" width="7" height="7"/>
+        <rect x="268" y="126" width="7" height="7"/>
+        <rect x="276" y="118" width="7" height="7"/>
+        <rect x="284" y="110" width="7" height="7"/>
+        <rect x="262" y="100" width="7" height="7"/>
+        <rect x="274" y="100" width="7" height="7"/>
+        <rect x="268" y="134" width="7" height="7"/>
+        <rect x="280" y="134" width="7" height="7"/>
+      </g>
+      <use href="#logoCoinShape" x="148" y="284"/>
+      <use href="#logoCoinShape" x="148" y="270"/>
+      <use href="#logoCoinShape" x="204" y="288"/>
+      <use href="#logoCoinShape" x="204" y="274"/>
+      <use href="#logoCoinShape" x="204" y="260"/>
+      <use href="#logoCoinShape" x="204" y="246"/>
+      <use href="#logoCoinShape" x="260" y="282"/>
+      <use href="#logoCoinShape" x="260" y="268"/>
+      <use href="#logoCoinShape" x="260" y="254"/>
+      <use href="#logoCoinShape" x="260" y="240"/>
+      <use href="#logoCoinShape" x="260" y="226"/>
+    </symbol>
+  </defs>
+</svg>
+
 <!-- ===== GERBANG PASSWORD ===== -->
 <div id="authOverlay" class="auth-overlay">
   <form id="authForm" class="auth-card">
-    <div class="auth-logo">SPJ</div>
-    <h2>Dashboard Rekap Belanja SPJ</h2>
+    <div class="auth-logo"><svg class="logo-badge-icon" viewBox="0 0 400 400"><use href="#logoBadge"/></svg></div>
+    <h2>MonEv P3A</h2>
+    <p class="auth-org">Seksi Program Perencanaan Pendapatan dan Anggaran</p>
     <p>RSUD dr. R. Soeprapto Cepu — masukkan password untuk melanjutkan</p>
     <input type="password" id="authPassword" placeholder="Password" autocomplete="current-password" required>
     <button type="submit" id="authSubmit">Masuk</button>
@@ -29,10 +77,74 @@
   </form>
 </div>
 
+<!-- ===== ANIMASI INTRO (muncul sekali setelah password benar, sebelum Menu
+     Utama) -- adaptasi dari file animasi logo yang dilampirkan user, disatukan
+     ke dalam dashboard (bukan file HTML terpisah). Class "play" men-trigger
+     seluruh animasi CSS lewat auth.js begitu layar ini ditampilkan. ===== -->
+<div id="introAnimScreen" class="intro-anim-screen">
+  <div id="introStage" class="intro-stage">
+    <div id="introBadgeWrap" class="intro-badge-wrap">
+      <svg viewBox="0 0 400 400">
+        <defs>
+          <g id="introCoin">
+            <ellipse cx="0" cy="12" rx="30" ry="8" fill="#c69a44" stroke="#a8823a"/>
+            <rect x="-30" y="0" width="60" height="12" fill="#d8b45c" stroke="#a8823a"/>
+            <rect x="-30" y="4" width="60" height="4" fill="#1c7a4a"/>
+            <ellipse cx="0" cy="0" rx="30" ry="8" fill="#e8c878" stroke="#a8823a"/>
+          </g>
+        </defs>
+        <circle class="intro-ring intro-r1" cx="200" cy="200" r="170" fill="#1e4a6d"/>
+        <circle class="intro-ring intro-r2" cx="200" cy="200" r="146" fill="#f7f3e9"/>
+        <circle class="intro-ring intro-r3" cx="200" cy="200" r="128" fill="#1e4a6d"/>
+        <circle class="intro-ring intro-r4" cx="200" cy="200" r="104" fill="#1a4260"/>
+        <circle class="intro-ring intro-r5" cx="200" cy="200" r="80"  fill="#163a55"/>
+        <circle class="intro-ring intro-r6" cx="200" cy="200" r="56"  fill="#12324a"/>
+
+        <path id="introArrowPath" pathLength="1" d="M105 265 L175 180 L205 220 L268 140"
+              fill="none" stroke="#d8b45c" stroke-width="24" stroke-linejoin="miter"/>
+        <polygon class="intro-head" points="305,95 245,112 288,152" fill="#d8b45c"/>
+
+        <g fill="#1c8a4e">
+          <rect class="intro-px" style="animation-delay:2.05s" x="260" y="118" width="7" height="7"/>
+          <rect class="intro-px" style="animation-delay:2.10s" x="268" y="126" width="7" height="7"/>
+          <rect class="intro-px" style="animation-delay:2.15s" x="276" y="118" width="7" height="7"/>
+          <rect class="intro-px" style="animation-delay:2.20s" x="284" y="110" width="7" height="7"/>
+          <rect class="intro-px" style="animation-delay:2.25s" x="262" y="100" width="7" height="7"/>
+          <rect class="intro-px" style="animation-delay:2.30s" x="274" y="100" width="7" height="7"/>
+          <rect class="intro-px" style="animation-delay:2.35s" x="268" y="134" width="7" height="7"/>
+          <rect class="intro-px" style="animation-delay:2.40s" x="280" y="134" width="7" height="7"/>
+        </g>
+
+        <use class="intro-coin" style="animation-delay:1.50s" href="#introCoin" x="148" y="284"/>
+        <use class="intro-coin" style="animation-delay:1.62s" href="#introCoin" x="148" y="270"/>
+        <use class="intro-coin" style="animation-delay:1.60s" href="#introCoin" x="204" y="288"/>
+        <use class="intro-coin" style="animation-delay:1.72s" href="#introCoin" x="204" y="274"/>
+        <use class="intro-coin" style="animation-delay:1.84s" href="#introCoin" x="204" y="260"/>
+        <use class="intro-coin" style="animation-delay:1.96s" href="#introCoin" x="204" y="246"/>
+        <use class="intro-coin" style="animation-delay:1.70s" href="#introCoin" x="260" y="282"/>
+        <use class="intro-coin" style="animation-delay:1.82s" href="#introCoin" x="260" y="268"/>
+        <use class="intro-coin" style="animation-delay:1.94s" href="#introCoin" x="260" y="254"/>
+        <use class="intro-coin" style="animation-delay:2.06s" href="#introCoin" x="260" y="240"/>
+        <use class="intro-coin" style="animation-delay:2.18s" href="#introCoin" x="260" y="226"/>
+      </svg>
+      <div class="intro-shine"></div>
+      <span class="intro-spark" style="top:4%;  left:-6%;  animation-delay:3.4s">✦</span>
+      <span class="intro-spark" style="top:12%; right:-8%; animation-delay:4.1s">✦</span>
+      <span class="intro-spark" style="bottom:6%; left:-10%; animation-delay:4.8s">✦</span>
+      <span class="intro-spark" style="bottom:14%; right:-5%; animation-delay:5.5s">✦</span>
+    </div>
+
+    <h1 id="introTitle">MonEv P3A</h1>
+    <p class="intro-s1">Seksi Program Perencanaan Pendapatan dan Anggaran</p>
+    <p class="intro-s2">RSUD Dr. R. Soeprapto Cepu</p>
+  </div>
+  <button type="button" id="introSkip" class="intro-skip">Lewati ⟶</button>
+</div>
+
 <!-- ===== MENU UTAMA (tampil setelah login, sebelum modul Belanja/Pendapatan) ===== -->
 <div id="hubScreen" class="hub-screen">
   <div class="hub-topbar">
-    <div class="hub-logo">SPJ</div>
+    <div class="hub-logo"><svg class="logo-badge-icon" viewBox="0 0 400 400"><use href="#logoBadge"/></svg></div>
     <div class="hub-title-block">
       <h1>Rekap Keuangan RSUD dr. R. Soeprapto Cepu</h1>
       <p>BLUD — pilih modul yang ingin dibuka</p>
@@ -79,7 +191,7 @@
 <div class="app" id="appRoot">
 
   <aside class="sidebar">
-    <div class="logo">SPJ</div>
+    <div class="logo"><svg class="logo-badge-icon" viewBox="0 0 400 400"><use href="#logoBadge"/></svg></div>
 
     <div class="nav-item nav-home" id="btnHomeMenu" title="Menu Utama">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
@@ -250,7 +362,7 @@
 <div class="app" id="appRootPendapatan">
 
   <aside class="sidebar">
-    <div class="logo">SPJ</div>
+    <div class="logo"><svg class="logo-badge-icon" viewBox="0 0 400 400"><use href="#logoBadge"/></svg></div>
 
     <div class="nav-item nav-home" id="btnHomeMenuP" title="Menu Utama">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
@@ -382,7 +494,7 @@
 <div class="app" id="appRootGabungan">
 
   <aside class="sidebar">
-    <div class="logo">SPJ</div>
+    <div class="logo"><svg class="logo-badge-icon" viewBox="0 0 400 400"><use href="#logoBadge"/></svg></div>
 
     <div class="nav-item nav-home" id="btnHomeMenuG" title="Menu Utama">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
@@ -479,7 +591,7 @@
 </div>
 
 <script src="config.js?v=8"></script>
-<script src="auth.js?v=9"></script>
+<script src="auth.js?v=10"></script>
 <script src="data.js?v=8"></script>
 <script src="data_pendapatan.js?v=1"></script>
 <script src="app.js?v=15"></script>

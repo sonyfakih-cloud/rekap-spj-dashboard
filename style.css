@@ -44,8 +44,8 @@ body{
   box-shadow:var(--shadow);
 }
 .sidebar .logo{
-  width:40px;height:40px;border-radius:14px;
-  background:var(--accent);
+  width:40px;height:40px;border-radius:50%;
+  background:#f7f3e9;overflow:hidden;
   display:flex;align-items:center;justify-content:center;
   color:#fff;font-weight:700;font-size:15px;
   margin-bottom:18px;
@@ -254,13 +254,18 @@ table.data tbody tr:hover{background:var(--accent-soft);}
   text-align:center;gap:6px;
 }
 .auth-logo{
-  width:52px;height:52px;border-radius:18px;
-  background:linear-gradient(180deg, var(--navy), var(--navy2));
+  width:64px;height:64px;border-radius:50%;
+  background:#f7f3e9;overflow:hidden;
   color:#fff;display:flex;align-items:center;justify-content:center;
   font-weight:700;font-size:16px;margin-bottom:8px;
+  box-shadow:0 8px 18px rgba(30,74,109,0.35);
 }
-.auth-card h2{margin:0;font-size:17px;}
+.logo-badge-icon{width:100%;height:100%;display:block;transform:scale(1.12);}
+.auth-card h2{margin:0;font-size:19px;color:var(--navy);}
 .auth-card p{margin:0 0 14px;color:var(--muted);font-size:12.5px;}
+.auth-card p.auth-org{
+  margin:0 0 6px;color:var(--navy);font-size:13px;font-weight:700;line-height:1.4;
+}
 .auth-card input[type=password]{
   width:100%;border:1px solid #e6e8f5;border-radius:var(--radius-sm);
   padding:12px 14px;font-size:14px;background:#fbfbff;text-align:center;
@@ -404,8 +409,8 @@ body::before{
   box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,0.9);
 }
 .sidebar .logo{
-  background:linear-gradient(135deg, var(--accent2), var(--accent));
-  box-shadow: 0 8px 16px rgba(91,141,239,0.45), inset 0 1px 0 rgba(255,255,255,0.55);
+  background:#f7f3e9;
+  box-shadow: 0 8px 16px rgba(30,74,109,0.4), inset 0 1px 0 rgba(255,255,255,0.55);
 }
 .nav-item{ color:#93a0c2; }
 .nav-item:hover{ background:rgba(91,141,239,0.12); color:var(--accent); box-shadow:none; }
@@ -443,7 +448,7 @@ table.data thead th{ background:linear-gradient(180deg, #ffffff, #f0f5ff); }
     radial-gradient(circle at 12% 92%, rgba(91,141,239,0.07) 0%, transparent 42%),
     linear-gradient(160deg, #eaf1ff 0%, #ffffff 55%, #f4f8ff 100%);
 }
-.auth-logo{ background:linear-gradient(135deg, var(--accent2), var(--accent)); }
+.auth-logo{ background:#f7f3e9; }
 
 /* ---- Klik hint & baris klikable (Khusus 2024/2025/2026) ---- */
 .klik-hint{margin:0 0 10px;font-size:12px;color:var(--muted);}
@@ -541,11 +546,11 @@ table.data.data-clickable tbody tr:hover{background:var(--accent-soft);transform
 }
 .hub-topbar{display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
 .hub-logo{
-  width:52px;height:52px;border-radius:18px;flex:none;
-  background:linear-gradient(135deg, var(--accent2), var(--accent));
+  width:56px;height:56px;border-radius:50%;flex:none;
+  background:#f7f3e9;overflow:hidden;
   color:#fff;display:flex;align-items:center;justify-content:center;
   font-weight:700;font-size:16px;
-  box-shadow:0 8px 16px rgba(91,141,239,0.45), inset 0 1px 0 rgba(255,255,255,0.55);
+  box-shadow:0 8px 16px rgba(30,74,109,0.4), inset 0 1px 0 rgba(255,255,255,0.55);
 }
 .hub-title-block{flex:1;min-width:220px;}
 .hub-title-block h1{margin:0;font-size:21px;font-weight:700;}
@@ -715,3 +720,84 @@ table.data.data-clickable tbody tr:hover{background:var(--accent-soft);transform
 }
 .year-check-item input{accent-color:var(--accent);cursor:pointer;}
 .year-check-item.checked{background:var(--accent-soft);color:var(--accent);}
+
+/* ================================================================
+   ANIMASI INTRO (muncul sekali setelah password benar, sebelum Menu
+   Utama) -- diadaptasi dari file animasi logo yang dilampirkan user.
+   Semua selector diberi prefix intro-* / #introAnimScreen supaya tidak
+   bentrok dengan style lain di halaman.
+   ================================================================ */
+.intro-anim-screen{
+  position:fixed;inset:0;z-index:200;display:none;
+  flex-direction:column;align-items:center;justify-content:center;gap:8px;
+  background:#f5f1e6;overflow:hidden;
+}
+.intro-anim-screen.show{display:flex;}
+.intro-stage{position:relative;display:flex;flex-direction:column;align-items:center;cursor:pointer;}
+
+.intro-badge-wrap{position:relative;width:min(360px,70vw);}
+.intro-badge-wrap svg{width:100%;display:block;overflow:visible;}
+
+.intro-ring, .intro-coin, .intro-head, .intro-px{
+  transform-box:fill-box;transform-origin:center;
+  opacity:0;transform:scale(0);
+}
+.play .intro-ring{animation:introRingIn .8s cubic-bezier(.34,1.56,.64,1) forwards;}
+.play .intro-r1{animation-delay:.05s} .play .intro-r2{animation-delay:.2s}
+.play .intro-r3{animation-delay:.35s} .play .intro-r4{animation-delay:.5s}
+.play .intro-r5{animation-delay:.6s} .play .intro-r6{animation-delay:.7s}
+
+#introArrowPath{stroke-dasharray:1;stroke-dashoffset:1;}
+.play #introArrowPath{animation:introDraw 1s ease-in-out .95s forwards;}
+
+.play .intro-head{animation:introPopIn .55s cubic-bezier(.34,1.56,.64,1) 1.85s forwards;}
+.play .intro-px{animation:introPopIn .4s cubic-bezier(.34,1.56,.64,1) forwards;}
+.play .intro-coin{animation:introCoinPop .5s cubic-bezier(.34,1.56,.64,1) forwards;}
+
+.intro-stage h1, .intro-stage p{opacity:0;}
+.intro-stage h1{
+  margin:0;font-size:clamp(32px,6vw,52px);color:#1e4a6d;font-weight:800;
+  letter-spacing:1px;text-shadow:4px 5px 0 rgba(120,90,40,.28);
+}
+.intro-stage p{
+  margin:0;font-size:clamp(14px,2.6vw,20px);color:#1e4a6d;font-weight:700;
+  text-align:center;text-shadow:3px 3px 0 rgba(120,90,40,.22);
+}
+.play .intro-stage h1{animation:introFadeUp .8s ease 2.5s forwards;}
+.play .intro-s1{animation:introFadeUp .8s ease 2.75s forwards;}
+.play .intro-s2{animation:introFadeUp .8s ease 2.9s forwards;}
+
+.play .intro-badge-wrap{animation:introFloaty 5s ease-in-out 3.6s infinite;}
+
+.intro-shine{
+  position:absolute;top:-10%;bottom:-10%;width:34%;left:-45%;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent);
+  transform:skewX(-18deg);pointer-events:none;mix-blend-mode:screen;
+}
+.play .intro-shine{animation:introShine 4.5s ease-in-out 3.2s infinite;}
+
+.intro-spark{position:absolute;font-size:20px;color:#d8b45c;opacity:0;pointer-events:none;}
+.play .intro-spark{animation:introTwinkle 2.6s ease-in-out infinite;}
+
+.intro-skip{
+  position:absolute;right:22px;bottom:22px;
+  padding:9px 20px;border:none;border-radius:999px;
+  background:#1e4a6d;color:#f5f1e6;font-weight:700;font-size:13px;
+  cursor:pointer;box-shadow:0 4px 14px rgba(30,74,109,.35);
+  opacity:0;transition:opacity .3s ease, transform .2s ease;
+}
+.intro-anim-screen.show .intro-skip{opacity:.9;}
+.intro-skip:hover{opacity:1;transform:scale(1.06);}
+
+@keyframes introRingIn{0%{opacity:0;transform:scale(0) rotate(-90deg)}100%{opacity:1;transform:scale(1) rotate(0)}}
+@keyframes introDraw{to{stroke-dashoffset:0}}
+@keyframes introPopIn{0%{opacity:0;transform:scale(0)}70%{opacity:1;transform:scale(1.2)}100%{opacity:1;transform:scale(1)}}
+@keyframes introCoinPop{0%{opacity:0;transform:translateY(16px) scale(.3)}60%{opacity:1;transform:translateY(-5px) scale(1.1)}100%{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes introFadeUp{0%{opacity:0;transform:translateY(20px);filter:blur(6px)}100%{opacity:1;transform:translateY(0);filter:blur(0)}}
+@keyframes introFloaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+@keyframes introShine{0%{left:-45%}22%{left:115%}100%{left:115%}}
+@keyframes introTwinkle{0%,100%{opacity:0;transform:scale(.3) rotate(0)}50%{opacity:1;transform:scale(1.1) rotate(45deg)}}
+
+@media (max-width:480px){
+  .intro-skip{right:14px;bottom:14px;padding:8px 16px;font-size:12px;}
+}

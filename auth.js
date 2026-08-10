@@ -43,6 +43,51 @@
     if(rootP) rootP.style.display = 'none';
     const rootG = document.getElementById('appRootGabungan');
     if(rootG) rootG.style.display = 'none';
+    // Jaga-jaga: kalau logout terjadi di tengah animasi intro sedang main,
+    // pastikan ikut disembunyikan & di-reset supaya bisa muter lagi dari awal
+    // kalau login ulang di sesi tab yang sama (tanpa reload halaman).
+    const intro = document.getElementById('introAnimScreen');
+    const stage = document.getElementById('introStage');
+    if(intro) intro.classList.remove('show');
+    if(stage) stage.classList.remove('play');
+  }
+
+  // Animasi logo (badge panah+koin) diputar SEKALI setiap kali password benar
+  // dimasukkan, sebelum Menu Utama tampil -- lihat #introAnimScreen di
+  // index.html & keyframes intro-* di style.css. User bisa lewati animasinya
+  // dengan klik di mana saja pada layar animasi, atau tombol "Lewati ⟶";
+  // kalau tidak diklik, otomatis lanjut sendiri setelah animasi selesai.
+  function showIntroThenApp(){
+    const intro = document.getElementById('introAnimScreen');
+    const stage = document.getElementById('introStage');
+    const authOverlay = document.getElementById('authOverlay');
+    if(!intro || !stage){ showApp(); return; } // fallback kalau markup tidak ada
+    authOverlay.style.display = 'none';
+
+    // Reset dulu (jaga-jaga kalau sebelumnya sempat 'play' di sesi tab yang
+    // sama tanpa reload halaman, mis. logout lalu login lagi) supaya animasi
+    // selalu mulai dari awal, bukan lanjut dari state lama.
+    stage.classList.remove('play');
+    intro.classList.remove('show');
+    void intro.offsetWidth; // paksa reflow biar restart animasi bersih
+    intro.classList.add('show');
+    requestAnimationFrame(function(){ stage.classList.add('play'); });
+
+    let advanced = false;
+    function goToApp(){
+      if(advanced) return;
+      advanced = true;
+      intro.classList.remove('show');
+      stage.classList.remove('play');
+      showApp();
+    }
+    const skipBtn = document.getElementById('introSkip');
+    if(skipBtn) skipBtn.onclick = goToApp;
+    stage.onclick = goToApp;
+    // Total durasi koreografi (rings -> panah -> checklist -> koin -> teks)
+    // selesai sekitar detik ke-3.7; ditahan sebentar lagi (termasuk sedikit
+    // efek floaty) baru otomatis lanjut ke Menu Utama kalau tidak di-skip.
+    setTimeout(goToApp, 4800);
   }
 
   async function fetchRemotePassword(){
@@ -71,7 +116,7 @@
       const correct = await fetchRemotePassword();
       if(input.value === correct){
         setAuthed();
-        showApp();
+        showIntroThenApp();
       } else {
         errEl.textContent = 'Password salah. Coba lagi.';
         input.value = '';
@@ -81,7 +126,7 @@
       console.warn(err);
       // gagal ambil dari GitHub -> fallback ke password lokal supaya dashboard tetap bisa dibuka
       if(input.value === (typeof LOCAL_FALLBACK_PASSWORD !== 'undefined' ? LOCAL_FALLBACK_PASSWORD : '')){
-        setAuthed(); showApp();
+        setAuthed(); showIntroThenApp();
       } else {
         errEl.textContent = 'Password salah, atau gagal terhubung ke server password. Coba lagi.';
       }
