@@ -1356,6 +1356,7 @@ async function tryLoadLivePendapatan(){
         if(!byYear[y]) byYear[y] = {breakdown:[]};
         const rec = {kode:String(r.kode), nama:r.nama, pagu:+r.pagu, bulan_ini:+r.bulan_ini, sd_bulan_ini:+r.sd_bulan_ini, persen:+r.persen, sisa_pagu:+r.sisa_pagu};
         if(String(r.kode) === '4') Object.assign(byYear[y], rec);
+          if(String(r.kode) === '4') byYear[y].label_bulan = r.label_bulan || (STATE_P.ringkasan[y] ? STATE_P.ringkasan[y].label_bulan : '');
         else byYear[y].breakdown.push(rec);
       });
       // pertahankan label_bulan yg sudah ada kalau live tidak mengirimkannya
