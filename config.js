@@ -11,7 +11,7 @@ window.APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw2EQouYVdSHVI
 
 // ============ PASSWORD LOGIN ============
 // Password default (dipakai selama GITHUB_* di bawah masih kosong):
-const LOCAL_FALLBACK_PASSWORD = "monevp3a";
+const LOCAL_FALLBACK_PASSWORD = "monevp3asf";
 
 // (Opsional, lanjutan) Password terpusat via repo GitHub privat -- lihat
 // PANDUAN_DEPLOY.md bagian "Password Login Terpusat" untuk cara membuatnya.
