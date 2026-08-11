@@ -363,7 +363,12 @@ function periodeInRange_(from, to){
 function initTrenRangeCompare(){
   const years = trenAvailableYears_();
   const periods = STATE.tren.map(r=>r.periode).filter(Boolean).slice().sort();
-  const minP = periods[0], maxP = periods[periods.length-1];
+  const minP = periods[0];
+  // Batas atas dibuat dinamis sampai Desember tahun data terakhir (bukan cuma
+  // bulan terakhir yang sudah terisi) supaya date-picker tidak mentok di bulan
+  // yang kebetulan terakhir ada datanya; bulan yang belum ada datanya otomatis
+  // dihitung 0 oleh renderTrenRangeCompare/periodeInRange_.
+  const maxP = `${(years[years.length-1] || String(new Date().getFullYear()))}-12`;
   ['trenRangeAFrom','trenRangeATo','trenRangeBFrom','trenRangeBTo'].forEach(id=>{
     const el = $('#'+id);
     if(!el) return;
@@ -572,7 +577,10 @@ function periodeInRangeP_(from, to){
 function initTrenRangeCompareP(){
   const years = trenAvailableYearsP_();
   const periods = STATE_P.tren.map(r=>r.periode).filter(Boolean).slice().sort();
-  const minP = periods[0], maxP = periods[periods.length-1];
+  const minP = periods[0];
+  // Sama seperti modul Belanja: batas atas dibuat dinamis sampai Desember
+  // tahun data terakhir, bukan cuma bulan terakhir yang sudah terisi.
+  const maxP = `${(years[years.length-1] || String(new Date().getFullYear()))}-12`;
   ['trenRangeAFromP','trenRangeAToP','trenRangeBFromP','trenRangeBToP'].forEach(id=>{
     const el = $('#'+id);
     if(!el) return;
@@ -1803,7 +1811,11 @@ let trenRangeChartG;
 
 function initTrenRangeCompareG(){
   const periods = gabunganAllPeriods_();
-  const minP = periods[0], maxP = periods[periods.length-1];
+  const minP = periods[0];
+  // Sama seperti modul Belanja/Pendapatan: batas atas dibuat dinamis sampai
+  // Desember tahun data terakhir.
+  const yLastG_ = (periods[periods.length-1] || `${new Date().getFullYear()}-01`).slice(0,4);
+  const maxP = `${yLastG_}-12`;
   ['trenRangeFromG','trenRangeToG'].forEach(id=>{
     const el = $('#'+id);
     if(!el) return;
