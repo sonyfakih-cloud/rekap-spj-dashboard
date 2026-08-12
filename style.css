@@ -78,6 +78,20 @@ body{
 }
 .nav-item:hover .tip{opacity:1;transform:translateY(-50%) translateX(0);}
 
+/* ---- Tombol Reload/Keluar dipindah ke sidebar (dulu floating .fab-group di
+   pojok kanan bawah) -- ditaruh di bawah menu "Tahun Khusus", dengan label teks
+   selalu terlihat (bukan cuma tooltip hover seperti nav-item lain). ---- */
+.nav-item.nav-action{
+  width:56px;height:auto;min-height:50px;
+  flex-direction:column;justify-content:center;gap:2px;
+  padding:8px 0;font-size:0;
+}
+.nav-action-icon{font-size:18px;line-height:1;}
+.nav-action-label{
+  font-size:8.5px;font-weight:700;letter-spacing:.3px;
+  text-transform:uppercase;color:inherit;
+}
+
 /* ---- Main ---- */
 .main{flex:1;padding:22px 22px 22px 18px;display:flex;flex-direction:column;gap:18px;min-width:0;
   transition:margin-left .2s ease;

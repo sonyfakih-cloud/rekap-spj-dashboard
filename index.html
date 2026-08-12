@@ -10,7 +10,7 @@
      pengunjung yang sudah pernah buka situs ini masih bisa melihat versi lama (ini akar
      masalah "kok belum berubah" yang pernah dilaporkan). Setiap kali app.js/style.css
      diupdate, NAIKKAN angka v= di bawah supaya browser dipaksa ambil versi baru. -->
-<link rel="stylesheet" href="style.css?v=16">
+<link rel="stylesheet" href="style.css?v=17">
 <script src="chart.umd.min.js"></script>
 <script src="xlsx.full.min.js?v=8"></script>
 </head>
@@ -228,6 +228,15 @@
         <button type="button" class="year-flyout-item" data-view="2026">2026</button>
       </div>
     </div>
+
+    <div class="nav-item nav-action" id="btnRefresh" title="Muat ulang data live">
+      <span class="nav-action-icon">⟳</span>
+      <span class="nav-action-label">Reload</span>
+    </div>
+    <div class="nav-item nav-action" id="btnLogout" title="Keluar">
+      <span class="nav-action-icon">⏻</span>
+      <span class="nav-action-label">Keluar</span>
+    </div>
   </aside>
 
   <main class="main">
@@ -354,11 +363,6 @@
     <p class="footer-note" id="footerDataSumber">Data sumber: 31 laporan bulanan RSUD dr. R. Soeprapto Cepu, Jan 2024–Jul 2026. Lihat catatan metodologi di file Rekap_Belanja_SPJ_2024_2025_2026_v2.xlsx.</p>
   </main>
 
-  <div class="fab-group">
-    <button class="fab" id="btnRefresh" title="Muat ulang data live">⟳</button>
-    <button class="fab" id="btnLogout" title="Keluar">⏻</button>
-  </div>
-
 </div>
 
 <!-- ===== MODUL PENDAPATAN (struktur sama persis dengan modul Belanja di atas) ===== -->
@@ -391,6 +395,15 @@
         <button type="button" class="year-flyout-item" data-viewp="2025-p">2025</button>
         <button type="button" class="year-flyout-item" data-viewp="2026-p">2026</button>
       </div>
+    </div>
+
+    <div class="nav-item nav-action" id="btnRefreshP" title="Muat ulang data live">
+      <span class="nav-action-icon">⟳</span>
+      <span class="nav-action-label">Reload</span>
+    </div>
+    <div class="nav-item nav-action" id="btnLogoutP" title="Keluar">
+      <span class="nav-action-icon">⏻</span>
+      <span class="nav-action-label">Keluar</span>
     </div>
   </aside>
 
@@ -487,10 +500,6 @@
     <p class="footer-note" id="footerDataSumberP">Data sumber: Rekap_Pendapatan_2024_2025_2026.xlsx &amp; BKU Pendapatan 2024–2026, RSUD dr. R. Soeprapto Cepu.</p>
   </main>
 
-  <div class="fab-group">
-    <button class="fab" id="btnRefreshP" title="Muat ulang data live">⟳</button>
-    <button class="fab" id="btnLogoutP" title="Keluar">⏻</button>
-  </div>
 
 </div>
 
