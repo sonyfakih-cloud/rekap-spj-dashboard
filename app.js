@@ -2115,11 +2115,18 @@ async function main(){
   });
   $('#btnRefresh').addEventListener('click', syncBelanja_);
   $('#btnSyncBelanja')?.addEventListener('click', syncBelanja_);
-  // Catatan: TIDAK ADA lagi auto-fetch live di sini (dulu ada await tryLoadLive() +
-  // loadKomponenBelanja() + loadKhususLive() otomatis tiap halaman dibuka). Sekarang
-  // dashboard tampil dari snapshot data.js/data_pendapatan.js dulu, dan baru menembak
-  // Google Sheet kalau tombol Sync (Belanja/Pendapatan) diklik manual -- lihat
-  // syncBelanja_()/syncPendapatan_() di atas.
+
+  // ---- Auto-sync di background tiap halaman dibuka ----
+  // Sempat dihapus total (murni manual, tombol Sync saja) supaya Google Sheet tidak
+  // ditembak diam-diam tiap kali dibuka. Tapi akibatnya kalau tidak diklik manual,
+  // yang tampil TERUS snapshot data.js/data_pendapatan.js (dibuat saat terakhir kali
+  // file itu di-generate) -- makanya label bulan kelihatan "macet" di bulan lama
+  // (mis. Juli) walau Google Sheet sudah lebih baru. Sekarang dikembalikan sebagai
+  // auto-sync SEKALI di background tiap halaman dibuka/direfresh -- snapshot tetap
+  // tampil duluan (biar cepat), lalu diam-diam diganti live begitu fetch ini selesai.
+  // Tombol Sync manual tetap ada untuk refresh kapan saja tanpa reload halaman.
+  syncBelanja_();
+  syncPendapatan_();
 }
 
 // Re-render 3 halaman yang bergantung pada STATE.khusus/STATE.perbandingan,
