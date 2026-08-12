@@ -363,12 +363,7 @@ function periodeInRange_(from, to){
 function initTrenRangeCompare(){
   const years = trenAvailableYears_();
   const periods = STATE.tren.map(r=>r.periode).filter(Boolean).slice().sort();
-  const minP = periods[0];
-  // Batas atas dibuat dinamis sampai Desember tahun data terakhir (bukan cuma
-  // bulan terakhir yang sudah terisi) supaya date-picker tidak mentok di bulan
-  // yang kebetulan terakhir ada datanya; bulan yang belum ada datanya otomatis
-  // dihitung 0 oleh renderTrenRangeCompare/periodeInRange_.
-  const maxP = `${(years[years.length-1] || String(new Date().getFullYear()))}-12`;
+  const minP = periods[0], maxP = periods[periods.length-1];
   ['trenRangeAFrom','trenRangeATo','trenRangeBFrom','trenRangeBTo'].forEach(id=>{
     const el = $('#'+id);
     if(!el) return;
@@ -577,10 +572,7 @@ function periodeInRangeP_(from, to){
 function initTrenRangeCompareP(){
   const years = trenAvailableYearsP_();
   const periods = STATE_P.tren.map(r=>r.periode).filter(Boolean).slice().sort();
-  const minP = periods[0];
-  // Sama seperti modul Belanja: batas atas dibuat dinamis sampai Desember
-  // tahun data terakhir, bukan cuma bulan terakhir yang sudah terisi.
-  const maxP = `${(years[years.length-1] || String(new Date().getFullYear()))}-12`;
+  const minP = periods[0], maxP = periods[periods.length-1];
   ['trenRangeAFromP','trenRangeAToP','trenRangeBFromP','trenRangeBToP'].forEach(id=>{
     const el = $('#'+id);
     if(!el) return;
@@ -1363,8 +1355,14 @@ async function tryLoadLivePendapatan(){
         const y = r.periode;
         if(!byYear[y]) byYear[y] = {breakdown:[]};
         const rec = {kode:String(r.kode), nama:r.nama, pagu:+r.pagu, bulan_ini:+r.bulan_ini, sd_bulan_ini:+r.sd_bulan_ini, persen:+r.persen, sisa_pagu:+r.sisa_pagu};
-        if(String(r.kode) === '4') Object.assign(byYear[y], rec);
-          if(String(r.kode) === '4') byYear[y].label_bulan = r.label_bulan || (STATE_P.ringkasan[y] ? STATE_P.ringkasan[y].label_bulan : '');
+        if(String(r.kode) === '4') {
+          Object.assign(byYear[y], rec);
+          // PENTING: rec di atas TIDAK menyertakan label_bulan, jadi harus di-assign
+          // terpisah dari r.label_bulan (nilai live) -- kalau tidak, nilai live selalu
+          // kebuang dan fallback "pertahankan label lama" di bawah akan selalu jalan
+          // (bug lama: header Pendapatan macet di "Juli 2026" walau data live sudah Ags).
+          byYear[y].label_bulan = r.label_bulan || (STATE_P.ringkasan[y] ? STATE_P.ringkasan[y].label_bulan : '');
+        }
         else byYear[y].breakdown.push(rec);
       });
       // pertahankan label_bulan yg sudah ada kalau live tidak mengirimkannya
@@ -1811,11 +1809,7 @@ let trenRangeChartG;
 
 function initTrenRangeCompareG(){
   const periods = gabunganAllPeriods_();
-  const minP = periods[0];
-  // Sama seperti modul Belanja/Pendapatan: batas atas dibuat dinamis sampai
-  // Desember tahun data terakhir.
-  const yLastG_ = (periods[periods.length-1] || `${new Date().getFullYear()}-01`).slice(0,4);
-  const maxP = `${yLastG_}-12`;
+  const minP = periods[0], maxP = periods[periods.length-1];
   ['trenRangeFromG','trenRangeToG'].forEach(id=>{
     const el = $('#'+id);
     if(!el) return;
@@ -2000,6 +1994,63 @@ function refreshGabunganIfVisible_(){
   if(TREN_EXTRA_INITED_G_){ renderTrenRangeCompareG(); renderTrenSameMonthCompareG(); }
 }
 
+// ---- Sinkronisasi manual (Belanja & Pendapatan) ----
+// Sebelumnya main() otomatis menembak Apps Script (tryLoadLive/tryLoadLivePendapatan
+// dkk) SETIAP kali halaman dibuka -- artinya "sync" jalan sendiri tanpa diminta.
+// Sekarang diganti manual sepenuhnya: main() cuma menampilkan data snapshot (data.js /
+// data_pendapatan.js), dan fetch ke Google Sheet BARU jalan kalau tombol Sync (fab ⟳
+// lama, atau tombol berlabel baru #btnSyncBelanja/#btnSyncPendapatan di topbar) diklik.
+// Kedua tombol per modul dihubungkan ke fungsi sync yang sama supaya perilakunya identik.
+async function syncBelanja_(){
+  const btns = [$('#btnRefresh'), $('#btnSyncBelanja')].filter(Boolean);
+  btns.forEach(b=>{
+    b.disabled = true;
+    if(b.id === 'btnSyncBelanja'){ b.dataset.origText = b.dataset.origText || b.textContent; b.textContent = 'Menyinkron...'; }
+  });
+  try{
+    await tryLoadLive();
+    renderRingkasan();
+    updateTrenMeta_();
+    if($('#view-tren').classList.contains('active')){
+      renderTren();
+      if(TREN_EXTRA_INITED_){ renderTrenRangeCompare(); populateTrenSameMonth(); }
+      else initTrenExtras_();
+    }
+    await loadKomponenBelanja();
+    renderRingkasan();
+    await loadKhususLive();
+    refreshKhususDependentViews_();
+    refreshGabunganIfVisible_();
+  } finally {
+    btns.forEach(b=>{
+      b.disabled = false;
+      if(b.id === 'btnSyncBelanja') b.textContent = b.dataset.origText;
+    });
+  }
+}
+
+async function syncPendapatan_(){
+  const btns = [$('#btnRefreshP'), $('#btnSyncPendapatan')].filter(Boolean);
+  btns.forEach(b=>{
+    b.disabled = true;
+    if(b.id === 'btnSyncPendapatan'){ b.dataset.origText = b.dataset.origText || b.textContent; b.textContent = 'Menyinkron...'; }
+  });
+  try{
+    await tryLoadLivePendapatan();
+    renderRingkasanPendapatan();
+    updateTrenMetaP_();
+    if($('#view-tren-p').classList.contains('active')) renderTrenPendapatan();
+    await loadKhususLivePendapatan();
+    ['2024','2025','2026'].forEach(renderKhususPendapatan);
+    refreshGabunganIfVisible_();
+  } finally {
+    btns.forEach(b=>{
+      b.disabled = false;
+      if(b.id === 'btnSyncPendapatan') b.textContent = b.dataset.origText;
+    });
+  }
+}
+
 async function main(){
   initHub();
   updateLiveBadge();
@@ -2021,23 +2072,8 @@ async function main(){
   ['2024','2025','2026'].forEach(y=>{
     $(`#searchKhusus${y}P`)?.addEventListener('input', ()=>renderKhususPendapatan(y));
   });
-  $('#btnRefreshP')?.addEventListener('click', async ()=>{
-    await tryLoadLivePendapatan();
-    renderRingkasanPendapatan();
-    updateTrenMetaP_();
-    if($('#view-tren-p').classList.contains('active')) renderTrenPendapatan();
-    await loadKhususLivePendapatan();
-    ['2024','2025','2026'].forEach(renderKhususPendapatan);
-    refreshGabunganIfVisible_();
-  });
-  tryLoadLivePendapatan().then(()=>{
-    renderRingkasanPendapatan();
-    updateTrenMetaP_();
-    if($('#view-tren-p').classList.contains('active')) renderTrenPendapatan();
-  });
-  loadKhususLivePendapatan().then(()=>{
-    ['2024','2025','2026'].forEach(renderKhususPendapatan);
-  });
+  $('#btnRefreshP')?.addEventListener('click', syncPendapatan_);
+  $('#btnSyncPendapatan')?.addEventListener('click', syncPendapatan_);
 
   // ---- Modul Gabungan (Pendapatan Vs Belanja) -- cuma turunan dari STATE/STATE_P,
   // render pertamanya dipicu showGabunganApp() saat kartu diklik (bukan di sini,
@@ -2058,31 +2094,13 @@ async function main(){
   ['2024','2025','2026'].forEach(y=>{
     $(`#searchKhusus${y}`).addEventListener('input', ()=>renderKhusus(y));
   });
-  $('#btnRefresh').addEventListener('click', async ()=>{
-    await tryLoadLive();
-    renderRingkasan();
-    updateTrenMeta_();
-    if($('#view-tren').classList.contains('active')){
-      renderTren();
-      if(TREN_EXTRA_INITED_){ renderTrenRangeCompare(); populateTrenSameMonth(); }
-      else initTrenExtras_();
-    }
-    await loadKomponenBelanja();
-    renderRingkasan();
-    await loadKhususLive();
-    refreshKhususDependentViews_();
-    refreshGabunganIfVisible_();
-  });
-  await tryLoadLive();
-  renderRingkasan();
-  updateTrenMeta_();
-  // Dimuat terpisah (bukan diblok bareng ringkasan/tren) supaya kartu ringkasan
-  // sudah kelihatan duluan; grafik donat menyusul begitu datanya siap.
-  loadKomponenBelanja().then(renderRingkasan);
-  // Sama halnya: Filter/Perbandingan/Khusus Tahun sudah tampil duluan dari
-  // snapshot data.js, lalu diam-diam diganti live begitu ?view=khusus selesai
-  // dimuat -- tidak memblokir tampilan awal.
-  loadKhususLive().then(refreshKhususDependentViews_);
+  $('#btnRefresh').addEventListener('click', syncBelanja_);
+  $('#btnSyncBelanja')?.addEventListener('click', syncBelanja_);
+  // Catatan: TIDAK ADA lagi auto-fetch live di sini (dulu ada await tryLoadLive() +
+  // loadKomponenBelanja() + loadKhususLive() otomatis tiap halaman dibuka). Sekarang
+  // dashboard tampil dari snapshot data.js/data_pendapatan.js dulu, dan baru menembak
+  // Google Sheet kalau tombol Sync (Belanja/Pendapatan) diklik manual -- lihat
+  // syncBelanja_()/syncPendapatan_() di atas.
 }
 
 // Re-render 3 halaman yang bergantung pada STATE.khusus/STATE.perbandingan,
