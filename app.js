@@ -2051,6 +2051,28 @@ async function syncPendapatan_(){
   }
 }
 
+// Modul Gabungan tidak punya sumber datanya sendiri (cuma turunan STATE/STATE_P
+// milik Belanja & Pendapatan) -- renderGabunganViews_() dipakai tombol reload lama
+// (cuma render ulang dari data yang sudah ada di memori, tanpa fetch), sedangkan
+// syncGabungan_() dipakai tombol Sync baru: menyinkron KEDUA sumber (Belanja &
+// Pendapatan) ke Google Sheet dulu lewat fungsi yang sudah ada, baru render ulang.
+function renderGabunganViews_(){
+  renderTrenGabungan();
+  renderTrenRangeCompareG();
+  renderTrenSameMonthCompareG();
+}
+
+async function syncGabungan_(){
+  const btn = $('#btnSyncGabungan');
+  if(btn){ btn.disabled = true; btn.dataset.origText = btn.dataset.origText || btn.textContent; btn.textContent = 'Menyinkron...'; }
+  try{
+    await Promise.all([syncBelanja_(), syncPendapatan_()]);
+    renderGabunganViews_();
+  } finally {
+    if(btn){ btn.disabled = false; btn.textContent = btn.dataset.origText; }
+  }
+}
+
 async function main(){
   initHub();
   updateLiveBadge();
@@ -2079,11 +2101,8 @@ async function main(){
   // render pertamanya dipicu showGabunganApp() saat kartu diklik (bukan di sini,
   // supaya canvas Chart.js tidak dibuat saat masih display:none). Refresh tinggal
   // render ulang dari data STATE/STATE_P yang sudah ter-update oleh modul lain.
-  $('#btnRefreshG')?.addEventListener('click', ()=>{
-    renderTrenGabungan();
-    renderTrenRangeCompareG();
-    renderTrenSameMonthCompareG();
-  });
+  $('#btnRefreshG')?.addEventListener('click', renderGabunganViews_);
+  $('#btnSyncGabungan')?.addEventListener('click', syncGabungan_);
 
   $('#searchPerbandingan').addEventListener('input', renderPerbandingan);
   $('#filterBulanPerbandingan').addEventListener('change', (e)=>{
