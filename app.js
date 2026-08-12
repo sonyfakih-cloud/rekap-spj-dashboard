@@ -68,9 +68,41 @@ async function loadKhususLive(){
       }
     });
     if(any) STATE.perbandingan = buildPerbandinganFromKhusus_();
+    if(json.khusus.tanggal_terakhir) STATE.tanggal_terakhir = json.khusus.tanggal_terakhir;
+    updateDataPerBadge_();
   }catch(err){
     console.warn('Gagal memuat pohon akun (khusus) live, tetap pakai data snapshot:', err);
   }
+}
+
+// "Data per <tanggal>" -- badge di sebelah tombol Sync yang menunjukkan tanggal
+// transaksi BKU TERAKHIR (bukan tanggal sync-nya) supaya pengguna tahu seberapa
+// mutakhir data yang sedang ditampilkan, terlepas dari kapan terakhir tombol Sync
+// diklik. Sumbernya STATE.tanggal_terakhir/STATE_P.tanggal_terakhir, diisi oleh
+// loadKhususLive()/loadKhususLivePendapatan() di atas (dihitung backend dari kolom
+// Tanggal di BKU Belanja/Pendapatan -- lihat getKhususDataAll_/getKhususDataPendapatanAll_
+// di Code.gs). Formatnya "10 Agustus 2026", pakai MONTH_FULL_ yang sudah ada.
+function formatTanggalPanjang_(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  if(isNaN(d.getTime())) return '';
+  const bulanAbbr = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'][d.getMonth()];
+  const bulanFull = MONTH_FULL_[bulanAbbr] || bulanAbbr;
+  return `${d.getDate()} ${bulanFull} ${d.getFullYear()}`;
+}
+function updateDataPerBadge_(){
+  const el = $('#dataPerBadge');
+  if(!el) return;
+  const txt = formatTanggalPanjang_(STATE.tanggal_terakhir);
+  el.textContent = txt ? `Data per ${txt}` : '';
+  el.style.display = txt ? '' : 'none';
+}
+function updateDataPerBadgeP_(){
+  const el = $('#dataPerBadgeP');
+  if(!el) return;
+  const txt = formatTanggalPanjang_(STATE_P.tanggal_terakhir);
+  el.textContent = txt ? `Data per ${txt}` : '';
+  el.style.display = txt ? '' : 'none';
 }
 
 // Turunkan ulang daftar "Perbandingan" (flat, {kode,nama,depth,2024,2025,2026})
@@ -1403,6 +1435,8 @@ async function loadKhususLivePendapatan(){
         STATE_P.khusus[y] = { bulan_label: d.bulan_label, rows: d.rows };
       }
     });
+    if(json.khusus.tanggal_terakhir) STATE_P.tanggal_terakhir = json.khusus.tanggal_terakhir;
+    updateDataPerBadgeP_();
   }catch(err){
     console.warn('Gagal memuat pohon akun Pendapatan (khusus) live, tetap pakai data snapshot:', err);
   }

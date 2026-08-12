@@ -147,6 +147,30 @@ body{
 .btn-sync:active{transform:translateY(1px);box-shadow:inset 0 2px 6px rgba(0,0,0,0.25);}
 .btn-sync:disabled{opacity:.6;cursor:not-allowed;transform:none;}
 
+/* ---- Badge "Data per <tanggal>" di sebelah tombol Sync -- tanggal transaksi
+   BKU TERAKHIR (bukan tanggal sync), supaya kelihatan kalau data sudah lama tidak
+   ada transaksi baru. Merah soft di atas kuning sangat soft + efek 3D (box-shadow
+   berlapis + text-shadow) + kedip pelan supaya menarik perhatian tanpa mengganggu. ---- */
+.data-per-badge{
+  display:inline-flex;align-items:center;
+  padding:8px 14px;border-radius:var(--radius-sm);
+  font-size:12px;font-weight:700;letter-spacing:.2px;
+  color:#c0554c;
+  background:linear-gradient(165deg, #fffdf0, #fff6c4);
+  border:1px solid rgba(217,166,20,0.16);
+  box-shadow:
+    0 4px 10px rgba(217,166,20,0.16),
+    inset 0 1px 0 rgba(255,255,255,0.9),
+    inset 0 -2px 3px rgba(217,166,20,0.14);
+  text-shadow:0 1px 0 rgba(255,255,255,0.7);
+  white-space:nowrap;
+  animation:dataPerBlink 1.8s ease-in-out infinite;
+}
+@keyframes dataPerBlink{
+  0%,100%{opacity:1;}
+  50%{opacity:.45;}
+}
+
 .grid{display:grid;gap:16px;}
 .card{
   background:var(--card);backdrop-filter:blur(14px);

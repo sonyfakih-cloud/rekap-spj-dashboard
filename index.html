@@ -10,7 +10,7 @@
      pengunjung yang sudah pernah buka situs ini masih bisa melihat versi lama (ini akar
      masalah "kok belum berubah" yang pernah dilaporkan). Setiap kali app.js/style.css
      diupdate, NAIKKAN angka v= di bawah supaya browser dipaksa ambil versi baru. -->
-<link rel="stylesheet" href="style.css?v=18">
+<link rel="stylesheet" href="style.css?v=19">
 <script src="chart.umd.min.js"></script>
 <script src="xlsx.full.min.js?v=8"></script>
 </head>
@@ -248,6 +248,7 @@
       </div>
       <div class="topbar-actions">
         <button type="button" class="btn-sync" id="btnSyncBelanja" title="Ambil data terbaru dari Google Sheet">⟳ Sync Google Sheet</button>
+        <span class="data-per-badge" id="dataPerBadge" style="display:none"></span>
         <div class="badge-src" id="liveBadge"><span class="live-dot off"></span>Memuat...</div>
       </div>
     </div>
@@ -416,6 +417,7 @@
       </div>
       <div class="topbar-actions">
         <button type="button" class="btn-sync" id="btnSyncPendapatan" title="Ambil data terbaru dari Google Sheet">⟳ Sync Google Sheet</button>
+        <span class="data-per-badge" id="dataPerBadgeP" style="display:none"></span>
         <div class="badge-src" id="liveBadgeP"><span class="live-dot off"></span>Memuat...</div>
       </div>
     </div>
@@ -612,6 +614,6 @@
 <script src="auth.js?v=10"></script>
 <script src="data.js?v=8"></script>
 <script src="data_pendapatan.js?v=1"></script>
-<script src="app.js?v=19"></script>
+<script src="app.js?v=20"></script>
 </body>
 </html>
