@@ -423,6 +423,81 @@ const pctChangeBarPlugin = {
   }
 };
 
+// pctChangeRangeComparePlugin: khusus grafik garis "Perbandingan Rentang Bulan"
+// (#trenRangeChart / #trenRangeChartP) yang selalu berisi TEPAT 2 dataset --
+// rentang A (mis. Jan-Jun 2025) dan rentang B (mis. Jan-Jun 2026). Ada 2 jenis
+// label persentase yang digambar terpisah supaya tidak tabrakan seperti versi
+// sebelumnya (yang cuma 1 jenis, ditumpuk lurus di atas titik):
+//   1) ANTAR BULAN, tahun/rentang SAMA -- persentase naik/turun dari bulan
+//      sebelumnya ke bulan ini, DALAM garis yang sama (mis. Jan->Feb di garis A
+//      saja, dan Jan->Feb di garis B saja). Ditulis di ATAS GARIS, tepat di
+//      tengah-tengah horizontal antara 2 bulan tsb (bukan di atas salah satu
+//      titik), dengan pil warna lembut spy tetap terbaca menimpa garis.
+//   2) BULAN SAMA, tahun/rentang BERBEDA -- persentase B vs A pada bulan yang
+//      sama (mis. Feb rentang A vs Feb rentang B). Ditulis TEPAT DI ATAS TITIK
+//      bulan tsb (di atas titik yang lebih tinggi di antara A/B pada bulan itu).
+const pctChangeRangeComparePlugin = {
+  id: 'pctChangeRangeCompare',
+  afterDatasetsDraw(chart){
+    const {ctx} = chart;
+    const metaA = chart.getDatasetMeta(0);
+    const metaB = chart.getDatasetMeta(1);
+    if(!metaA || !metaA.data) return;
+    const valuesA = chart.data.datasets[0] ? chart.data.datasets[0].data : [];
+    const valuesB = chart.data.datasets[1] ? chart.data.datasets[1].data : [];
+
+    // -- 1) Antar bulan, dalam garis yang sama (pil di atas garis, di tengah 2 bulan) --
+    ctx.save();
+    ctx.font = 'bold 10px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    [ [metaA, valuesA], [metaB && !metaB.hidden ? metaB : null, valuesB] ].forEach(([meta, values])=>{
+      if(!meta || !meta.data) return;
+      for(let i = 1; i < meta.data.length; i++){
+        const prev = values[i-1], cur = values[i];
+        if(prev === null || prev === undefined || cur === null || cur === undefined || prev === 0) continue;
+        const pct = (cur - prev) / Math.abs(prev) * 100;
+        const text = pctChangeText_(pct);
+        const p0 = meta.data[i-1], p1 = meta.data[i];
+        const midX = (p0.x + p1.x) / 2;
+        const midY = Math.min(p0.y, p1.y) - 14;
+        const color = pctChangeColor_(pct);
+        const w = ctx.measureText(text).width + 10;
+        const h = 15;
+        ctx.fillStyle = pct >= 0 ? 'rgba(31,157,85,0.16)' : 'rgba(224,72,62,0.16)';
+        if(ctx.roundRect){
+          ctx.beginPath();
+          ctx.roundRect(midX - w/2, midY - h/2, w, h, 7);
+          ctx.fill();
+        } else {
+          ctx.fillRect(midX - w/2, midY - h/2, w, h);
+        }
+        ctx.fillStyle = color;
+        ctx.fillText(text, midX, midY + 1);
+      }
+    });
+    ctx.restore();
+
+    // -- 2) Bulan sama, rentang berbeda (B vs A) -- tepat di atas titik bulan tsb --
+    if(!metaB || !metaB.data || metaB.hidden) return;
+    ctx.save();
+    ctx.font = 'bold 10px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    const len = Math.min(metaA.data.length, metaB.data.length);
+    for(let i = 0; i < len; i++){
+      const a = valuesA[i], b = valuesB[i];
+      if(a === null || a === undefined || b === null || b === undefined || a === 0) continue;
+      const pct = (b - a) / Math.abs(a) * 100;
+      const pA = metaA.data[i], pB = metaB.data[i];
+      const topY = Math.min(pA.y, pB.y) - 8;
+      ctx.fillStyle = pctChangeColor_(pct);
+      ctx.fillText(pctChangeText_(pct), pA.x, topY);
+    }
+    ctx.restore();
+  }
+};
+
 /* ---------------- Tren ---------------- */
 let trenChart;
 
@@ -573,7 +648,7 @@ function renderTrenRangeCompare(){
     options:{
       responsive:true, maintainAspectRatio:false,
       interaction:{mode:'index', intersect:false},
-      layout:{padding:{top:22}},
+      layout:{padding:{top:34}},
       plugins:{
         legend:{position:'top', labels:{boxWidth:12, font:{size:11}}},
         tooltip:{callbacks:{label:c=> c.dataset.label + ': ' + (c.parsed.y===null ? 'tidak ada data' : 'Rp ' + fmt(c.parsed.y))}}
@@ -583,7 +658,7 @@ function renderTrenRangeCompare(){
         x:{grid:{display:false}}
       }
     },
-    plugins:[lineShadowPlugin, pctChangeLinePlugin]
+    plugins:[lineShadowPlugin, pctChangeRangeComparePlugin]
   });
 }
 
@@ -781,7 +856,7 @@ function renderTrenRangeCompareP(){
     options:{
       responsive:true, maintainAspectRatio:false,
       interaction:{mode:'index', intersect:false},
-      layout:{padding:{top:22}},
+      layout:{padding:{top:34}},
       plugins:{
         legend:{position:'top', labels:{boxWidth:12, font:{size:11}}},
         tooltip:{callbacks:{label:c=> c.dataset.label + ': ' + (c.parsed.y===null ? 'tidak ada data' : 'Rp ' + fmt(c.parsed.y))}}
@@ -791,7 +866,7 @@ function renderTrenRangeCompareP(){
         x:{grid:{display:false}}
       }
     },
-    plugins:[lineShadowPlugin, pctChangeLinePlugin]
+    plugins:[lineShadowPlugin, pctChangeRangeComparePlugin]
   });
 }
 
