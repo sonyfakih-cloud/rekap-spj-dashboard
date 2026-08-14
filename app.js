@@ -436,6 +436,37 @@ const pctChangeBarPlugin = {
 //   2) BULAN SAMA, tahun/rentang BERBEDA -- persentase B vs A pada bulan yang
 //      sama (mis. Feb rentang A vs Feb rentang B). Ditulis TEPAT DI ATAS TITIK
 //      bulan tsb (di atas titik yang lebih tinggi di antara A/B pada bulan itu).
+// Penempatan anti-tabrakan generik: terima daftar label {x, y, w, h, ...} yang
+// posisi-y AWALnya cuma "usulan" (preferred), lalu tiap label diperiksa
+// terhadap semua label yang SUDAH ditempatkan sebelumnya -- kalau kotaknya
+// beririsan (secara X maupun Y), digeser ke ATAS (nilai y dikurangi) sampai
+// tidak beririsan lagi dengan siapa pun. Diproses dari kiri ke kanan supaya
+// hasilnya stabil/tidak berubah-ubah posisi tiap render. Dipakai supaya label
+// persentase yang kebetulan berdekatan (mis. 2 garis saling silang di bulan
+// yang sama) otomatis saling menjauh, bukan malah numpuk.
+function placeLabelsNoOverlap_(items){
+  const placed = [];
+  items.sort((a,b)=> a.x - b.x);
+  items.forEach(item=>{
+    let guard = 0;
+    let moved = true;
+    while(moved && guard < 60){
+      moved = false;
+      for(const p of placed){
+        const overlapX = Math.abs(item.x - p.x) < (item.w + p.w) / 2 + 3;
+        const overlapY = Math.abs(item.y - p.y) < (item.h + p.h) / 2 + 2;
+        if(overlapX && overlapY){
+          item.y = p.y - (item.h + p.h) / 2 - 3;
+          moved = true;
+        }
+      }
+      guard++;
+    }
+    placed.push(item);
+  });
+  return items;
+}
+
 const pctChangeRangeComparePlugin = {
   id: 'pctChangeRangeCompare',
   afterDatasetsDraw(chart){
@@ -445,13 +476,14 @@ const pctChangeRangeComparePlugin = {
     if(!metaA || !metaA.data) return;
     const valuesA = chart.data.datasets[0] ? chart.data.datasets[0].data : [];
     const valuesB = chart.data.datasets[1] ? chart.data.datasets[1].data : [];
+    const metaBActive = metaB && !metaB.hidden ? metaB : null;
 
-    // -- 1) Antar bulan, dalam garis yang sama (pil di atas garis, di tengah 2 bulan) --
     ctx.save();
     ctx.font = 'bold 10px Arial, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    [ [metaA, valuesA], [metaB && !metaB.hidden ? metaB : null, valuesB] ].forEach(([meta, values])=>{
+    const items = [];
+
+    // -- 1) Antar bulan, dalam garis yang sama (pil di atas garis, di tengah 2 bulan) --
+    [ [metaA, valuesA], [metaBActive, valuesB] ].forEach(([meta, values])=>{
       if(!meta || !meta.data) return;
       for(let i = 1; i < meta.data.length; i++){
         const prev = values[i-1], cur = values[i];
@@ -459,41 +491,59 @@ const pctChangeRangeComparePlugin = {
         const pct = (cur - prev) / Math.abs(prev) * 100;
         const text = pctChangeText_(pct);
         const p0 = meta.data[i-1], p1 = meta.data[i];
-        const midX = (p0.x + p1.x) / 2;
-        const midY = Math.min(p0.y, p1.y) - 14;
-        const color = pctChangeColor_(pct);
-        const w = ctx.measureText(text).width + 10;
-        const h = 15;
-        ctx.fillStyle = pct >= 0 ? 'rgba(31,157,85,0.16)' : 'rgba(224,72,62,0.16)';
-        if(ctx.roundRect){
-          ctx.beginPath();
-          ctx.roundRect(midX - w/2, midY - h/2, w, h, 7);
-          ctx.fill();
-        } else {
-          ctx.fillRect(midX - w/2, midY - h/2, w, h);
-        }
-        ctx.fillStyle = color;
-        ctx.fillText(text, midX, midY + 1);
+        items.push({
+          kind: 'pill', text, pct,
+          x: (p0.x + p1.x) / 2,
+          y: Math.min(p0.y, p1.y) - 14,
+          w: ctx.measureText(text).width + 10,
+          h: 15,
+        });
       }
     });
-    ctx.restore();
 
     // -- 2) Bulan sama, rentang berbeda (B vs A) -- tepat di atas titik bulan tsb --
-    if(!metaB || !metaB.data || metaB.hidden) return;
-    ctx.save();
-    ctx.font = 'bold 10px Arial, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'bottom';
-    const len = Math.min(metaA.data.length, metaB.data.length);
-    for(let i = 0; i < len; i++){
-      const a = valuesA[i], b = valuesB[i];
-      if(a === null || a === undefined || b === null || b === undefined || a === 0) continue;
-      const pct = (b - a) / Math.abs(a) * 100;
-      const pA = metaA.data[i], pB = metaB.data[i];
-      const topY = Math.min(pA.y, pB.y) - 8;
-      ctx.fillStyle = pctChangeColor_(pct);
-      ctx.fillText(pctChangeText_(pct), pA.x, topY);
+    if(metaBActive){
+      const len = Math.min(metaA.data.length, metaBActive.data.length);
+      for(let i = 0; i < len; i++){
+        const a = valuesA[i], b = valuesB[i];
+        if(a === null || a === undefined || b === null || b === undefined || a === 0) continue;
+        const pct = (b - a) / Math.abs(a) * 100;
+        const text = pctChangeText_(pct);
+        const pA = metaA.data[i], pB = metaBActive.data[i];
+        items.push({
+          kind: 'text', text, pct,
+          x: pA.x,
+          y: Math.min(pA.y, pB.y) - 12,
+          w: ctx.measureText(text).width + 6,
+          h: 13,
+        });
+      }
     }
+
+    placeLabelsNoOverlap_(items);
+
+    items.forEach(item=>{
+      const color = pctChangeColor_(item.pct);
+      if(item.kind === 'pill'){
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = item.pct >= 0 ? 'rgba(31,157,85,0.16)' : 'rgba(224,72,62,0.16)';
+        if(ctx.roundRect){
+          ctx.beginPath();
+          ctx.roundRect(item.x - item.w/2, item.y - item.h/2, item.w, item.h, 7);
+          ctx.fill();
+        } else {
+          ctx.fillRect(item.x - item.w/2, item.y - item.h/2, item.w, item.h);
+        }
+        ctx.fillStyle = color;
+        ctx.fillText(item.text, item.x, item.y + 1);
+      } else {
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillStyle = color;
+        ctx.fillText(item.text, item.x, item.y + item.h);
+      }
+    });
     ctx.restore();
   }
 };
@@ -648,7 +698,7 @@ function renderTrenRangeCompare(){
     options:{
       responsive:true, maintainAspectRatio:false,
       interaction:{mode:'index', intersect:false},
-      layout:{padding:{top:34}},
+      layout:{padding:{top:58}},
       plugins:{
         legend:{position:'top', labels:{boxWidth:12, font:{size:11}}},
         tooltip:{callbacks:{label:c=> c.dataset.label + ': ' + (c.parsed.y===null ? 'tidak ada data' : 'Rp ' + fmt(c.parsed.y))}}
@@ -856,7 +906,7 @@ function renderTrenRangeCompareP(){
     options:{
       responsive:true, maintainAspectRatio:false,
       interaction:{mode:'index', intersect:false},
-      layout:{padding:{top:34}},
+      layout:{padding:{top:58}},
       plugins:{
         legend:{position:'top', labels:{boxWidth:12, font:{size:11}}},
         tooltip:{callbacks:{label:c=> c.dataset.label + ': ' + (c.parsed.y===null ? 'tidak ada data' : 'Rp ' + fmt(c.parsed.y))}}
