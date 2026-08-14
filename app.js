@@ -92,17 +92,40 @@ function formatTanggalPanjang_(iso){
 }
 function updateDataPerBadge_(){
   const el = $('#dataPerBadge');
-  if(!el) return;
-  const txt = formatTanggalPanjang_(STATE.tanggal_terakhir);
-  el.textContent = txt ? `Data per ${txt}` : '';
-  el.style.display = txt ? '' : 'none';
+  if(el){
+    const txt = formatTanggalPanjang_(STATE.tanggal_terakhir);
+    el.textContent = txt ? `Data per ${txt}` : '';
+    el.style.display = txt ? '' : 'none';
+  }
+  updateDataPerBadgeG_();
 }
 function updateDataPerBadgeP_(){
   const el = $('#dataPerBadgeP');
-  if(!el) return;
-  const txt = formatTanggalPanjang_(STATE_P.tanggal_terakhir);
-  el.textContent = txt ? `Data per ${txt}` : '';
-  el.style.display = txt ? '' : 'none';
+  if(el){
+    const txt = formatTanggalPanjang_(STATE_P.tanggal_terakhir);
+    el.textContent = txt ? `Data per ${txt}` : '';
+    el.style.display = txt ? '' : 'none';
+  }
+  updateDataPerBadgeG_();
+}
+// Halaman Gabungan (Pendapatan & Belanja) tidak punya tanggal live sendiri --
+// cuma menampilkan ULANG kedua tanggal (Belanja & Pendapatan) yang sudah dihitung
+// oleh updateDataPerBadge_()/updateDataPerBadgeP_() di atas, supaya user yang
+// buka halaman Gabungan bisa lihat status kemutakhiran kedua sumber sekaligus
+// tanpa harus pindah ke halaman Belanja/Pendapatan satu-satu.
+function updateDataPerBadgeG_(){
+  const elB = $('#dataPerBadgeGBelanja');
+  if(elB){
+    const txt = formatTanggalPanjang_(STATE.tanggal_terakhir);
+    elB.textContent = txt ? `Belanja per ${txt}` : '';
+    elB.style.display = txt ? '' : 'none';
+  }
+  const elP = $('#dataPerBadgeGPendapatan');
+  if(elP){
+    const txt = formatTanggalPanjang_(STATE_P.tanggal_terakhir);
+    elP.textContent = txt ? `Pendapatan per ${txt}` : '';
+    elP.style.display = txt ? '' : 'none';
+  }
 }
 
 // Turunkan ulang daftar "Perbandingan" (flat, {kode,nama,depth,2024,2025,2026})
@@ -320,6 +343,86 @@ function buildDonutSVG(segments, total){
   `;
 }
 
+/* ---------------- Plugin label persentase naik/turun (dipakai grafik Tren & Filter) ---------------- */
+// pctChangeLinePlugin: untuk grafik GARIS. Di tiap titik (kecuali titik pertama
+// tiap dataset), hitung %perubahan vs titik SEBELUMNYA pada dataset yang sama,
+// lalu tulis teksnya tepat di atas titik tsb (warna hijau kalau naik, merah
+// kalau turun). Dipakai baik untuk 1 garis (mis. #filterChart) maupun 2 garis
+// sekaligus (mis. #trenRangeChart, rentang A vs B) -- masing2 garis dihitung
+// independen terhadap dirinya sendiri (bukan dibandingkan silang ke garis lain).
+function pctChangeColor_(pct){
+  return pct >= 0 ? '#1f9d55' : '#e0483e';
+}
+function pctChangeText_(pct){
+  return (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%';
+}
+const pctChangeLinePlugin = {
+  id: 'pctChangeLine',
+  afterDatasetsDraw(chart){
+    const {ctx} = chart;
+    ctx.save();
+    ctx.font = 'bold 10px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    chart.data.datasets.forEach((ds, dsIndex)=>{
+      const meta = chart.getDatasetMeta(dsIndex);
+      if(!meta || meta.hidden || !meta.data) return;
+      const values = ds.data;
+      meta.data.forEach((point, i)=>{
+        if(i === 0) return;
+        const prev = values[i-1], cur = values[i];
+        if(prev === null || prev === undefined || cur === null || cur === undefined || prev === 0) return;
+        const pct = (cur - prev) / Math.abs(prev) * 100;
+        ctx.fillStyle = pctChangeColor_(pct);
+        ctx.fillText(pctChangeText_(pct), point.x, point.y - 10);
+      });
+    });
+    ctx.restore();
+  }
+};
+
+// pctChangeBarPlugin: untuk grafik BATANG dengan 1 dataset (mis. perbandingan
+// bulan yang sama antar tahun). Di antara SETIAP 2 bar yang berdekatan, hitung
+// %perubahan bar kanan vs bar kiri, lalu tulis di titik tengah (x) pada
+// ketinggian bar tertinggi di antara keduanya, dengan pil/background lembut
+// supaya tetap terbaca di atas warna bar manapun.
+const pctChangeBarPlugin = {
+  id: 'pctChangeBar',
+  afterDatasetsDraw(chart){
+    const meta = chart.getDatasetMeta(0);
+    if(!meta || !meta.data || meta.data.length < 2) return;
+    const values = chart.data.datasets[0].data;
+    const {ctx} = chart;
+    ctx.save();
+    ctx.font = 'bold 11px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for(let i = 1; i < meta.data.length; i++){
+      const prev = values[i-1], cur = values[i];
+      if(prev === null || prev === undefined || cur === null || cur === undefined || prev === 0) continue;
+      const pct = (cur - prev) / Math.abs(prev) * 100;
+      const text = pctChangeText_(pct);
+      const p0 = meta.data[i-1], p1 = meta.data[i];
+      const midX = (p0.x + p1.x) / 2;
+      const topY = Math.min(p0.y, p1.y) - 16;
+      const color = pctChangeColor_(pct);
+      const w = ctx.measureText(text).width + 12;
+      const h = 18;
+      ctx.fillStyle = pct >= 0 ? 'rgba(31,157,85,0.14)' : 'rgba(224,72,62,0.14)';
+      if(ctx.roundRect){
+        ctx.beginPath();
+        ctx.roundRect(midX - w/2, topY - h/2, w, h, 9);
+        ctx.fill();
+      } else {
+        ctx.fillRect(midX - w/2, topY - h/2, w, h);
+      }
+      ctx.fillStyle = color;
+      ctx.fillText(text, midX, topY + 1);
+    }
+    ctx.restore();
+  }
+};
+
 /* ---------------- Tren ---------------- */
 let trenChart;
 
@@ -470,6 +573,7 @@ function renderTrenRangeCompare(){
     options:{
       responsive:true, maintainAspectRatio:false,
       interaction:{mode:'index', intersect:false},
+      layout:{padding:{top:22}},
       plugins:{
         legend:{position:'top', labels:{boxWidth:12, font:{size:11}}},
         tooltip:{callbacks:{label:c=> c.dataset.label + ': ' + (c.parsed.y===null ? 'tidak ada data' : 'Rp ' + fmt(c.parsed.y))}}
@@ -479,7 +583,7 @@ function renderTrenRangeCompare(){
         x:{grid:{display:false}}
       }
     },
-    plugins:[lineShadowPlugin]
+    plugins:[lineShadowPlugin, pctChangeLinePlugin]
   });
 }
 
@@ -562,6 +666,7 @@ function renderTrenSameMonthCompare(){
     },
     options:{
       responsive:true, maintainAspectRatio:false,
+      layout:{padding:{top:26}},
       plugins:{
         legend:{display:false},
         tooltip:{callbacks:{label:c=> c.parsed.y===null ? 'Tidak ada data' : 'Rp ' + fmt(c.parsed.y)}}
@@ -571,7 +676,7 @@ function renderTrenSameMonthCompare(){
         x:{grid:{display:false}}
       }
     },
-    plugins:[barShadowPlugin]
+    plugins:[barShadowPlugin, pctChangeBarPlugin]
   });
 }
 
@@ -676,6 +781,7 @@ function renderTrenRangeCompareP(){
     options:{
       responsive:true, maintainAspectRatio:false,
       interaction:{mode:'index', intersect:false},
+      layout:{padding:{top:22}},
       plugins:{
         legend:{position:'top', labels:{boxWidth:12, font:{size:11}}},
         tooltip:{callbacks:{label:c=> c.dataset.label + ': ' + (c.parsed.y===null ? 'tidak ada data' : 'Rp ' + fmt(c.parsed.y))}}
@@ -685,7 +791,7 @@ function renderTrenRangeCompareP(){
         x:{grid:{display:false}}
       }
     },
-    plugins:[lineShadowPlugin]
+    plugins:[lineShadowPlugin, pctChangeLinePlugin]
   });
 }
 
@@ -760,6 +866,7 @@ function renderTrenSameMonthCompareP(){
     },
     options:{
       responsive:true, maintainAspectRatio:false,
+      layout:{padding:{top:26}},
       plugins:{
         legend:{display:false},
         tooltip:{callbacks:{label:c=> c.parsed.y===null ? 'Tidak ada data' : 'Rp ' + fmt(c.parsed.y)}}
@@ -769,7 +876,7 @@ function renderTrenSameMonthCompareP(){
         x:{grid:{display:false}}
       }
     },
-    plugins:[barShadowPlugin]
+    plugins:[barShadowPlugin, pctChangeBarPlugin]
   });
 }
 
@@ -1032,7 +1139,7 @@ function renderFilterChart(labels, values){
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      layout: {padding: {bottom: 12, right: 8}},
+      layout: {padding: {bottom: 12, right: 8, top: 22}},
       plugins: {
         legend: {display: false},
         tooltip: {callbacks: {label: c => 'Rp ' + fmt(c.parsed.y)}}
@@ -1042,7 +1149,7 @@ function renderFilterChart(labels, values){
         x: {grid: {display:false}}
       }
     },
-    plugins: [ribbon3dPlugin, lineShadowPlugin]
+    plugins: [ribbon3dPlugin, lineShadowPlugin, pctChangeLinePlugin]
   });
 }
 
