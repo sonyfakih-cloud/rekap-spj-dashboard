@@ -115,11 +115,26 @@ body{
   position:absolute;top:0;left:-40%;white-space:nowrap;
   height:24px;display:flex;align-items:center;
   font-size:11.5px;font-weight:600;color:var(--accent);
-  animation:marqueeLTR 11s linear infinite;
+  animation:marqueeLTR 16s linear infinite;
 }
 @keyframes marqueeLTR{
   from{ left:-40%; }
   to{ left:100%; }
+}
+
+/* Badge kecil "⟳" di dalam teks berjalan marquee, meniru tampilan tombol
+   Refresh asli (sidebar/fab) supaya pengguna langsung mengenali ikonnya --
+   dipakai di hint "Klik tombol Refresh ... atau Ctrl+F5" setelah Copyright. */
+.marquee-refresh-badge{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:16px;height:16px;border-radius:50%;flex:none;
+  background:linear-gradient(180deg, var(--navy), var(--navy2));
+  color:#fff;font-size:11px;line-height:1;margin:0 3px;
+  animation:marqueeBadgePulse 1.4s ease-in-out infinite;
+}
+@keyframes marqueeBadgePulse{
+  0%,100%{ transform:scale(1); box-shadow:0 0 0 0 rgba(91,141,239,0.45); }
+  50%{ transform:scale(1.18); box-shadow:0 0 0 4px rgba(91,141,239,0); }
 }
 
 .topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;}
