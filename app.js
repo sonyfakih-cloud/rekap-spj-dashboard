@@ -831,15 +831,37 @@ function periodeInRangeP_(from, to){
     .slice().sort((a,b)=> a.periode.localeCompare(b.periode));
 }
 
-function initTrenRangeCompareP(){
-  const years = trenAvailableYearsP_();
+// PENTING (dinamis mengikuti bulan yang benar-benar sudah ter-update di
+// Rekap_Pendapatan_2024_2025_2026.xlsx): batas min/max date-picker Rentang A & B
+// TIDAK di-hardcode ke Desember, melainkan mengikuti bulan terakhir yang benar-benar
+// ada datanya di STATE_P.tren (hasil sinkron dari xlsx). Fungsi ini dipisah dari
+// initTrenRangeCompareP() supaya bisa dipanggil ULANG setiap kali data live selesai
+// dimuat (mis. setelah klik Sync atau tiap kali tab Tren Pendapatan dibuka) -- kalau
+// hanya dijalankan sekali saat init, picker akan macet di bulan lama walau xlsx sudah
+// bertambah bulan barunya (mis. macet di Juli padahal data Agustus sudah masuk).
+function updateTrenRangeBoundsP_(){
   const periods = STATE_P.tren.map(r=>r.periode).filter(Boolean).slice().sort();
   const minP = periods[0], maxP = periods[periods.length-1];
+  let clamped = false;
   ['trenRangeAFromP','trenRangeAToP','trenRangeBFromP','trenRangeBToP'].forEach(id=>{
     const el = $('#'+id);
     if(!el) return;
     if(minP) el.min = minP;
     if(maxP) el.max = maxP;
+    // kalau nilai yang sedang dipilih user ternyata di luar rentang data yang benar-benar
+    // ada (mis. sempat pilih bulan yang lalu ternyata belum ke-update di xlsx), tarik ke batas terdekat
+    if(maxP && el.value && el.value > maxP){ el.value = maxP; clamped = true; }
+    if(minP && el.value && el.value < minP){ el.value = minP; clamped = true; }
+  });
+  return clamped;
+}
+
+function initTrenRangeCompareP(){
+  const years = trenAvailableYearsP_();
+  updateTrenRangeBoundsP_();
+  ['trenRangeAFromP','trenRangeAToP','trenRangeBFromP','trenRangeBToP'].forEach(id=>{
+    const el = $('#'+id);
+    if(!el) return;
     el.addEventListener('change', renderTrenRangeCompareP);
   });
   if(years.length >= 2){
@@ -1609,6 +1631,23 @@ function updateLiveBadgeP(){
 
 async function tryLoadLivePendapatan(){
   if(!window.APPS_SCRIPT_URL) return;
+  // PENTING (fix bug: klik "Sync Google Sheet" berkali-kali tidak mengubah apa-apa
+  // meski file Rekap_Pendapatan_2024_2025_2026.xlsx sudah diedit): ringkasan_pendapatan
+  // & tren_pendapatan di bawah ini HANYA baca cache di Rekap_SPJ_Dashboard_Live_Data
+  // (Code.gs readRows_), TIDAK PERNAH menyentuh xlsx-nya sendiri. Cache itu sebelumnya
+  // cuma di-refresh oleh trigger per-jam (syncPendapatanFromXlsx di Sync_Pendapatan.gs),
+  // jadi kalau xlsx baru diedit dan trigger jam berikutnya belum jalan, tombol Sync di
+  // dashboard percuma diklik berapa kali pun. Baris ini memaksa Code.gs menjalankan
+  // syncPendapatanFromXlsx() DULU (via view=sync_pendapatan_cache) setiap kali fungsi
+  // ini dipanggil, baru setelah itu baca ringkasan/tren -- jadi tombol Sync sekarang
+  // benar-benar menarik data terbaru, bukan cuma mengulang baca cache lama. Dibungkus
+  // try/catch terpisah & tidak melempar error supaya kalau endpoint ini gagal (mis.
+  // timeout), pembacaan ringkasan/tren di bawah tetap jalan pakai cache yang ada.
+  try{
+    await fetch(`${APPS_SCRIPT_URL}?view=sync_pendapatan_cache`, {method:'GET'});
+  }catch(err){
+    console.warn('Gagal memicu sync_pendapatan_cache (lanjut pakai cache terakhir):', err);
+  }
   try{
     const res = await fetch(`${APPS_SCRIPT_URL}?view=ringkasan_pendapatan`, {method:'GET'});
     if(!res.ok) throw new Error('bad status ' + res.status);
@@ -1645,6 +1684,11 @@ async function tryLoadLivePendapatan(){
     if(json2.tren_pendapatan && json2.tren_pendapatan.length){
       STATE_P.tren = json2.tren_pendapatan.map(r=>({periode: normalizePeriode_(r.periode), bulan_ini:+r.bulan_ini, sd_bulan_ini:+r.sd_bulan_ini, pagu:+r.pagu}))
         .sort((a,b)=> a.periode.localeCompare(b.periode));
+      // refresh batas min/max picker Rentang A/B supaya ikut bulan terbaru yang baru masuk
+      if(typeof updateTrenRangeBoundsP_ === 'function'){
+        const clamped = updateTrenRangeBoundsP_();
+        if((clamped || TREN_EXTRA_INITED_P_) && typeof renderTrenRangeCompareP === 'function') renderTrenRangeCompareP();
+      }
     }
     STATE_P.live = true;
   }catch(err){
@@ -1750,6 +1794,13 @@ function updateTrenMetaP_(){
 
 function renderTrenPendapatan(){
   updateTrenMetaP_();
+  // jaring pengaman: tiap kali tab Tren Pendapatan dibuka, pastikan batas min/max
+  // picker Rentang A/B (menu Perbandingan Rentang Bulan) sudah sinkron dengan bulan
+  // terbaru di STATE_P.tren -- lihat komentar di updateTrenRangeBoundsP_().
+  if(typeof TREN_EXTRA_INITED_P_ !== 'undefined' && TREN_EXTRA_INITED_P_ && typeof updateTrenRangeBoundsP_ === 'function'){
+    const clamped = updateTrenRangeBoundsP_();
+    if(clamped && typeof renderTrenRangeCompareP === 'function') renderTrenRangeCompareP();
+  }
   const canvas = $('#trenChartP');
   if(!canvas || typeof Chart === 'undefined') return;
   const ctx = canvas.getContext('2d');
