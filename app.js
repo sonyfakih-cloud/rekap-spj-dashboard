@@ -1148,12 +1148,12 @@ function renderPerbandingan(){
     return `<tr>
       <td class="lvl-${r.depth}">${r.kode}</td>
       <td class="lvl-${r.depth}">${r.nama}</td>
-      <td>${fmt(v24)}</td>
-      <td>${fmt(v25)}</td>
-      <td>${fmt(v26)}</td>
       <td class="col-pagu">${r.pagu2024 ? fmt(r.pagu2024) : '-'}</td>
+      <td>${fmt(v24)}</td>
       <td class="col-pagu">${r.pagu2025 ? fmt(r.pagu2025) : '-'}</td>
+      <td>${fmt(v25)}</td>
       <td class="col-pagu">${r.pagu2026 ? fmt(r.pagu2026) : '-'}</td>
+      <td>${fmt(v26)}</td>
       <td class="col-persen">${fmtPersenID_(r.persen2026)}</td>
     </tr>`;
   }).join('');
@@ -1678,7 +1678,8 @@ function renderFilterResultP(){
 
   const compareValues = FILTER_YEARS_P.map(y=>{
     const yd = STATE_P.khusus[y];
-    const yr = yd ? yd.rows.find(r=>r.kode===kode) : null;
+    const yKode = resolveKonversiKodeP_(kode, y);
+    const yr = yd ? yd.rows.find(r=>r.kode===yKode) : null;
     const yIdx = yd ? yd.bulan_label.indexOf(label) : -1;
     return (yr && yIdx > -1) ? yr.bulanan[yIdx] : null;
   });
@@ -1829,7 +1830,11 @@ function khususPeriodeInRangeP_(kode, from, to){
   ['2024','2025','2026'].forEach(year=>{
     const data = STATE_P.khusus[year];
     if(!data) return;
-    const row = data.rows.find(r=>r.kode===kode);
+    // Kode rekening Pendapatan bisa BEDA antar tahun meski maksudnya sama
+    // (lihat sheet 'Konversi' di Rekap_Pendapatan xlsx) -- jadi cari dulu kode
+    // PADANAN utk tahun ini via resolveKonversiKodeP_, baru cocokkan ke rows.
+    const kodeTahunIni = resolveKonversiKodeP_(kode, year);
+    const row = data.rows.find(r=>r.kode===kodeTahunIni);
     if(!row) return;
     data.bulan_label.forEach((m,i)=>{
       const monthNum = MONTH_NAMES.indexOf(m) + 1;
@@ -2280,10 +2285,44 @@ async function loadKhususLivePendapatan(){
       }
     });
     if(json.khusus.tanggal_terakhir) STATE_P.tanggal_terakhir = json.khusus.tanggal_terakhir;
+    if(json.konversi_pendapatan) setPendapatanKonversiMap_(json.konversi_pendapatan);
     updateDataPerBadgeP_();
   }catch(err){
     console.warn('Gagal memuat pohon akun Pendapatan (khusus) live, tetap pakai data snapshot:', err);
   }
+}
+
+// ---- Peta konversi kode rekening Pendapatan lintas tahun ----
+// Sumbernya sheet 'Konversi' di Rekap_Pendapatan_2024_2025_2026.xlsx (backend
+// Code.gs -> getPendapatanKonversiList_()), dipakai supaya fitur "Perbandingan
+// Rentang Bulan per Rekening" bisa menarik data tahun lain pakai kode PADANAN
+// (bukan asumsi kode sama persis) -- lihat resolveKonversiKodeP_ di bawah.
+// Map dibangun 1x per kode: kode2024/2025/2026 (kalau ada) semuanya menunjuk ke
+// row yang sama, jadi lookup dari kode tahun manapun langsung ketemu row-nya.
+let PENDAPATAN_KONVERSI_LIST_ = [];
+let PENDAPATAN_KONVERSI_MAP_ = {};
+function setPendapatanKonversiMap_(list){
+  PENDAPATAN_KONVERSI_LIST_ = list || [];
+  const map = {};
+  PENDAPATAN_KONVERSI_LIST_.forEach(row=>{
+    ['kode2024','kode2025','kode2026'].forEach(k=>{
+      if(row[k]) map[row[k]] = row;
+    });
+  });
+  PENDAPATAN_KONVERSI_MAP_ = map;
+}
+
+// Diberi 1 kode (dari tahun manapun) + tahun tujuan, kembalikan kode yang
+// SEHARUSNYA dipakai di tahun tujuan itu (kode padanan dari sheet Konversi).
+// Kalau kodenya tidak terdaftar di peta (mis. bukan rekening Pendapatan yang
+// ada di sheet Konversi -- jarang terjadi tapi mungkin ada rekening baru yang
+// belum sempat dipetakan manual), fallback ke kode aslinya apa adanya supaya
+// perilaku lama (asumsi kode sama) tetap jalan alih-alih data hilang total.
+function resolveKonversiKodeP_(kode, targetYear){
+  const row = PENDAPATAN_KONVERSI_MAP_[kode];
+  if(!row) return kode;
+  const target = row['kode' + targetYear];
+  return target || kode;
 }
 
 function updateRingkasanPeriodeLabelP_(){
