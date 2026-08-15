@@ -2031,16 +2031,32 @@ function renderFilterRangeCompareP(){
 function renderKhusus(year){
   const data = STATE.khusus[year];
   const theadRow = $(`#tblKhusus${year} thead tr`);
-  theadRow.innerHTML = '<th>Kode</th><th>Nama Rekening</th>' + data.bulan_label.map(m=>`<th>${m}</th>`).join('') + '<th>Total</th>';
+  theadRow.innerHTML = '<th>Kode</th><th>Nama Rekening</th><th>Pagu Belanja</th>' +
+    data.bulan_label.map(m=>`<th>${m}</th>`).join('') +
+    '<th>Total</th><th>% Realisasi SPJ</th><th>Sisa Anggaran</th>';
   const tbody = $(`#tblKhusus${year} tbody`);
   const q = ($(`#searchKhusus${year}`).value||'').toLowerCase();
   const rows = data.rows.filter(r=>r.nama.toLowerCase().includes(q) || r.kode.includes(q));
-  tbody.innerHTML = rows.map(r=>`<tr data-kode="${r.kode}" data-nama="${r.nama.replace(/"/g,'&quot;')}" data-year="${year}" title="Klik untuk lihat rincian transaksi BKU ${year}">
+  tbody.innerHTML = rows.map(r=>{
+    // Pagu Belanja/% Realisasi/Sisa Anggaran: pagu{tahun} sudah melekat di SETIAP
+    // baris apapun tahun sumber transaksinya (lihat getBelanjaPaguMap_ di Code.gs,
+    // di-key pakai kode ternormalisasi jadi nilainya sama utk 2024/2025/2026) --
+    // jadi persen & sisa dihitung di sini (client-side) generik utk halaman Khusus
+    // tahun manapun (2024/2025/2026), bukan cuma 2026 seperti r.persen2026 bawaan
+    // backend (yang emang cuma diisi backend saat kolom sumbernya tahun 2026).
+    const pagu = r['pagu' + year];
+    const persen = pagu ? (r.total / pagu * 100) : null;
+    const sisa = (pagu !== undefined && pagu !== null) ? (pagu - r.total) : null;
+    return `<tr data-kode="${r.kode}" data-nama="${r.nama.replace(/"/g,'&quot;')}" data-year="${year}" title="Klik untuk lihat rincian transaksi BKU ${year}">
       <td class="lvl-${r.depth}">${r.kode}</td>
       <td class="lvl-${r.depth}">${r.nama}</td>
+      <td class="col-pagu">${pagu ? fmt(pagu) : '-'}</td>
       ${r.bulanan.map(v=>`<td>${fmt(v)}</td>`).join('')}
       <td><b>${fmt(r.total)}</b></td>
-    </tr>`).join('');
+      <td class="col-persen">${fmtPersenID_(persen)}</td>
+      <td class="col-pagu">${sisa !== null ? fmt(sisa) : '-'}</td>
+    </tr>`;
+  }).join('');
   $(`#countKhusus${year}`).textContent = rows.length + ' akun';
   tbody.querySelectorAll('tr').forEach(tr=>{
     tr.addEventListener('click', ()=> openBkuModal(tr.dataset.year, tr.dataset.kode, tr.dataset.nama, 'belanja'));
