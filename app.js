@@ -1161,6 +1161,66 @@ function renderPerbandingan(){
   updatePerbandinganPill();
 }
 
+/* ---------------- Perbandingan Pendapatan (konsep sama dengan Perbandingan Belanja per Akun) ---------------- */
+let PERBANDINGAN_BULAN_SEL_P = null;
+
+function populatePerbandinganBulanP(){
+  const sel = $('#filterBulanPerbandinganP');
+  if(!sel) return;
+  const opts = ['<option value="">Bulan Ini (terakhir)</option>']
+    .concat(MONTH_NAMES.map((m,i)=>`<option value="${i}">${m}</option>`));
+  sel.innerHTML = opts.join('');
+}
+
+function getPerbandinganBulanValueP(kode, year, bulanIdx){
+  const data = STATE_P.khusus[year];
+  if(!data) return null;
+  const row = data.rows.find(x=>x.kode===kode);
+  if(!row) return null;
+  return (bulanIdx < row.bulanan.length) ? row.bulanan[bulanIdx] : null;
+}
+
+function updatePerbandinganPillP(){
+  const pill = $('#pillPerbandinganP');
+  if(!pill) return;
+  if(PERBANDINGAN_BULAN_SEL_P === null){
+    const labels = ['2024','2025','2026'].map(y=>{
+      const d = STATE_P.ringkasan[y];
+      return d && d.label_bulan ? `${d.label_bulan} ${y}` : y;
+    });
+    pill.textContent = labels.join(' · ');
+  } else {
+    const m = MONTH_NAMES[PERBANDINGAN_BULAN_SEL_P];
+    pill.textContent = ['2024','2025','2026'].map(y=>`${m} ${y}`).join(' · ');
+  }
+}
+
+function renderPerbandinganP(){
+  const tbody = $('#tblPerbandinganP tbody');
+  if(!tbody) return;
+  const q = ($('#searchPerbandinganP').value||'').toLowerCase();
+  const rows = STATE_P.perbandingan.filter(r => r.nama.toLowerCase().includes(q) || r.kode.includes(q));
+  const bulanIdx = PERBANDINGAN_BULAN_SEL_P;
+  tbody.innerHTML = rows.map(r=>{
+    const v24 = bulanIdx===null ? r['2024'] : getPerbandinganBulanValueP(r.kode,'2024',bulanIdx);
+    const v25 = bulanIdx===null ? r['2025'] : getPerbandinganBulanValueP(r.kode,'2025',bulanIdx);
+    const v26 = bulanIdx===null ? r['2026'] : getPerbandinganBulanValueP(r.kode,'2026',bulanIdx);
+    return `<tr>
+      <td class="lvl-${r.depth}">${r.kode}</td>
+      <td class="lvl-${r.depth}">${r.nama}</td>
+      <td class="col-pagu">${r.pagu2024 ? fmt(r.pagu2024) : '-'}</td>
+      <td>${fmt(v24)}</td>
+      <td class="col-pagu">${r.pagu2025 ? fmt(r.pagu2025) : '-'}</td>
+      <td>${fmt(v25)}</td>
+      <td class="col-pagu">${r.pagu2026 ? fmt(r.pagu2026) : '-'}</td>
+      <td>${fmt(v26)}</td>
+      <td class="col-persen">${fmtPersenID_(r.persen2026)}</td>
+    </tr>`;
+  }).join('');
+  $('#countPerbandinganP').textContent = rows.length + ' akun';
+  updatePerbandinganPillP();
+}
+
 /* ---------------- Filter (Rekening / Bulan / Tahun) ---------------- */
 const FILTER_YEARS = ['2024','2025','2026'];
 
@@ -2187,9 +2247,35 @@ function initBkuModal(){
 let STATE_P = {
   ringkasan: (typeof REKAP_DATA_PENDAPATAN !== 'undefined') ? REKAP_DATA_PENDAPATAN.ringkasan : {},
   tren: (typeof REKAP_DATA_PENDAPATAN !== 'undefined') ? REKAP_DATA_PENDAPATAN.tren : [],
+  perbandingan: [], // tidak ada snapshot statis -- baru terisi setelah khusus_pendapatan live berhasil (lihat buildPerbandinganFromKhususP_)
   khusus: (typeof REKAP_DATA_PENDAPATAN !== 'undefined') ? REKAP_DATA_PENDAPATAN.khusus : {},
   live: false,
 };
+
+// Versi Pendapatan dari buildPerbandinganFromKhusus_() (Belanja) -- konsep sama
+// persis: union kode dari STATE_P.khusus 3 tahun, TANPA menggabungkan kode 2024/2025
+// dengan padanan 2026-nya lewat Konversi (kode berbeda konvensi tetap jadi baris
+// terpisah), supaya perilakunya konsisten dgn "Perbandingan Belanja per Akun" yang
+// diminta user sbg acuan ("konsep sama dengan belanja").
+function buildPerbandinganFromKhususP_(){
+  const map = {};
+  ['2024','2025','2026'].forEach(y=>{
+    const d = STATE_P.khusus[y];
+    if(!d) return;
+    d.rows.forEach(r=>{
+      if(!map[r.kode]) map[r.kode] = { kode:r.kode, nama:r.nama, depth:r.depth, '2024':null, '2025':null, '2026':null,
+        pagu2024:null, pagu2025:null, pagu2026:null, persen2026:null };
+      map[r.kode][y] = r.total;
+      map[r.kode].nama = r.nama;
+      map[r.kode].depth = r.depth;
+      if(r.pagu2024 !== undefined) map[r.kode].pagu2024 = r.pagu2024;
+      if(r.pagu2025 !== undefined) map[r.kode].pagu2025 = r.pagu2025;
+      if(r.pagu2026 !== undefined) map[r.kode].pagu2026 = r.pagu2026;
+      if(r.persen2026 !== undefined && r.persen2026 !== null) map[r.kode].persen2026 = r.persen2026;
+    });
+  });
+  return Object.values(map).sort((a,b)=> a.kode.localeCompare(b.kode, undefined, {numeric:true}));
+}
 
 function updateLiveBadgeP(){
   const el = $('#liveBadgeP');
@@ -2278,12 +2364,15 @@ async function loadKhususLivePendapatan(){
     if(!res.ok) throw new Error('bad status ' + res.status);
     const json = await res.json();
     if(!json.khusus) throw new Error('respons tidak berisi field khusus');
+    let any = false;
     ['2024','2025','2026'].forEach(y=>{
       const d = json.khusus[y];
       if(d && d.rows && d.rows.length){
         STATE_P.khusus[y] = { bulan_label: d.bulan_label, rows: d.rows };
+        any = true;
       }
     });
+    if(any) STATE_P.perbandingan = buildPerbandinganFromKhususP_();
     if(json.khusus.tanggal_terakhir) STATE_P.tanggal_terakhir = json.khusus.tanggal_terakhir;
     if(json.konversi_pendapatan) setPendapatanKonversiMap_(json.konversi_pendapatan);
     updateDataPerBadgeP_();
@@ -3028,10 +3117,18 @@ async function main(){
   // ---- Modul Pendapatan (independen dari Belanja di atas) ----
   updateLiveBadgeP();
   renderRingkasanPendapatan();
+  populatePerbandinganBulanP();
+  renderPerbandinganP();
   ['2024','2025','2026'].forEach(renderKhususPendapatan);
   initFilterP();
   initNavP();
   initYearMenuP();
+  $('#searchPerbandinganP')?.addEventListener('input', renderPerbandinganP);
+  $('#filterBulanPerbandinganP')?.addEventListener('change', (e)=>{
+    const v = e.target.value;
+    PERBANDINGAN_BULAN_SEL_P = v === '' ? null : parseInt(v, 10);
+    renderPerbandinganP();
+  });
   ['2024','2025','2026'].forEach(y=>{
     $(`#searchKhusus${y}P`)?.addEventListener('input', ()=>renderKhususPendapatan(y));
   });
@@ -3093,11 +3190,12 @@ function refreshKhususDependentViews_(){
   }
 }
 
-// Versi Pendapatan dari refreshKhususDependentViews_() -- tanpa renderPerbandingan()
-// karena Pendapatan tidak punya tabel "Perbandingan per Akun". Menyegarkan halaman
-// Khusus 2024/2025/2026-P & halaman Filter-P (dropdown + hasil + chart rentang)
+// Versi Pendapatan dari refreshKhususDependentViews_() -- sekarang JUGA me-render
+// ulang "Perbandingan per Akun" Pendapatan (halaman baru, konsep sama dgn Belanja),
+// selain Khusus 2024/2025/2026-P & halaman Filter-P (dropdown + hasil + chart rentang),
 // setelah loadKhususLivePendapatan() selesai.
 function refreshKhususDependentViewsP_(){
+  renderPerbandinganP();
   ['2024','2025','2026'].forEach(renderKhususPendapatan);
   const curYear = $('#filterTahunP').value || '2026';
   const curKode = $('#filterRekeningP').value;

@@ -410,6 +410,11 @@
       <span class="tip">Tren Bulanan 2024–2026</span>
     </div>
 
+    <div class="nav-item" data-viewp="perbandingan-p">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="10"/><line x1="12" y1="21" x2="12" y2="4"/><line x1="20" y1="21" x2="20" y2="14"/></svg>
+      <span class="tip">Perbandingan per Akun</span>
+    </div>
+
     <div class="nav-item" data-viewp="filter-p">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
       <span class="tip">Filter Rekening / Bulan / Tahun</span>
@@ -496,6 +501,24 @@
           <div class="year-checks" id="trenSameMonthYearsP"></div>
         </div>
         <div class="chart-wrap" style="height:280px;"><canvas id="trenSameMonthChartP"></canvas></div>
+      </div>
+    </section>
+
+    <!-- ===== PERBANDINGAN PENDAPATAN ===== -->
+    <section id="view-perbandingan-p" class="view">
+      <div class="card">
+        <h3>Perbandingan Pendapatan per Akun <span id="countPerbandinganP"></span></h3>
+        <div class="toolbar">
+          <input type="text" id="searchPerbandinganP" placeholder="Cari kode / nama rekening...">
+          <select id="filterBulanPerbandinganP"></select>
+          <span class="pill" id="pillPerbandinganP">Des 2024 · Des 2025 · Jul 2026</span>
+        </div>
+        <div class="table-wrap">
+          <table class="data" id="tblPerbandinganP">
+            <thead><tr><th>Kode</th><th>Nama Rekening</th><th>Pagu 2024</th><th>Realisasi 2024</th><th>Pagu 2025</th><th>Realisasi 2025</th><th>Pagu 2026</th><th>Realisasi 2026</th><th>% SPJ</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </div>
     </section>
 
@@ -680,6 +703,6 @@
 <script src="auth.js?v=10"></script>
 <script src="data.js?v=8"></script>
 <script src="data_pendapatan.js?v=1"></script>
-<script src="app.js?v=29"></script>
+<script src="app.js?v=30"></script>
 </body>
 </html>
