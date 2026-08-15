@@ -2,6 +2,10 @@
 
 const fmt = n => (n===null||n===undefined||n==='') ? '-' : Number(n).toLocaleString('id-ID');
 const fmtPct = n => (n===null||n===undefined||n==='') ? '-' : Number(n).toFixed(1)+'%';
+// % Realisasi 2026 di tabel "Perbandingan Belanja per Akun" -- dua digit desimal,
+// format Indonesia (koma sbg pemisah desimal, mis. "66,26%"), beda dari fmtPct
+// (1 desimal, titik) yg dipakai di tempat lain -- ini permintaan eksplisit user.
+const fmtPersenID_ = n => (n===null||n===undefined||n==='') ? '-' : Number(n).toFixed(2).replace('.',',')+'%';
 const $ = sel => document.querySelector(sel);
 const $$ = sel => Array.from(document.querySelectorAll(sel));
 
@@ -139,10 +143,19 @@ function buildPerbandinganFromKhusus_(){
     const d = STATE.khusus[y];
     if(!d) return;
     d.rows.forEach(r=>{
-      if(!map[r.kode]) map[r.kode] = { kode:r.kode, nama:r.nama, depth:r.depth, '2024':null, '2025':null, '2026':null };
+      if(!map[r.kode]) map[r.kode] = { kode:r.kode, nama:r.nama, depth:r.depth, '2024':null, '2025':null, '2026':null,
+        pagu2024:null, pagu2025:null, pagu2026:null, persen2026:null };
       map[r.kode][y] = r.total;
       map[r.kode].nama = r.nama;
       map[r.kode].depth = r.depth;
+      // Pagu Anggaran (2024/2025/2026): backend melampirkan field ini di SETIAP
+      // baris getKhususData_ (lihat Code.gs getBelanjaPaguMap_), nilainya sama
+      // berapa pun tahun sumber transaksinya -- jadi cukup timpa tiap kali ada,
+      // & persen2026 cuma diisi backend saat memproses tahun 2026 (baris lain null).
+      if(r.pagu2024 !== undefined) map[r.kode].pagu2024 = r.pagu2024;
+      if(r.pagu2025 !== undefined) map[r.kode].pagu2025 = r.pagu2025;
+      if(r.pagu2026 !== undefined) map[r.kode].pagu2026 = r.pagu2026;
+      if(r.persen2026 !== undefined && r.persen2026 !== null) map[r.kode].persen2026 = r.persen2026;
     });
   });
   return Object.values(map).sort((a,b)=> a.kode.localeCompare(b.kode, undefined, {numeric:true}));
@@ -159,6 +172,23 @@ function normalizePeriode_(v){
 
 async function tryLoadLive(){
   if(!window.APPS_SCRIPT_URL) return;
+  // PENTING (bug sama seperti Pendapatan sebelumnya: klik "Sync Google Sheet"
+  // berkali-kali untuk Belanja tidak pernah benar-benar menarik data terbaru dari
+  // Rekap_Belanja_SPJ_2024_2025_2026_v2.xlsx): ringkasan/tren di bawah ini HANYA
+  // baca cache Rekap_SPJ_Dashboard_Live_Data (Code.gs readRows_), TIDAK PERNAH
+  // menyentuh xlsx-nya sendiri. Cache itu sebelumnya cuma di-refresh oleh trigger
+  // per-jam (syncFromXlsx di Sync_LiveData.gs). Baris ini memaksa Code.gs
+  // menjalankan syncFromXlsx() DULU (via view=sync_belanja_cache) setiap kali
+  // fungsi ini dipanggil, baru setelah itu baca ringkasan/tren -- jadi tombol Sync
+  // Belanja sekarang benar-benar menarik data terbaru, bukan cuma mengandalkan
+  // trigger per-jam yang belum tentu sudah jalan. Dibungkus try/catch terpisah &
+  // tidak melempar error supaya kalau endpoint ini gagal (mis. timeout),
+  // pembacaan ringkasan/tren di bawah tetap jalan pakai cache yang ada.
+  try{
+    await fetch(`${APPS_SCRIPT_URL}?view=sync_belanja_cache`, {method:'GET'});
+  }catch(err){
+    console.warn('Gagal memicu sync_belanja_cache (lanjut pakai cache terakhir):', err);
+  }
   try{
     const res = await fetch(APPS_SCRIPT_URL, {method:'GET'});
     if(!res.ok) throw new Error('bad status');
@@ -190,6 +220,11 @@ async function tryLoadLive(){
       // labelnya jadi timestamp panjang yang tidak terbaca. Dinormalisasi ke
       // "yyyy-MM" dulu supaya konsisten dengan format snapshot.
       STATE.tren = json.tren.map(r=>({periode: normalizePeriode_(r.periode), bulan_ini:+r.bulan_ini, sd_bulan_ini:+r.sd_bulan_ini, pagu:+r.pagu}));
+      // refresh batas min/max picker Rentang A/B supaya ikut bulan terbaru yang baru masuk
+      if(typeof updateTrenRangeBounds_ === 'function'){
+        const clamped = updateTrenRangeBounds_();
+        if((clamped || TREN_EXTRA_INITED_) && typeof renderTrenRangeCompare === 'function') renderTrenRangeCompare();
+      }
     }
     STATE.live = true;
   }catch(err){
@@ -577,6 +612,13 @@ function updateTrenMeta_(){
 
 function renderTren(){
   updateTrenMeta_();
+  // jaring pengaman: tiap kali tab Tren dibuka, pastikan batas min/max picker
+  // Rentang A/B (menu Perbandingan Rentang Bulan) sudah sinkron dengan bulan
+  // terbaru di STATE.tren -- lihat komentar di updateTrenRangeBounds_().
+  if(typeof TREN_EXTRA_INITED_ !== 'undefined' && TREN_EXTRA_INITED_ && typeof updateTrenRangeBounds_ === 'function'){
+    const clamped = updateTrenRangeBounds_();
+    if(clamped && typeof renderTrenRangeCompare === 'function') renderTrenRangeCompare();
+  }
   const ctx = $('#trenChart').getContext('2d');
   const labels = STATE.tren.map(r=>r.periode);
   const bulanIni = STATE.tren.map(r=>r.bulan_ini);
@@ -620,15 +662,33 @@ function periodeInRange_(from, to){
     .slice().sort((a,b)=> a.periode.localeCompare(b.periode));
 }
 
-function initTrenRangeCompare(){
-  const years = trenAvailableYears_();
+// PENTING (dinamis mengikuti bulan yang benar-benar sudah ter-update di
+// Rekap_Belanja_SPJ_2024_2025_2026_v2.xlsx): sama seperti updateTrenRangeBoundsP_
+// untuk Pendapatan -- dipisah dari initTrenRangeCompare() supaya bisa dipanggil
+// ULANG tiap kali data live selesai dimuat (klik Sync / buka tab Tren), bukan
+// cuma sekali saat init (kalau cuma sekali, picker Rentang A/B macet di bulan
+// lama walau data baru sudah masuk, mis. macet di Juli padahal Agustus sudah ada).
+function updateTrenRangeBounds_(){
   const periods = STATE.tren.map(r=>r.periode).filter(Boolean).slice().sort();
   const minP = periods[0], maxP = periods[periods.length-1];
+  let clamped = false;
   ['trenRangeAFrom','trenRangeATo','trenRangeBFrom','trenRangeBTo'].forEach(id=>{
     const el = $('#'+id);
     if(!el) return;
     if(minP) el.min = minP;
     if(maxP) el.max = maxP;
+    if(maxP && el.value && el.value > maxP){ el.value = maxP; clamped = true; }
+    if(minP && el.value && el.value < minP){ el.value = minP; clamped = true; }
+  });
+  return clamped;
+}
+
+function initTrenRangeCompare(){
+  const years = trenAvailableYears_();
+  updateTrenRangeBounds_();
+  ['trenRangeAFrom','trenRangeATo','trenRangeBFrom','trenRangeBTo'].forEach(id=>{
+    const el = $('#'+id);
+    if(!el) return;
     el.addEventListener('change', renderTrenRangeCompare);
   });
   // Default: Jan-Jun tahun kedua-terakhir vs Jan-Jun tahun terakhir yang ada datanya
@@ -1091,6 +1151,10 @@ function renderPerbandingan(){
       <td>${fmt(v24)}</td>
       <td>${fmt(v25)}</td>
       <td>${fmt(v26)}</td>
+      <td class="col-pagu">${r.pagu2024 ? fmt(r.pagu2024) : '-'}</td>
+      <td class="col-pagu">${r.pagu2025 ? fmt(r.pagu2025) : '-'}</td>
+      <td class="col-pagu">${r.pagu2026 ? fmt(r.pagu2026) : '-'}</td>
+      <td class="col-persen">${fmtPersenID_(r.persen2026)}</td>
     </tr>`;
   }).join('');
   $('#countPerbandingan').textContent = rows.length + ' akun';
@@ -1374,6 +1438,7 @@ function initFilter(){
   populateFilterBulan('2026');
   populateFilterRekening('2026');
   renderFilterResult();
+  initFilterRangeCompare();
 
   $('#filterTahun').addEventListener('change', ()=>{
     const year = $('#filterTahun').value;
@@ -1381,9 +1446,512 @@ function initFilter(){
     populateFilterBulan(year);
     populateFilterRekening(year, keepKode);
     renderFilterResult();
+    renderFilterRangeCompare();
   });
   $('#filterBulan').addEventListener('change', renderFilterResult);
-  $('#filterRekening').addEventListener('change', renderFilterResult);
+  $('#filterRekening').addEventListener('change', ()=>{
+    renderFilterResult();
+    renderFilterRangeCompare();
+  });
+}
+
+/* ---- Filter: Perbandingan Rentang Bulan per Rekening (line chart, mis.
+   Jan-Jul 2024 vs Jan-Jul 2026 utk 1 rekening yg dipilih di dropdown filter
+   atas). Beda dari "Perbandingan Rentang Bulan" di tab Tren -- yang itu
+   totalnya SELURUH Belanja (kode 5), ini KHUSUS 1 rekening (kode apa saja,
+   sampai level paling detail), datanya diambil dari STATE.khusus[year].rows
+   (yang sudah punya rincian bulanan per akun -- lihat getKhususData_ Code.gs)
+   bukan dari STATE.tren (yang cuma total kode 5 per bulan). ---- */
+function khususAvailableYears_(){
+  return ['2024','2025','2026'].filter(y=> STATE.khusus[y] && STATE.khusus[y].bulan_label && STATE.khusus[y].bulan_label.length);
+}
+
+// Kumpulkan {periode:'YYYY-MM', value} utk 1 kode, lintas SEMUA tahun yg ada
+// datanya, dibatasi rentang [from,to] (format input type=month, "YYYY-MM").
+function khususPeriodeInRange_(kode, from, to){
+  if(!from || !to || !kode) return [];
+  const out = [];
+  ['2024','2025','2026'].forEach(year=>{
+    const data = STATE.khusus[year];
+    if(!data) return;
+    const row = data.rows.find(r=>r.kode===kode);
+    if(!row) return;
+    data.bulan_label.forEach((m,i)=>{
+      const monthNum = MONTH_NAMES.indexOf(m) + 1;
+      if(monthNum < 1) return;
+      const periode = `${year}-${String(monthNum).padStart(2,'0')}`;
+      if(periode >= from && periode <= to){
+        out.push({ periode, value: row.bulanan[i] });
+      }
+    });
+  });
+  return out.sort((a,b)=> a.periode.localeCompare(b.periode));
+}
+
+// Batas min/max picker Rentang A/B mengikuti cakupan bulan yang benar-benar ada
+// di STATE.tren (sama dgn cakupan STATE.khusus, karena keduanya diturunkan dari
+// BKU/laporan bulanan yang sama) -- dipanggil ulang tiap live-data refresh &
+// tiap tab Filter dibuka, pola sama seperti updateTrenRangeBounds_.
+function updateFilterRangeBounds_(){
+  const periods = (STATE.tren||[]).map(r=>r.periode).filter(Boolean).slice().sort();
+  const minP = periods[0], maxP = periods[periods.length-1];
+  let clamped = false;
+  ['filterRangeAFrom','filterRangeATo','filterRangeBFrom','filterRangeBTo'].forEach(id=>{
+    const el = $('#'+id);
+    if(!el) return;
+    if(minP) el.min = minP;
+    if(maxP) el.max = maxP;
+    if(maxP && el.value && el.value > maxP){ el.value = maxP; clamped = true; }
+    if(minP && el.value && el.value < minP){ el.value = minP; clamped = true; }
+  });
+  return clamped;
+}
+
+let FILTER_RANGE_INITED_ = false;
+function initFilterRangeCompare(){
+  const years = khususAvailableYears_();
+  updateFilterRangeBounds_();
+  ['filterRangeAFrom','filterRangeATo','filterRangeBFrom','filterRangeBTo'].forEach(id=>{
+    const el = $('#'+id);
+    if(!el) return;
+    el.addEventListener('change', renderFilterRangeCompare);
+  });
+  // Default: Jan-Jul tahun pertama vs Jan-Jul tahun terakhir yang ada datanya
+  // (contoh permintaan: rekening tagihan listrik 2024 Jan-Jul vs 2026 Jan-Jul --
+  // beda dari default Tren yg pakai 2 tahun BERDEKATAN, di sini sengaja tahun
+  // PALING AWAL vs PALING AKHIR supaya langsung kelihatan tren jangka panjangnya).
+  if(years.length >= 2){
+    const yA = years[0], yB = years[years.length-1];
+    $('#filterRangeAFrom').value = `${yA}-01`; $('#filterRangeATo').value = `${yA}-07`;
+    $('#filterRangeBFrom').value = `${yB}-01`; $('#filterRangeBTo').value = `${yB}-07`;
+  } else if(years.length === 1){
+    $('#filterRangeAFrom').value = `${years[0]}-01`; $('#filterRangeATo').value = `${years[0]}-07`;
+    $('#filterRangeBFrom').value = `${years[0]}-01`; $('#filterRangeBTo').value = `${years[0]}-07`;
+  }
+  FILTER_RANGE_INITED_ = true;
+  renderFilterRangeCompare();
+}
+
+let filterRangeChart;
+function renderFilterRangeCompare(){
+  const canvas = $('#filterRangeChart');
+  const summary = $('#filterRangeSummary');
+  const labelEl = $('#filterRangeKodeLabel');
+  if(!canvas || !summary || typeof Chart === 'undefined') return;
+
+  const kode = $('#filterRekening').value;
+  const year = $('#filterTahun').value;
+  const data = STATE.khusus[year];
+  const row = data ? data.rows.find(r=>r.kode===kode) : null;
+  if(labelEl) labelEl.textContent = row ? `${row.kode} — ${row.nama}` : '-';
+
+  const fromA = $('#filterRangeAFrom').value, toA = $('#filterRangeATo').value;
+  const fromB = $('#filterRangeBFrom').value, toB = $('#filterRangeBTo').value;
+  const rowsA = khususPeriodeInRange_(kode, fromA, toA);
+  const rowsB = khususPeriodeInRange_(kode, fromB, toB);
+
+  if(!kode || !fromA || !toA || !fromB || !toB || fromA > toA || fromB > toB || (!rowsA.length && !rowsB.length)){
+    summary.innerHTML = '<div class="filter-empty">Pilih rekening & rentang bulan yang valid untuk kedua sisi (A dan B).</div>';
+    if(filterRangeChart){ filterRangeChart.destroy(); filterRangeChart = null; }
+    return;
+  }
+
+  const len = Math.max(rowsA.length, rowsB.length);
+  const labels = Array.from({length: len}, (_,i)=>{
+    const src = rowsA[i] || rowsB[i];
+    return src ? MONTH_NAMES[parseInt(String(src.periode).split('-')[1],10)-1] : ('Bulan ke-'+(i+1));
+  });
+  const dataA = Array.from({length: len}, (_,i)=> rowsA[i] ? rowsA[i].value : null);
+  const dataB = Array.from({length: len}, (_,i)=> rowsB[i] ? rowsB[i].value : null);
+
+  const totalA = rowsA.reduce((s,r)=>s+r.value,0);
+  const totalB = rowsB.reduce((s,r)=>s+r.value,0);
+  const diff = totalA ? ((totalB-totalA)/totalA*100) : null;
+  const diffClass = diff===null ? '' : (diff>=0?'pos':'neg');
+  const diffText = diff===null ? '-' : (diff>=0?'+':'') + diff.toFixed(1) + '%';
+
+  const labelA = `${periodeLabelShort_(fromA)} – ${periodeLabelShort_(toA)}`;
+  const labelB = `${periodeLabelShort_(fromB)} – ${periodeLabelShort_(toB)}`;
+
+  summary.innerHTML = `
+    <div class="range-stat"><div class="lbl"><span class="range-dot range-dot-a"></span>Total ${labelA}</div><div class="val">Rp ${fmt(totalA)}</div></div>
+    <div class="range-stat"><div class="lbl"><span class="range-dot range-dot-b"></span>Total ${labelB}</div><div class="val">Rp ${fmt(totalB)}</div></div>
+    <div class="range-stat diff"><div class="lbl">Selisih B vs A</div><div class="val ${diffClass}">${diffText}</div></div>
+  `;
+
+  const ctx = canvas.getContext('2d');
+  if(filterRangeChart) filterRangeChart.destroy();
+  filterRangeChart = new Chart(ctx, {
+    type:'line',
+    data:{
+      labels,
+      datasets:[
+        {label: labelA, data:dataA, borderColor:'#5b8def', backgroundColor:'rgba(91,141,239,0.12)', tension:0, pointRadius:4, borderWidth:3, spanGaps:true},
+        {label: labelB, data:dataB, borderColor:'#2fb8c4', backgroundColor:'rgba(47,184,196,0.12)', tension:0, pointRadius:4, borderWidth:3, spanGaps:true},
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index', intersect:false},
+      layout:{padding:{top:58}},
+      plugins:{
+        legend:{position:'top', labels:{boxWidth:12, font:{size:11}}},
+        tooltip:{callbacks:{label:c=> c.dataset.label + ': ' + (c.parsed.y===null ? 'tidak ada data' : 'Rp ' + fmt(c.parsed.y))}}
+      },
+      scales:{
+        y:{ticks:{callback:v=>(v/1e6).toFixed(0)+'jt'}, grid:{color:'#eef0fb'}},
+        x:{grid:{display:false}}
+      }
+    },
+    plugins:[lineShadowPlugin, pctChangeRangeComparePlugin]
+  });
+}
+
+/* ---------------- Filter Pendapatan (Rekening / Bulan / Tahun) ----------------
+   Duplikasi persis dari blok Filter Belanja di atas, tapi bersumber dari
+   STATE_P.khusus (bentuk datanya identik: {bulan_label, rows:[{kode,nama,depth,
+   bulanan,total}]}) -- lihat loadKhususLivePendapatan()/renderKhususPendapatan().
+   Semua id elemen HTML terkait diberi akhiran P (lihat index.html #view-filter-p). */
+const FILTER_YEARS_P = ['2024','2025','2026'];
+
+function allAccountsForYearP_(year){
+  const data = STATE_P.khusus[year];
+  return data ? data.rows.slice().sort((a,b)=> a.kode.localeCompare(b.kode, undefined, {numeric:true})) : [];
+}
+
+function populateFilterTahunP(){
+  const sel = $('#filterTahunP');
+  sel.innerHTML = FILTER_YEARS_P.map(y=>`<option value="${y}">${y}</option>`).join('');
+}
+
+function populateFilterBulanP(year){
+  const sel = $('#filterBulanP');
+  const labels = (STATE_P.khusus[year] && STATE_P.khusus[year].bulan_label) || [];
+  const opts = ['<option value="ALL">Semua Bulan (lihat tren setahun)</option>']
+    .concat(labels.map((m,i)=>`<option value="${i}">${m} ${year}</option>`));
+  sel.innerHTML = opts.join('');
+}
+
+function populateFilterRekeningP(year, keepKode){
+  const sel = $('#filterRekeningP');
+  const accounts = allAccountsForYearP_(year);
+  sel.innerHTML = accounts.map(a=>`<option value="${a.kode}">${a.kode} — ${a.nama}</option>`).join('');
+  if(keepKode && accounts.some(a=>a.kode===keepKode)) sel.value = keepKode;
+}
+
+function renderFilterResultP(){
+  const year = $('#filterTahunP').value;
+  const bulanVal = $('#filterBulanP').value;
+  const kode = $('#filterRekeningP').value;
+  const wrap = $('#filterResultP');
+  const data = STATE_P.khusus[year];
+  const row = data ? data.rows.find(r=>r.kode===kode) : null;
+
+  if(!row){
+    wrap.innerHTML = '<div class="filter-empty">Data tidak ditemukan untuk kombinasi ini.</div>';
+    return;
+  }
+
+  if(bulanVal === 'ALL'){
+    const labels = data.bulan_label;
+    wrap.innerHTML = `
+      <div class="filter-stat">
+        <div class="big-card">
+          <div class="lbl">${row.kode} — ${row.nama}</div>
+          <div class="val">Rp ${fmt(row.total)}</div>
+          <div class="sub">Total Pendapatan Bulan Ini, akumulasi ${labels[0]}–${labels[labels.length-1]} ${year}</div>
+        </div>
+      </div>
+      <div class="chart-wrap" style="height:240px;margin-top:14px;"><canvas id="filterChartP"></canvas></div>
+      <table class="subtable" style="margin-top:14px;">
+        <thead><tr>${labels.map(m=>`<th>${m}</th>`).join('')}</tr></thead>
+        <tbody><tr>${row.bulanan.map(v=>`<td>${fmt(v)}</td>`).join('')}</tr></tbody>
+      </table>
+    `;
+    renderFilterChartP(labels, row.bulanan);
+    return;
+  }
+
+  const idx = parseInt(bulanVal, 10);
+  const label = data.bulan_label[idx];
+  const value = row.bulanan[idx];
+
+  const compareValues = FILTER_YEARS_P.map(y=>{
+    const yd = STATE_P.khusus[y];
+    const yr = yd ? yd.rows.find(r=>r.kode===kode) : null;
+    const yIdx = yd ? yd.bulan_label.indexOf(label) : -1;
+    return (yr && yIdx > -1) ? yr.bulanan[yIdx] : null;
+  });
+
+  const compareHtml = FILTER_YEARS_P.map((y,i)=>{
+    const v = compareValues[i];
+    const has = v !== null;
+    return `<div class="yr-box ${has?'':'dim'} ${y===year?'current':''}"><b>${label} ${y}</b><span>${has ? 'Rp '+fmt(v) : '-'}</span></div>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <div class="filter-stat">
+      <div class="big-card">
+        <div class="lbl">${row.kode} — ${row.nama}</div>
+        <div class="val">Rp ${fmt(value)}</div>
+        <div class="sub">Total Pendapatan Bulan Ini — ${label} ${year}</div>
+      </div>
+    </div>
+    <div class="chart-wrap" style="height:230px;margin-top:14px;"><canvas id="filterCompareChartP"></canvas></div>
+    <div class="filter-compare">${compareHtml}</div>
+  `;
+  renderFilterCompareChartP(label, year, compareValues);
+}
+
+let filterChartInstanceP;
+function renderFilterChartP(labels, values){
+  const canvas = $('#filterChartP');
+  if(!canvas || typeof Chart === 'undefined') return;
+  const ctx = canvas.getContext('2d');
+  if(!ctx) return;
+  const gradient = ctx.createLinearGradient(0, 0, 0, 240);
+  gradient.addColorStop(0, 'rgba(91,141,239,0.48)');
+  gradient.addColorStop(1, 'rgba(91,141,239,0.02)');
+  if(filterChartInstanceP) filterChartInstanceP.destroy();
+  filterChartInstanceP = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        borderColor: '#5b8def',
+        borderWidth: 3,
+        backgroundColor: gradient,
+        fill: true,
+        tension: 0,
+        pointRadius: 4,
+        pointBackgroundColor: '#ffffff',
+        pointBorderColor: '#5b8def',
+        pointBorderWidth: 2,
+        pointHoverRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      layout: {padding: {bottom: 12, right: 8, top: 22}},
+      plugins: {
+        legend: {display: false},
+        tooltip: {callbacks: {label: c => 'Rp ' + fmt(c.parsed.y)}}
+      },
+      scales: {
+        y: {ticks: {callback: v => (v/1e6).toFixed(0)+'jt'}, grid: {color:'#eef0fb'}},
+        x: {grid: {display:false}}
+      }
+    },
+    plugins: [ribbon3dPlugin, lineShadowPlugin, pctChangeLinePlugin]
+  });
+}
+
+let filterCompareChartInstanceP;
+function renderFilterCompareChartP(label, currentYear, values){
+  const canvas = $('#filterCompareChartP');
+  if(!canvas || typeof Chart === 'undefined') return;
+  const ctx = canvas.getContext('2d');
+  if(!ctx) return;
+
+  const colors = [
+    {top:'#a9c4f5', bottom:'#7ba4ef'}, // 2024 (biru muda)
+    {top:'#8fb3ff', bottom:'#5b8def'}, // 2025 (biru sedang)
+    {top:'#5b8def', bottom:'#3566d6'}, // 2026 (biru tua)
+  ];
+  const backgrounds = FILTER_YEARS_P.map((y,i)=>{
+    const g = ctx.createLinearGradient(0, 0, 0, 230);
+    const c = colors[i];
+    const dim = y !== currentYear;
+    g.addColorStop(0, dim ? hexA(c.top,0.35) : c.top);
+    g.addColorStop(1, dim ? hexA(c.bottom,0.35) : c.bottom);
+    return g;
+  });
+
+  if(filterCompareChartInstanceP) filterCompareChartInstanceP.destroy();
+  filterCompareChartInstanceP = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: FILTER_YEARS_P.map(y => label + ' ' + y),
+      datasets: [{
+        data: values,
+        backgroundColor: backgrounds,
+        borderRadius: 10,
+        borderSkipped: false,
+        maxBarThickness: 70,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: {display:false},
+        tooltip: {callbacks: {label: c => 'Rp ' + fmt(c.parsed.y)}}
+      },
+      scales: {
+        y: {ticks: {callback: v => (v/1e6).toFixed(0)+'jt'}, grid: {color:'#eef0fb'}},
+        x: {grid: {display:false}}
+      }
+    },
+    plugins: [barShadowPlugin]
+  });
+}
+
+function initFilterP(){
+  populateFilterTahunP();
+  $('#filterTahunP').value = '2026';
+  populateFilterBulanP('2026');
+  populateFilterRekeningP('2026');
+  renderFilterResultP();
+  initFilterRangeCompareP();
+
+  $('#filterTahunP').addEventListener('change', ()=>{
+    const year = $('#filterTahunP').value;
+    const keepKode = $('#filterRekeningP').value;
+    populateFilterBulanP(year);
+    populateFilterRekeningP(year, keepKode);
+    renderFilterResultP();
+    renderFilterRangeCompareP();
+  });
+  $('#filterBulanP').addEventListener('change', renderFilterResultP);
+  $('#filterRekeningP').addEventListener('change', ()=>{
+    renderFilterResultP();
+    renderFilterRangeCompareP();
+  });
+}
+
+function khususAvailableYearsP_(){
+  return ['2024','2025','2026'].filter(y=> STATE_P.khusus[y] && STATE_P.khusus[y].bulan_label && STATE_P.khusus[y].bulan_label.length);
+}
+
+function khususPeriodeInRangeP_(kode, from, to){
+  if(!from || !to || !kode) return [];
+  const out = [];
+  ['2024','2025','2026'].forEach(year=>{
+    const data = STATE_P.khusus[year];
+    if(!data) return;
+    const row = data.rows.find(r=>r.kode===kode);
+    if(!row) return;
+    data.bulan_label.forEach((m,i)=>{
+      const monthNum = MONTH_NAMES.indexOf(m) + 1;
+      if(monthNum < 1) return;
+      const periode = `${year}-${String(monthNum).padStart(2,'0')}`;
+      if(periode >= from && periode <= to){
+        out.push({ periode, value: row.bulanan[i] });
+      }
+    });
+  });
+  return out.sort((a,b)=> a.periode.localeCompare(b.periode));
+}
+
+function updateFilterRangeBoundsP_(){
+  const periods = (STATE_P.tren||[]).map(r=>r.periode).filter(Boolean).slice().sort();
+  const minP = periods[0], maxP = periods[periods.length-1];
+  let clamped = false;
+  ['filterRangeAFromP','filterRangeAToP','filterRangeBFromP','filterRangeBToP'].forEach(id=>{
+    const el = $('#'+id);
+    if(!el) return;
+    if(minP) el.min = minP;
+    if(maxP) el.max = maxP;
+    if(maxP && el.value && el.value > maxP){ el.value = maxP; clamped = true; }
+    if(minP && el.value && el.value < minP){ el.value = minP; clamped = true; }
+  });
+  return clamped;
+}
+
+let FILTER_RANGE_INITED_P_ = false;
+function initFilterRangeCompareP(){
+  const years = khususAvailableYearsP_();
+  updateFilterRangeBoundsP_();
+  ['filterRangeAFromP','filterRangeAToP','filterRangeBFromP','filterRangeBToP'].forEach(id=>{
+    const el = $('#'+id);
+    if(!el) return;
+    el.addEventListener('change', renderFilterRangeCompareP);
+  });
+  if(years.length >= 2){
+    const yA = years[0], yB = years[years.length-1];
+    $('#filterRangeAFromP').value = `${yA}-01`; $('#filterRangeAToP').value = `${yA}-07`;
+    $('#filterRangeBFromP').value = `${yB}-01`; $('#filterRangeBToP').value = `${yB}-07`;
+  } else if(years.length === 1){
+    $('#filterRangeAFromP').value = `${years[0]}-01`; $('#filterRangeAToP').value = `${years[0]}-07`;
+    $('#filterRangeBFromP').value = `${years[0]}-01`; $('#filterRangeBToP').value = `${years[0]}-07`;
+  }
+  FILTER_RANGE_INITED_P_ = true;
+  renderFilterRangeCompareP();
+}
+
+let filterRangeChartP;
+function renderFilterRangeCompareP(){
+  const canvas = $('#filterRangeChartP');
+  const summary = $('#filterRangeSummaryP');
+  const labelEl = $('#filterRangeKodeLabelP');
+  if(!canvas || !summary || typeof Chart === 'undefined') return;
+
+  const kode = $('#filterRekeningP').value;
+  const year = $('#filterTahunP').value;
+  const data = STATE_P.khusus[year];
+  const row = data ? data.rows.find(r=>r.kode===kode) : null;
+  if(labelEl) labelEl.textContent = row ? `${row.kode} — ${row.nama}` : '-';
+
+  const fromA = $('#filterRangeAFromP').value, toA = $('#filterRangeAToP').value;
+  const fromB = $('#filterRangeBFromP').value, toB = $('#filterRangeBToP').value;
+  const rowsA = khususPeriodeInRangeP_(kode, fromA, toA);
+  const rowsB = khususPeriodeInRangeP_(kode, fromB, toB);
+
+  if(!kode || !fromA || !toA || !fromB || !toB || fromA > toA || fromB > toB || (!rowsA.length && !rowsB.length)){
+    summary.innerHTML = '<div class="filter-empty">Pilih rekening & rentang bulan yang valid untuk kedua sisi (A dan B).</div>';
+    if(filterRangeChartP){ filterRangeChartP.destroy(); filterRangeChartP = null; }
+    return;
+  }
+
+  const len = Math.max(rowsA.length, rowsB.length);
+  const labels = Array.from({length: len}, (_,i)=>{
+    const src = rowsA[i] || rowsB[i];
+    return src ? MONTH_NAMES[parseInt(String(src.periode).split('-')[1],10)-1] : ('Bulan ke-'+(i+1));
+  });
+  const dataA = Array.from({length: len}, (_,i)=> rowsA[i] ? rowsA[i].value : null);
+  const dataB = Array.from({length: len}, (_,i)=> rowsB[i] ? rowsB[i].value : null);
+
+  const totalA = rowsA.reduce((s,r)=>s+r.value,0);
+  const totalB = rowsB.reduce((s,r)=>s+r.value,0);
+  const diff = totalA ? ((totalB-totalA)/totalA*100) : null;
+  const diffClass = diff===null ? '' : (diff>=0?'pos':'neg');
+  const diffText = diff===null ? '-' : (diff>=0?'+':'') + diff.toFixed(1) + '%';
+
+  const labelA = `${periodeLabelShort_(fromA)} – ${periodeLabelShort_(toA)}`;
+  const labelB = `${periodeLabelShort_(fromB)} – ${periodeLabelShort_(toB)}`;
+
+  summary.innerHTML = `
+    <div class="range-stat"><div class="lbl"><span class="range-dot range-dot-a"></span>Total ${labelA}</div><div class="val">Rp ${fmt(totalA)}</div></div>
+    <div class="range-stat"><div class="lbl"><span class="range-dot range-dot-b"></span>Total ${labelB}</div><div class="val">Rp ${fmt(totalB)}</div></div>
+    <div class="range-stat diff"><div class="lbl">Selisih B vs A</div><div class="val ${diffClass}">${diffText}</div></div>
+  `;
+
+  const ctx = canvas.getContext('2d');
+  if(filterRangeChartP) filterRangeChartP.destroy();
+  filterRangeChartP = new Chart(ctx, {
+    type:'line',
+    data:{
+      labels,
+      datasets:[
+        {label: labelA, data:dataA, borderColor:'#5b8def', backgroundColor:'rgba(91,141,239,0.12)', tension:0, pointRadius:4, borderWidth:3, spanGaps:true},
+        {label: labelB, data:dataB, borderColor:'#2fb8c4', backgroundColor:'rgba(47,184,196,0.12)', tension:0, pointRadius:4, borderWidth:3, spanGaps:true},
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index', intersect:false},
+      layout:{padding:{top:58}},
+      plugins:{
+        legend:{position:'top', labels:{boxWidth:12, font:{size:11}}},
+        tooltip:{callbacks:{label:c=> c.dataset.label + ': ' + (c.parsed.y===null ? 'tidak ada data' : 'Rp ' + fmt(c.parsed.y))}}
+      },
+      scales:{
+        y:{ticks:{callback:v=>(v/1e6).toFixed(0)+'jt'}, grid:{color:'#eef0fb'}},
+        x:{grid:{display:false}}
+      }
+    },
+    plugins:[lineShadowPlugin, pctChangeRangeComparePlugin]
+  });
 }
 
 /* ---------------- Khusus per tahun ---------------- */
@@ -1864,6 +2432,12 @@ function showViewP(name){
   $('#btnTahunKhususP')?.classList.toggle('active', YEAR_VIEWS_P.includes(name));
   root.querySelectorAll('.year-flyout-item').forEach(b=>b.classList.toggle('active', b.dataset.viewp===name));
   if(name==='tren-p') setTimeout(()=>{ renderTrenPendapatan(); initTrenExtrasP_(); }, 30);
+  if(name==='filter-p') setTimeout(()=>{
+    if(typeof updateFilterRangeBoundsP_ === 'function'){
+      const clamped = updateFilterRangeBoundsP_();
+      if((clamped || FILTER_RANGE_INITED_P_) && typeof renderFilterRangeCompareP === 'function') renderFilterRangeCompareP();
+    }
+  }, 30);
 }
 
 function initNavP(){
@@ -1922,6 +2496,15 @@ function showView(name){
   $$('.year-flyout-item').forEach(b=>b.classList.toggle('active', b.dataset.view===name));
   location.hash = name;
   if(name==='tren') setTimeout(()=>{ renderTren(); initTrenExtras_(); }, 30);
+  // Jaring pengaman sama seperti Tren: pastikan batas min/max picker Rentang
+  // A/B (Perbandingan Rentang Bulan per Rekening) sudah sinkron dgn bulan
+  // terbaru tiap kali tab Filter dibuka.
+  if(name==='filter') setTimeout(()=>{
+    if(typeof updateFilterRangeBounds_ === 'function'){
+      const clamped = updateFilterRangeBounds_();
+      if((clamped || FILTER_RANGE_INITED_) && typeof renderFilterRangeCompare === 'function') renderFilterRangeCompare();
+    }
+  }, 30);
 }
 
 function initNav(){
@@ -2359,6 +2942,7 @@ async function syncPendapatan_(){
     if($('#view-tren-p').classList.contains('active')) renderTrenPendapatan();
     await loadKhususLivePendapatan();
     ['2024','2025','2026'].forEach(renderKhususPendapatan);
+    refreshKhususDependentViewsP_();
     refreshGabunganIfVisible_();
   } finally {
     btns.forEach(b=>{
@@ -2406,6 +2990,7 @@ async function main(){
   updateLiveBadgeP();
   renderRingkasanPendapatan();
   ['2024','2025','2026'].forEach(renderKhususPendapatan);
+  initFilterP();
   initNavP();
   initYearMenuP();
   ['2024','2025','2026'].forEach(y=>{
@@ -2460,6 +3045,30 @@ function refreshKhususDependentViews_(){
   populateFilterBulan(curYear);
   populateFilterRekening(curYear, curKode);
   renderFilterResult();
+  // Perbandingan Rentang Bulan per Rekening: bulan/tahun cakupannya bisa
+  // bertambah stlh live refresh (sama spt Tren), jadi batas picker & chart-nya
+  // ikut disegarkan di sini juga -- bukan cuma saat tab Filter dibuka manual.
+  if(typeof updateFilterRangeBounds_ === 'function'){
+    updateFilterRangeBounds_();
+    if(typeof renderFilterRangeCompare === 'function') renderFilterRangeCompare();
+  }
+}
+
+// Versi Pendapatan dari refreshKhususDependentViews_() -- tanpa renderPerbandingan()
+// karena Pendapatan tidak punya tabel "Perbandingan per Akun". Menyegarkan halaman
+// Khusus 2024/2025/2026-P & halaman Filter-P (dropdown + hasil + chart rentang)
+// setelah loadKhususLivePendapatan() selesai.
+function refreshKhususDependentViewsP_(){
+  ['2024','2025','2026'].forEach(renderKhususPendapatan);
+  const curYear = $('#filterTahunP').value || '2026';
+  const curKode = $('#filterRekeningP').value;
+  populateFilterBulanP(curYear);
+  populateFilterRekeningP(curYear, curKode);
+  renderFilterResultP();
+  if(typeof updateFilterRangeBoundsP_ === 'function'){
+    updateFilterRangeBoundsP_();
+    if(typeof renderFilterRangeCompareP === 'function') renderFilterRangeCompareP();
+  }
 }
 
 document.addEventListener('DOMContentLoaded', main);

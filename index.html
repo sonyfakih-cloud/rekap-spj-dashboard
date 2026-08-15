@@ -313,7 +313,7 @@
         </div>
         <div class="table-wrap">
           <table class="data" id="tblPerbandingan">
-            <thead><tr><th>Kode</th><th>Nama Rekening</th><th>2024</th><th>2025</th><th>2026</th></tr></thead>
+            <thead><tr><th>Kode</th><th>Nama Rekening</th><th>2024</th><th>2025</th><th>2026</th><th>Pagu 2024</th><th>Pagu 2025</th><th>Pagu 2026</th><th>% Realisasi 2026</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -330,6 +330,29 @@
           <select id="filterRekening" style="flex:2;min-width:240px;"></select>
         </div>
         <div id="filterResult"></div>
+      </div>
+
+      <div class="card">
+        <h3>Perbandingan Rentang Bulan per Rekening</h3>
+        <p class="card-desc">Bandingkan pola SPJ Bulan Ini rekening yang dipilih di atas (<span id="filterRangeKodeLabel">-</span>) antar dua rentang bulan, misalnya Januari–Juli 2024 vs Januari–Juli 2026.</p>
+        <div class="range-toolbar">
+          <div class="range-group">
+            <span class="range-dot range-dot-a"></span>
+            <span class="range-label">Rentang A</span>
+            <input type="month" id="filterRangeAFrom">
+            <span class="range-sep">s.d</span>
+            <input type="month" id="filterRangeATo">
+          </div>
+          <div class="range-group">
+            <span class="range-dot range-dot-b"></span>
+            <span class="range-label">Rentang B</span>
+            <input type="month" id="filterRangeBFrom">
+            <span class="range-sep">s.d</span>
+            <input type="month" id="filterRangeBTo">
+          </div>
+        </div>
+        <div class="range-summary" id="filterRangeSummary"></div>
+        <div class="chart-wrap" style="height:280px;"><canvas id="filterRangeChart"></canvas></div>
       </div>
     </section>
 
@@ -385,6 +408,11 @@
     <div class="nav-item" data-viewp="tren-p">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 6"/><polyline points="14 6 21 6 21 13"/></svg>
       <span class="tip">Tren Bulanan 2024–2026</span>
+    </div>
+
+    <div class="nav-item" data-viewp="filter-p">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+      <span class="tip">Filter Rekening / Bulan / Tahun</span>
     </div>
 
     <div class="nav-item nav-yearmenu" id="btnTahunKhususP">
@@ -468,6 +496,42 @@
           <div class="year-checks" id="trenSameMonthYearsP"></div>
         </div>
         <div class="chart-wrap" style="height:280px;"><canvas id="trenSameMonthChartP"></canvas></div>
+      </div>
+    </section>
+
+    <!-- ===== FILTER PENDAPATAN ===== -->
+    <section id="view-filter-p" class="view">
+      <div class="card">
+        <h3>Filter Rekening, Bulan &amp; Tahun</h3>
+        <div class="toolbar">
+          <select id="filterTahunP"></select>
+          <select id="filterBulanP"></select>
+          <select id="filterRekeningP" style="flex:2;min-width:240px;"></select>
+        </div>
+        <div id="filterResultP"></div>
+      </div>
+
+      <div class="card">
+        <h3>Perbandingan Rentang Bulan per Rekening</h3>
+        <p class="card-desc">Bandingkan pola Pendapatan Bulan Ini rekening yang dipilih di atas (<span id="filterRangeKodeLabelP">-</span>) antar dua rentang bulan, misalnya Januari–Juli 2024 vs Januari–Juli 2026.</p>
+        <div class="range-toolbar">
+          <div class="range-group">
+            <span class="range-dot range-dot-a"></span>
+            <span class="range-label">Rentang A</span>
+            <input type="month" id="filterRangeAFromP">
+            <span class="range-sep">s.d</span>
+            <input type="month" id="filterRangeAToP">
+          </div>
+          <div class="range-group">
+            <span class="range-dot range-dot-b"></span>
+            <span class="range-label">Rentang B</span>
+            <input type="month" id="filterRangeBFromP">
+            <span class="range-sep">s.d</span>
+            <input type="month" id="filterRangeBToP">
+          </div>
+        </div>
+        <div class="range-summary" id="filterRangeSummaryP"></div>
+        <div class="chart-wrap" style="height:280px;"><canvas id="filterRangeChartP"></canvas></div>
       </div>
     </section>
 
@@ -616,6 +680,6 @@
 <script src="auth.js?v=10"></script>
 <script src="data.js?v=8"></script>
 <script src="data_pendapatan.js?v=1"></script>
-<script src="app.js?v=26"></script>
+<script src="app.js?v=27"></script>
 </body>
 </html>
