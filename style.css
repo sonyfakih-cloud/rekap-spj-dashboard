@@ -514,6 +514,39 @@ table.data thead th{ background:linear-gradient(180deg, #ffffff, #f0f5ff); }
 table.data.data-clickable tbody tr{cursor:pointer;transition:background .12s, transform .12s;}
 table.data.data-clickable tbody tr:hover{background:var(--accent-soft);transform:translateX(2px);}
 
+/* ---- Kolom Kode & Nama Rekening dibekukan (freeze) saat scroll ke kanan,
+   mirip "Split"/Freeze Panes di Excel -- khusus tabel Khusus Tahun
+   (Belanja & Pendapatan) yang lebar karena banyak kolom bulan. ---- */
+table.data.data-clickable{table-layout:fixed;}
+table.data.data-clickable th:first-child,
+table.data.data-clickable td:first-child{width:120px;min-width:120px;max-width:120px;}
+table.data.data-clickable th:nth-child(2),
+table.data.data-clickable td:nth-child(2){width:240px;min-width:240px;max-width:240px;}
+table.data.data-clickable th:not(:first-child):not(:nth-child(2)),
+table.data.data-clickable td:not(:first-child):not(:nth-child(2)){width:110px;min-width:110px;}
+
+table.data.data-clickable thead th:first-child,
+table.data.data-clickable thead th:nth-child(2),
+table.data.data-clickable tbody td:first-child,
+table.data.data-clickable tbody td:nth-child(2){
+  position:sticky;
+  background:#f8faff;
+}
+table.data.data-clickable thead th:first-child,
+table.data.data-clickable tbody td:first-child{left:0;}
+table.data.data-clickable thead th:nth-child(2),
+table.data.data-clickable tbody td:nth-child(2){
+  left:120px;
+  box-shadow:2px 0 4px rgba(27,31,59,0.10);
+}
+table.data.data-clickable tbody td:first-child,
+table.data.data-clickable tbody td:nth-child(2){z-index:1;}
+table.data.data-clickable thead th:first-child,
+table.data.data-clickable thead th:nth-child(2){z-index:3;background:linear-gradient(180deg, #ffffff, #f0f5ff);}
+table.data.data-clickable thead th:first-child{z-index:4;}
+table.data.data-clickable tbody tr:hover td:first-child,
+table.data.data-clickable tbody tr:hover td:nth-child(2){background:var(--accent-soft);}
+
 /* ---- Modal Detail Transaksi BKU ---- */
 .bku-modal-overlay{
   position:fixed;inset:0;z-index:200;display:none;
