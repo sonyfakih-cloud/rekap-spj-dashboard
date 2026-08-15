@@ -1145,6 +1145,13 @@ function renderPerbandingan(){
     const v24 = bulanIdx===null ? r['2024'] : getPerbandinganBulanValue(r.kode,'2024',bulanIdx);
     const v25 = bulanIdx===null ? r['2025'] : getPerbandinganBulanValue(r.kode,'2025',bulanIdx);
     const v26 = bulanIdx===null ? r['2026'] : getPerbandinganBulanValue(r.kode,'2026',bulanIdx);
+    // % SPJ & Sisa Pagu HARUS dinamis mengikuti bulan yang dipilih -- dulu selalu
+    // pakai r.persen2026 (persentase snapshot bulan TERAKHIR) walau user memilih
+    // bulan lain, sehingga terlihat "salah" (nilainya sama terus). Sekarang dihitung
+    // ulang setiap render: realisasi bulan terpilih (v26) dibagi Pagu 2026.
+    const pagu26 = r.pagu2026;
+    const persen = (pagu26 && v26 !== null && v26 !== undefined) ? (v26 / pagu26 * 100) : null;
+    const sisa = (pagu26 !== undefined && pagu26 !== null && v26 !== null && v26 !== undefined) ? (pagu26 - v26) : null;
     return `<tr>
       <td class="lvl-${r.depth}">${r.kode}</td>
       <td class="lvl-${r.depth}">${r.nama}</td>
@@ -1154,7 +1161,8 @@ function renderPerbandingan(){
       <td>${fmt(v25)}</td>
       <td class="col-pagu">${r.pagu2026 ? fmt(r.pagu2026) : '-'}</td>
       <td>${fmt(v26)}</td>
-      <td class="col-persen">${fmtPersenID_(r.persen2026)}</td>
+      <td class="col-persen">${fmtPersenID_(persen)}</td>
+      <td class="col-pagu">${sisa !== null ? fmt(sisa) : '-'}</td>
     </tr>`;
   }).join('');
   $('#countPerbandingan').textContent = rows.length + ' akun';
@@ -1213,6 +1221,12 @@ function renderPerbandinganP(){
     const v24 = bulanIdx===null ? r['2024'] : getPerbandinganBulanValueP(kode24,'2024',bulanIdx);
     const v25 = bulanIdx===null ? r['2025'] : getPerbandinganBulanValueP(kode25,'2025',bulanIdx);
     const v26 = bulanIdx===null ? r['2026'] : getPerbandinganBulanValueP(kode26,'2026',bulanIdx);
+    // % SPJ & Sisa Target dihitung ulang tiap render mengikuti bulan yang dipilih
+    // (konsep sama dengan Perbandingan Belanja) -- realisasi bulan terpilih (v26)
+    // dibagi/dikurangi Pagu (Target) 2026, bukan persentase snapshot bulan terakhir.
+    const pagu26 = r.pagu2026;
+    const persen = (pagu26 && v26 !== null && v26 !== undefined) ? (v26 / pagu26 * 100) : null;
+    const sisa = (pagu26 !== undefined && pagu26 !== null && v26 !== null && v26 !== undefined) ? (pagu26 - v26) : null;
     return `<tr>
       <td class="lvl-${r.depth}">${r.kode}</td>
       <td class="lvl-${r.depth}">${r.nama}</td>
@@ -1222,7 +1236,8 @@ function renderPerbandinganP(){
       <td>${fmt(v25)}</td>
       <td class="col-pagu">${r.pagu2026 ? fmt(r.pagu2026) : '-'}</td>
       <td>${fmt(v26)}</td>
-      <td class="col-persen">${fmtPersenID_(r.persen2026)}</td>
+      <td class="col-persen">${fmtPersenID_(persen)}</td>
+      <td class="col-pagu">${sisa !== null ? fmt(sisa) : '-'}</td>
     </tr>`;
   }).join('');
   $('#countPerbandinganP').textContent = rows.length + ' akun';
