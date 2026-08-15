@@ -1202,9 +1202,17 @@ function renderPerbandinganP(){
   const rows = STATE_P.perbandingan.filter(r => r.nama.toLowerCase().includes(q) || r.kode.includes(q));
   const bulanIdx = PERBANDINGAN_BULAN_SEL_P;
   tbody.innerHTML = rows.map(r=>{
-    const v24 = bulanIdx===null ? r['2024'] : getPerbandinganBulanValueP(r.kode,'2024',bulanIdx);
-    const v25 = bulanIdx===null ? r['2025'] : getPerbandinganBulanValueP(r.kode,'2025',bulanIdx);
-    const v26 = bulanIdx===null ? r['2026'] : getPerbandinganBulanValueP(r.kode,'2026',bulanIdx);
+    // PENTING: sejak baris digabung lewat peta Konversi, r.kode cuma 1 representasi
+    // (diutamakan kode 2026) -- kalau dipakai langsung utk cari data bulanan tahun LAIN
+    // (mis. 2024) yg kode mentahnya beda konvensi, pencarian akan gagal (row not found).
+    // Makanya di sini WAJIB pakai kode ASLI per tahun dari r.kodeByYear (fallback r.kode
+    // kalau kebetulan baris ini tidak digabung / tidak ada di peta Konversi).
+    const kode24 = (r.kodeByYear && r.kodeByYear['2024']) || r.kode;
+    const kode25 = (r.kodeByYear && r.kodeByYear['2025']) || r.kode;
+    const kode26 = (r.kodeByYear && r.kodeByYear['2026']) || r.kode;
+    const v24 = bulanIdx===null ? r['2024'] : getPerbandinganBulanValueP(kode24,'2024',bulanIdx);
+    const v25 = bulanIdx===null ? r['2025'] : getPerbandinganBulanValueP(kode25,'2025',bulanIdx);
+    const v26 = bulanIdx===null ? r['2026'] : getPerbandinganBulanValueP(kode26,'2026',bulanIdx);
     return `<tr>
       <td class="lvl-${r.depth}">${r.kode}</td>
       <td class="lvl-${r.depth}">${r.nama}</td>
@@ -2252,26 +2260,54 @@ let STATE_P = {
   live: false,
 };
 
-// Versi Pendapatan dari buildPerbandinganFromKhusus_() (Belanja) -- konsep sama
-// persis: union kode dari STATE_P.khusus 3 tahun, TANPA menggabungkan kode 2024/2025
-// dengan padanan 2026-nya lewat Konversi (kode berbeda konvensi tetap jadi baris
-// terpisah), supaya perilakunya konsisten dgn "Perbandingan Belanja per Akun" yang
-// diminta user sbg acuan ("konsep sama dengan belanja").
+// Versi Pendapatan dari buildPerbandinganFromKhusus_() (Belanja) -- BEDA dari Belanja
+// dalam 1 hal (atas permintaan eksplisit user): baris dari kode 2024/2025 digabung
+// OTOMATIS dengan padanan kode 2026-nya lewat peta Konversi (PENDAPATAN_KONVERSI_MAP_,
+// sumbernya sheet "Konversi" -- sama seperti yang dipakai fitur "Perbandingan Rentang
+// Bulan per Rekening" di halaman Filter). Kode akun HIERARKI (bukan level akun/leaf,
+// mis. "4", "4.1", "4.1.02" dst) TETAP digabung apa adanya lewat kode mentah seperti
+// biasa -- itu memang identik persis antar tahun sampai level "4.1.02" (lihat komentar
+// di resolveKonversiKodeP_). KETERBATASAN yang perlu diketahui: peta Konversi cuma
+// mencakup 42 akun level LEAF (paling detail), jadi kode level MENENGAH (antara "4.1.02"
+// dan leaf) yang konvensinya beda 2024/2025 vs 2026 TIDAK ada di peta ini -- baris level
+// menengah itu tetap tampil terpisah per konvensi (sama seperti sebelumnya), sampai peta
+// Konversi diperluas mencakup semua level.
 function buildPerbandinganFromKhususP_(){
   const map = {};
   ['2024','2025','2026'].forEach(y=>{
     const d = STATE_P.khusus[y];
     if(!d) return;
     d.rows.forEach(r=>{
-      if(!map[r.kode]) map[r.kode] = { kode:r.kode, nama:r.nama, depth:r.depth, '2024':null, '2025':null, '2026':null,
+      const konv = PENDAPATAN_KONVERSI_MAP_[r.kode];
+      // Kunci gabungan: kalau kode ini ada di peta Konversi (akun leaf), pakai kunci
+      // stabil berbasis padanan (kode2026 diutamakan, lalu 2025, lalu 2024) supaya baris
+      // 2024/2025/2026 akun yang SAMA (mis. "Rawat Jalan") jatuh ke 1 baris yang sama.
+      // Kalau tidak ada di peta (kode hierarki/level menengah), fallback ke kode mentah
+      // seperti semula -- baris cuma gabung kalau kode mentahnya memang identik.
+      const key = konv ? ('KV#' + (konv.kode2026 || konv.kode2025 || konv.kode2024)) : r.kode;
+      if(!map[key]) map[key] = { kode:r.kode, kodeByYear:{}, nama:r.nama, depth:r.depth, '2024':null, '2025':null, '2026':null,
         pagu2024:null, pagu2025:null, pagu2026:null, persen2026:null };
-      map[r.kode][y] = r.total;
-      map[r.kode].nama = r.nama;
-      map[r.kode].depth = r.depth;
-      if(r.pagu2024 !== undefined) map[r.kode].pagu2024 = r.pagu2024;
-      if(r.pagu2025 !== undefined) map[r.kode].pagu2025 = r.pagu2025;
-      if(r.pagu2026 !== undefined) map[r.kode].pagu2026 = r.pagu2026;
-      if(r.persen2026 !== undefined && r.persen2026 !== null) map[r.kode].persen2026 = r.persen2026;
+      map[key][y] = r.total;
+      map[key].kodeByYear[y] = r.kode;
+      // Kode yg ditampilkan: utamakan kode 2026 (konvensi aktif sekarang) begitu ketemu,
+      // supaya user melihat kode yg sedang berlaku -- fallback ke kode tahun manapun yg
+      // pertama ditemukan kalau baris ini belum/tidak punya data 2026.
+      if(y === '2026' || !map[key].kode) map[key].kode = r.kode;
+      // Nama: pakai nama standar dari tabel Konversi kalau ada (konsisten antar tahun),
+      // fallback ke nama baris itu sendiri.
+      map[key].nama = (konv && konv.nama) ? konv.nama : r.nama;
+      map[key].depth = r.depth;
+      // PENTING (fix bug clobber): pagu2024/2025/2026 sumbernya baris SD Bulan Ini yg
+      // keyed per kode mentah spesifik-tahun -- baris kode 2024/2025 cuma bawa pagu2024 &
+      // pagu2025 (pagu2026-nya 0 krn lookup pakai kode lama), baris kode 2026 cuma bawa
+      // pagu2026 (pagu2024/2025-nya 0). Kalau overwrite tanpa syarat, nilai yg sudah benar
+      // dari 1 baris akan ketiban 0 dari baris satunya begitu digabung -- jadi HANYA
+      // overwrite kalau nilai barunya truthy (bukan 0/null), supaya nilai yg sudah terisi
+      // benar dari baris lain tidak pernah tertimpa 0.
+      if(r.pagu2024) map[key].pagu2024 = r.pagu2024;
+      if(r.pagu2025) map[key].pagu2025 = r.pagu2025;
+      if(r.pagu2026) map[key].pagu2026 = r.pagu2026;
+      if(r.persen2026 !== undefined && r.persen2026 !== null) map[key].persen2026 = r.persen2026;
     });
   });
   return Object.values(map).sort((a,b)=> a.kode.localeCompare(b.kode, undefined, {numeric:true}));
@@ -2372,9 +2408,13 @@ async function loadKhususLivePendapatan(){
         any = true;
       }
     });
+    // PENTING (urutan): peta Konversi HARUS sudah terisi SEBELUM buildPerbandinganFromKhususP_()
+    // dipanggil, karena fungsi itu sekarang pakai PENDAPATAN_KONVERSI_MAP_ utk menggabungkan
+    // baris kode 2024/2025 dgn padanan 2026-nya -- kalau dibalik, penggabungan gagal total di
+    // load pertama (peta masih kosong) & baru bekerja setelah refresh kedua.
+    if(json.konversi_pendapatan) setPendapatanKonversiMap_(json.konversi_pendapatan);
     if(any) STATE_P.perbandingan = buildPerbandinganFromKhususP_();
     if(json.khusus.tanggal_terakhir) STATE_P.tanggal_terakhir = json.khusus.tanggal_terakhir;
-    if(json.konversi_pendapatan) setPendapatanKonversiMap_(json.konversi_pendapatan);
     updateDataPerBadgeP_();
   }catch(err){
     console.warn('Gagal memuat pohon akun Pendapatan (khusus) live, tetap pakai data snapshot:', err);
