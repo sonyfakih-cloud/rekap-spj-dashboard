@@ -2809,13 +2809,29 @@ function showBelanjaApp(){
 // section Gabungan tanpa sengaja (sama-sama pakai class .view). showViewG() di
 // bawah ini SENGAJA meniru pola AMAN showViewP() (Pendapatan): semua query
 // di-scope ke `#appRootGabungan` saja, tidak pernah ke $$('.view') global.
+// PENTING (bug baru ditemukan setelah deploy, pola SAMA dgn bug lama yg
+// didokumentasikan di atas): initNav() milik modul Belanja MEMANGGIL
+// showView('ringkasan') SEKALI saat main() -- dan showView() pakai $$('.view')
+// GLOBAL, jadi class "active" tercabut dari SEMUA elemen .view di seluruh
+// dokumen, termasuk #view-ringkasan-g/#view-tren-g milik Gabungan (walau
+// sudah di-hardcode "view active" di HTML). Modul Pendapatan tidak kena krn
+// initNavP() langsung showViewP('ringkasan-p') balik SETELAH initNav()
+// Belanja jalan (main() panggil initNav() dulu baru initNavP()) -- jadi
+// Pendapatan menimpa ulang tepat waktu. Gabungan SENGAJA tidak dibuat begitu
+// (supaya canvas trenYearlyChartG tidak dibuat saat masih display:none), jadi
+// section-nya kosong terus sampai showGabunganApp() dipanggil. Fix:
+// showGabunganApp() SELALU memanggil showViewG() (bukan cuma baca DOM)
+// supaya class "active" yg benar ditulis ulang setiap modul dibuka, apapun
+// kondisinya sebelum itu.
+let GABUNGAN_LAST_VIEW_ = 'ringkasan-g';
+
 function showGabunganApp(){
   $('#hubScreen').style.display = 'none';
   $('#comingSoonScreen').style.display = 'none';
   $('#appRoot').style.display = 'none';
   $('#appRootPendapatan').style.display = 'none';
   $('#appRootGabungan').style.display = 'flex';
-  renderActiveGabunganView_();
+  showViewG(GABUNGAN_LAST_VIEW_);
 }
 
 // Ringkasan Eksekutif (KPI besar + status kategori + tren tahunan + anomali)
@@ -2829,7 +2845,17 @@ function showViewG(name){
   const target = document.getElementById(`view-${name}`);
   if(target) target.classList.add('active');
   root.querySelectorAll('.nav-item[data-viewg]').forEach(n=>n.classList.toggle('active', n.dataset.viewg===name));
-  if(name==='tren-g') setTimeout(()=>{ renderTrenGabungan(); initTrenExtrasG_(); }, 30);
+  GABUNGAN_LAST_VIEW_ = name;
+  if(name==='tren-g') setTimeout(()=>{
+    // alreadyInited: kalau extras (Rentang Bulan/Bulan Sama) sudah pernah
+    // di-setup sebelumnya (bukan kunjungan pertama ke tab ini), render ulang
+    // KEDUANYA scr eksplisit -- supaya tombol refresh/sync juga menyegarkan
+    // 2 chart itu, sama seperti perilaku refreshGabunganIfVisible_() semula.
+    const alreadyInited = TREN_EXTRA_INITED_G_;
+    renderTrenGabungan();
+    initTrenExtrasG_();
+    if(alreadyInited){ renderTrenRangeCompareG(); renderTrenSameMonthCompareG(); }
+  }, 30);
   if(name==='ringkasan-g') setTimeout(renderRingkasanEksekutifG_, 30);
 }
 
@@ -2843,26 +2869,19 @@ function initNavG(){
   // Pendapatan, view default Gabungan (ringkasan-g) PUNYA canvas Chart.js
   // (trenYearlyChartG). Kalau dipanggil di sini (saat main() jalan,
   // #appRootGabungan masih display:none), grafiknya akan dibuat dgn ukuran
-  // 0x0. Render pertama cukup dipicu showGabunganApp() saat kartu diklik.
+  // 0x0. Render pertama cukup dipicu showGabunganApp() saat kartu diklik --
+  // showGabunganApp() sekarang SELALU memanggil showViewG() (lihat komentar
+  // panjang di atasnya), jadi class "active" tetap ditulis ulang dgn benar.
 }
 
-// Render ulang view Gabungan yang SEDANG aktif (dideteksi dari class "active"
-// di DOM) -- dipakai showGabunganApp() (saat modul dibuka) dan tombol
-// refresh/sync (yang tidak tahu/tidak perlu tahu sub-view mana yg sedang dilihat).
+// Render ulang view Gabungan yang SEDANG aktif -- dipakai tombol refresh/sync
+// (yang tidak tahu/tidak perlu tahu sub-view mana yg sedang dilihat). Pakai
+// GABUNGAN_LAST_VIEW_ (bukan baca ulang class "active" di DOM), krn class itu
+// bisa saja sudah tercabut oleh bug global showView() milik Belanja di atas.
 function renderActiveGabunganView_(){
   const root = $('#appRootGabungan');
   if(!root) return;
-  const activeSec = root.querySelector('.view.active');
-  const name = activeSec ? activeSec.id.replace(/^view-/, '') : 'ringkasan-g';
-  setTimeout(()=>{
-    if(name === 'tren-g'){
-      renderTrenGabungan();
-      initTrenExtrasG_();
-      if(TREN_EXTRA_INITED_G_){ renderTrenRangeCompareG(); renderTrenSameMonthCompareG(); }
-    } else {
-      renderRingkasanEksekutifG_();
-    }
-  }, 30);
+  showViewG(GABUNGAN_LAST_VIEW_);
 }
 
 function initHub(){
@@ -3090,11 +3109,33 @@ function renderTrenYearlyG_(){
   if(lbl) lbl.textContent = '— total realisasi s.d bulan terakhir tiap tahun (2024 & 2025 satu tahun penuh, 2026 masih berjalan)';
 }
 
+// Baris "leaf" (rekening paling detail, bukan kategori/subtotal) di satu
+// tahun Khusus Tahun. PENTING (bug ditemukan saat verifikasi live sebelum
+// fitur ini diserahkan): sebelumnya dipakai "r.depth >= 2" utk menandai leaf
+// -- ternyata SALAH, karena kedalaman pohon Belanja (maks depth 5) dan
+// Pendapatan (maks depth 7) TERNYATA BEDA (dicek langsung dari data live: 147
+// baris Belanja depth 0-5, 49 baris Pendapatan depth 0-7). Akibatnya baris
+// kategori besar spt "Belanja Pegawai" (depth 2, cuma 5 baris di Belanja) dan
+// kategori Pendapatan yg masih depth 2-6 (belum leaf) ikut kehitung sbg
+// "rekening", bikin panel anomali kebanjiran (78 vs seharusnya cuma leaf asli)
+// dan narasi menyebut nama kategori besar seolah itu 1 rekening. Definisi
+// leaf yg benar (dipakai sekarang): baris yg TIDAK punya baris lain dgn kode
+// berawalan "kode-nya sendiri + '.'" (tidak punya anak) -- brlaku apapun
+// angka depth-nya, otomatis benar utk pohon Belanja & Pendapatan yg beda dalam.
+function filterLeafRowsG_(rows){
+  if(!rows || !rows.length) return [];
+  const kodes = rows.map(r=>String(r.kode));
+  return rows.filter(r=>{
+    const k = String(r.kode);
+    return !kodes.some(other => other!==k && other.startsWith(k+'.'));
+  });
+}
+
 // ---- Deteksi anomali otomatis (panel "Perlu Perhatian") ----
 // 3 kriteria sesuai arahan: (1) realisasi 0% padahal sudah pertengahan tahun,
 // (2) lonjakan bulanan >50% dari bulan sebelumnya, (3) realisasi sudah >90%
 // pagu padahal baru < separuh tahun anggaran berjalan. Dijalankan per akun
-// GRANULAR (leaf, depth>=2 -- bukan kategori besar/depth 1 atau total/depth 0)
+// GRANULAR (leaf, lihat filterLeafRowsG_ di atas -- bukan kategori/subtotal)
 // dari STATE.khusus/STATE_P.khusus tahun berjalan, karena r.bulanan[] di situ
 // berisi angka BULANAN (bukan kumulatif) -- sudah diverifikasi dari data live
 // (nilainya naik-turun antar bulan, bukan monoton naik seperti angka kumulatif).
@@ -3108,7 +3149,7 @@ function scanAnomaliJenisG_(khususState, year, jenisLabel){
   const yearFraction = monthsElapsed ? monthsElapsed/12 : 0;
   const items = [];
 
-  data.rows.filter(r=>r.depth >= 2).forEach(r=>{
+  filterLeafRowsG_(data.rows).forEach(r=>{
     const pagu = r['pagu'+year];
     const total = r.total || 0;
     const bulanan = r.bulanan || [];
@@ -3283,8 +3324,7 @@ function renderNarasiEksekutifG_(){
   // biasanya" per akun, beda dari 3 kriteria panel Perlu Perhatian di bawah
   // (yg fokus ke lonjakan bulan-ke-bulan & 0%/>90% pagu thd tahun berjalan).
   if(kb && kb.rows && monthIdx>=0){
-    const leafOver = kb.rows.filter(r=>{
-      if(r.depth < 2) return false;
+    const leafOver = filterLeafRowsG_(kb.rows).filter(r=>{
       const pagu = r['pagu'+year];
       const bulanan = r.bulanan || [];
       if(!pagu || bulanan.length <= monthIdx) return false;
