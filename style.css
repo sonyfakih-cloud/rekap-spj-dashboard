@@ -901,3 +901,104 @@ table.data.data-clickable tbody tr:hover td:nth-child(2){background:var(--accent
 @media (max-width:480px){
   .intro-skip{right:14px;bottom:14px;padding:8px 16px;font-size:12px;}
 }
+
+/* ================================================================
+   Ringkasan Eksekutif & Deteksi Anomali (Modul Gabungan)
+   Halaman ringkas untuk manajemen/dewan pengawas -- 6 KPI besar,
+   status warna per kategori, tren tahunan sederhana, dan panel
+   "Perlu Perhatian" (anomali). Tanpa kode rekening -- angka & bahasa
+   awam saja, detail teknis tetap di menu2 lama (mode detail).
+   ================================================================ */
+/* Narasi otomatis -- kalimat ringkas hasil generate dari data yg sama dgn
+   kartu KPI & panel anomali di bawahnya (bukan sumber terpisah), supaya
+   angka yg disebut di kalimat tidak pernah kontradiksi dgn angka di kartu. */
+.exec-narasi{
+  font-size:14px;line-height:1.7;color:var(--text);
+  background:linear-gradient(135deg, rgba(91,141,239,0.07), rgba(240,163,91,0.07));
+  border-left:4px solid var(--accent);
+  border-radius:var(--radius-sm);
+  padding:14px 18px;margin-bottom:16px;
+}
+.exec-narasi p{margin:0;}
+.exec-narasi-empty{color:var(--muted);font-size:12.5px;padding:0;margin:0;}
+
+.exec-kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+@media (max-width:900px){ .exec-kpi-row{grid-template-columns:1fr 1fr;} }
+@media (max-width:560px){ .exec-kpi-row{grid-template-columns:1fr;} }
+.exec-kpi-card{
+  background:var(--card-solid);border-radius:var(--radius-md);
+  padding:16px 18px;box-shadow:var(--shadow-sm);
+  display:flex;flex-direction:column;gap:6px;
+}
+.exec-kpi-label{
+  display:flex;align-items:center;gap:6px;
+  font-size:12px;color:var(--muted);font-weight:600;
+}
+.exec-kpi-value{font-size:21px;font-weight:700;color:var(--navy);}
+.exec-kpi-sub{font-size:11.5px;color:var(--muted);}
+.exec-kpi-sub b{color:var(--text);font-weight:600;}
+.exec-kpi-card.positive .exec-kpi-value{color:var(--green);}
+.exec-kpi-card.negative .exec-kpi-value{color:var(--red);}
+
+.status-dot{width:9px;height:9px;border-radius:50%;flex:none;box-shadow:0 0 0 3px rgba(0,0,0,0.03);}
+.status-dot.dot-green{background:var(--green);}
+.status-dot.dot-yellow{background:var(--amber);}
+.status-dot.dot-red{background:var(--red);}
+.status-dot.dot-gray{background:#c3c8d6;}
+
+.status-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;}
+.status-card{
+  background:var(--card-solid);border-radius:var(--radius-sm);
+  padding:12px 14px;box-shadow:var(--shadow-sm);
+  border-left:4px solid #c3c8d6;
+  display:flex;flex-direction:column;gap:4px;
+}
+.status-card.st-green{border-left-color:var(--green);}
+.status-card.st-yellow{border-left-color:var(--amber);}
+.status-card.st-red{border-left-color:var(--red);}
+.status-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.status-card-title{font-size:12.5px;font-weight:700;color:var(--navy);}
+.status-card-jenis{font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.03em;}
+.status-card-sub{font-size:11.5px;color:var(--muted);}
+.status-card-pct{font-size:14px;font-weight:700;}
+.status-card.st-green .status-card-pct{color:var(--green);}
+.status-card.st-yellow .status-card-pct{color:var(--amber);}
+.status-card.st-red .status-card-pct{color:var(--red);}
+.status-card-bar{height:5px;border-radius:4px;background:#eef0fb;overflow:hidden;margin-top:2px;}
+.status-card-bar-fill{height:100%;border-radius:4px;}
+.status-card.st-green .status-card-bar-fill{background:var(--green);}
+.status-card.st-yellow .status-card-bar-fill{background:var(--amber);}
+.status-card.st-red .status-card-bar-fill{background:var(--red);}
+
+.anomaly-summary-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
+.anomaly-summary-pill{
+  display:flex;align-items:center;gap:7px;
+  padding:7px 14px;border-radius:999px;font-size:12px;font-weight:700;
+  background:#f3f4fb;color:var(--navy);
+}
+.anomaly-summary-pill .status-dot{width:8px;height:8px;}
+.anomaly-empty{color:var(--muted);font-size:12.5px;padding:10px 0;}
+.anomaly-group-title{font-size:12px;font-weight:700;color:var(--navy);margin:14px 0 8px;text-transform:uppercase;letter-spacing:.03em;}
+.anomaly-group-title:first-child{margin-top:0;}
+.anomaly-item{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:10px 12px;border-radius:var(--radius-sm);
+  background:#fbfbff;margin-bottom:8px;
+}
+.anomaly-item:last-child{margin-bottom:0;}
+.anomaly-badge{
+  flex:none;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;
+  color:#fff;white-space:nowrap;margin-top:1px;
+}
+.anomaly-badge.b-red{background:var(--red);}
+.anomaly-badge.b-yellow{background:var(--amber);color:#3a2c05;}
+.anomaly-body{flex:1;min-width:0;}
+.anomaly-title{font-size:12.5px;font-weight:700;color:var(--navy);}
+.anomaly-title .anomaly-jenis{color:var(--muted);font-weight:600;margin-right:6px;}
+.anomaly-desc{font-size:11.5px;color:var(--muted);margin-top:2px;}
+@media (max-width:900px){
+  .status-grid{grid-template-columns:1fr 1fr;}
+}
+@media (max-width:560px){
+  .status-grid{grid-template-columns:1fr;}
+}

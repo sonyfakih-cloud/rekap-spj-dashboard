@@ -10,7 +10,7 @@
      pengunjung yang sudah pernah buka situs ini masih bisa melihat versi lama (ini akar
      masalah "kok belum berubah" yang pernah dilaporkan). Setiap kali app.js/style.css
      diupdate, NAIKKAN angka v= di bawah supaya browser dipaksa ambil versi baru. -->
-<link rel="stylesheet" href="style.css?v=21">
+<link rel="stylesheet" href="style.css?v=23">
 <script src="chart.umd.min.js"></script>
 <script src="xlsx.full.min.js?v=8"></script>
 </head>
@@ -605,9 +605,14 @@
       <span class="tip">Menu Utama</span>
     </div>
 
-    <div class="nav-item active" data-viewg="tren-g">
+    <div class="nav-item active" data-viewg="ringkasan-g">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg>
+      <span class="tip">Ringkasan Eksekutif</span>
+    </div>
+
+    <div class="nav-item" data-viewg="tren-g">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 6"/><polyline points="14 6 21 6 21 13"/></svg>
-      <span class="tip">Pendapatan Vs Belanja</span>
+      <span class="tip">Pendapatan Vs Belanja (Detail)</span>
     </div>
   </aside>
 
@@ -625,8 +630,35 @@
       </div>
     </div>
 
-    <!-- ===== PENDAPATAN VS BELANJA (gabungan tren) ===== -->
-    <section id="view-tren-g" class="view active">
+    <!-- ===== RINGKASAN EKSEKUTIF (untuk manajemen & dewan pengawas -- tanpa
+         kode rekening, cuma KPI besar + status warna + tren sederhana +
+         panel anomali) ===== -->
+    <section id="view-ringkasan-g" class="view active">
+      <div class="card">
+        <h3>Ringkasan Eksekutif <span id="execKpiPeriodeLabel">— Tahun Anggaran 2026</span></h3>
+        <div class="exec-narasi" id="execNarasiG"></div>
+        <div class="exec-kpi-row" id="execKpiRow"></div>
+      </div>
+
+      <div class="card">
+        <h3>Status Realisasi per Kategori <span>— dibanding target proporsional bulan berjalan</span></h3>
+        <div class="status-grid" id="execStatusGrid"></div>
+      </div>
+
+      <div class="card">
+        <h3>Tren Tahunan Pendapatan Vs Belanja <span id="execTrenYearlyLabel">— 2024–2026</span></h3>
+        <div class="chart-wrap"><canvas id="trenYearlyChartG"></canvas></div>
+      </div>
+
+      <div class="card">
+        <h3>Perlu Perhatian <span id="anomaliCountLabel">— deteksi otomatis, bukan hasil cari manual</span></h3>
+        <div class="anomaly-summary-row" id="anomaliSummaryRow"></div>
+        <div id="anomaliListG"></div>
+      </div>
+    </section>
+
+    <!-- ===== PENDAPATAN VS BELANJA (gabungan tren, mode detail) ===== -->
+    <section id="view-tren-g" class="view">
       <div class="card">
         <h3>Tren Total SPJ Bulanan Pendapatan Vs Belanja <span id="trenPeriodeLabelG">— Januari 2024 s.d Juli 2026</span></h3>
         <div class="chart-wrap"><canvas id="trenChartG"></canvas></div>
@@ -703,6 +735,6 @@
 <script src="auth.js?v=10"></script>
 <script src="data.js?v=8"></script>
 <script src="data_pendapatan.js?v=1"></script>
-<script src="app.js?v=34"></script>
+<script src="app.js?v=36"></script>
 </body>
 </html>

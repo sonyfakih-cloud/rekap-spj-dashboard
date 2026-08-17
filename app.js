@@ -2803,24 +2803,66 @@ function showBelanjaApp(){
 // canvas Chart.js butuh ukuran non-nol saat dibuat -- kalau di-render lebih dulu
 // sementara appRootGabungan masih display:none, grafiknya akan kosong/gepeng.
 //
-// PENTING (bug ditemukan setelah deploy): showView() milik modul Belanja pakai
-// $$('.view') -- selector GLOBAL ke seluruh dokumen, bukan cuma di dalam
-// #appRoot. Jadi begitu halaman dimuat (initNav() -> showView('ringkasan')),
-// class "active" ikut DICABUT dari section #view-tren-g milik modul Gabungan
-// ini (sama-sama pakai class .view), padahal section itu sudah di-hardcode
-// class="view active" di HTML. Akibatnya section-nya ketutup CSS (.view tanpa
-// .active = display:none) walau HTML & data-nya sudah benar -- makanya cuma
-// judul & footer (di luar section) yang kelihatan, isi card & grafik kosong.
-// Fix: pastikan class "active" ditambahkan ulang setiap kali modul ini dibuka.
+// PENTING (bug ditemukan setelah deploy, sekarang jadi acuan pola AMAN): showView()
+// milik modul Belanja pakai $$('.view') -- selector GLOBAL ke seluruh dokumen,
+// bukan cuma di dalam #appRoot -- yang dulu pernah mencabut class "active" dari
+// section Gabungan tanpa sengaja (sama-sama pakai class .view). showViewG() di
+// bawah ini SENGAJA meniru pola AMAN showViewP() (Pendapatan): semua query
+// di-scope ke `#appRootGabungan` saja, tidak pernah ke $$('.view') global.
 function showGabunganApp(){
   $('#hubScreen').style.display = 'none';
   $('#comingSoonScreen').style.display = 'none';
   $('#appRoot').style.display = 'none';
   $('#appRootPendapatan').style.display = 'none';
   $('#appRootGabungan').style.display = 'flex';
-  const secG = document.getElementById('view-tren-g');
-  if(secG) secG.classList.add('active');
-  setTimeout(()=>{ renderTrenGabungan(); initTrenExtrasG_(); }, 30);
+  renderActiveGabunganView_();
+}
+
+// Ringkasan Eksekutif (KPI besar + status kategori + tren tahunan + anomali)
+// jadi view DEFAULT modul Gabungan (lihat class="view active" di HTML pada
+// #view-ringkasan-g) -- "Pendapatan Vs Belanja" (tren bulanan detail, kode
+// rekening dsb) sekarang jadi menu ke-2, "mode detail" utk staf keuangan.
+function showViewG(name){
+  const root = $('#appRootGabungan');
+  if(!root) return;
+  root.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  const target = document.getElementById(`view-${name}`);
+  if(target) target.classList.add('active');
+  root.querySelectorAll('.nav-item[data-viewg]').forEach(n=>n.classList.toggle('active', n.dataset.viewg===name));
+  if(name==='tren-g') setTimeout(()=>{ renderTrenGabungan(); initTrenExtrasG_(); }, 30);
+  if(name==='ringkasan-g') setTimeout(renderRingkasanEksekutifG_, 30);
+}
+
+function initNavG(){
+  const root = $('#appRootGabungan');
+  if(!root) return;
+  root.querySelectorAll('.nav-item[data-viewg]').forEach(item=>{
+    item.addEventListener('click', ()=>showViewG(item.dataset.viewg));
+  });
+  // TIDAK memanggil showViewG() di sini seperti initNavP() -- beda dari modul
+  // Pendapatan, view default Gabungan (ringkasan-g) PUNYA canvas Chart.js
+  // (trenYearlyChartG). Kalau dipanggil di sini (saat main() jalan,
+  // #appRootGabungan masih display:none), grafiknya akan dibuat dgn ukuran
+  // 0x0. Render pertama cukup dipicu showGabunganApp() saat kartu diklik.
+}
+
+// Render ulang view Gabungan yang SEDANG aktif (dideteksi dari class "active"
+// di DOM) -- dipakai showGabunganApp() (saat modul dibuka) dan tombol
+// refresh/sync (yang tidak tahu/tidak perlu tahu sub-view mana yg sedang dilihat).
+function renderActiveGabunganView_(){
+  const root = $('#appRootGabungan');
+  if(!root) return;
+  const activeSec = root.querySelector('.view.active');
+  const name = activeSec ? activeSec.id.replace(/^view-/, '') : 'ringkasan-g';
+  setTimeout(()=>{
+    if(name === 'tren-g'){
+      renderTrenGabungan();
+      initTrenExtrasG_();
+      if(TREN_EXTRA_INITED_G_){ renderTrenRangeCompareG(); renderTrenSameMonthCompareG(); }
+    } else {
+      renderRingkasanEksekutifG_();
+    }
+  }, 30);
 }
 
 function initHub(){
@@ -2878,6 +2920,401 @@ function updateTrenMetaG_(){
   if(h3span) h3span.textContent = `— ${periodeLabelFull_(first)} s.d ${periodeLabelFull_(last)}`;
   const footer = $('#footerDataSumberG');
   if(footer) footer.textContent = `Data gabungan Pendapatan & Belanja RSUD dr. R. Soeprapto Cepu, ${periodeLabelShort_(first)}–${periodeLabelShort_(last)}.`;
+}
+
+/* ================================================================
+   RINGKASAN EKSEKUTIF & DETEKSI ANOMALI (untuk manajemen/dewan
+   pengawas -- 6 KPI besar, status warna per kategori, tren tahunan
+   sederhana, panel "Perlu Perhatian"). Tanpa kode rekening sama
+   sekali -- menu Perbandingan/Filter/Khusus Tahun tetap ada terpisah
+   sebagai "mode detail" untuk staf keuangan.
+   ================================================================ */
+
+// Tahun anggaran yang dianggap "berjalan" utk KPI & anomali -- 2026 (tahun
+// sistem saat fitur ini dibuat), dgn fallback ke tahun lain kalau STATE.ringkasan
+// 2026 kebetulan belum terisi (mis. live fetch gagal & snapshot lama belum
+// mencakup 2026). TIDAK menebak kode rekening root ('5'/'4') sama sekali --
+// KPI di bawah murni pakai STATE.ringkasan/STATE_P.ringkasan yang sudah
+// terbukti benar (dipakai juga oleh halaman Ringkasan Bulan Ini per modul).
+function execTahunAktifG_(){
+  const cand = ['2026','2025','2024'];
+  for(const y of cand){
+    if((STATE.ringkasan[y] && STATE.ringkasan[y].total) || STATE_P.ringkasan[y]) return y;
+  }
+  return '2026';
+}
+
+function renderExecKpiRowG_(){
+  const wrap = $('#execKpiRow');
+  if(!wrap) return;
+  const year = execTahunAktifG_();
+  const b = STATE.ringkasan[year] && STATE.ringkasan[year].total;
+  const p = STATE_P.ringkasan[year];
+
+  const labelEl = $('#execKpiPeriodeLabel');
+  if(labelEl){
+    const lb = (b && b.label_bulan) || (p && p.label_bulan) || '';
+    labelEl.textContent = `— Tahun Anggaran ${year}` + (lb ? ` (s.d ${MONTH_FULL_[lb] || lb})` : '');
+  }
+
+  if(!b && !p){
+    wrap.innerHTML = '<div class="anomaly-empty">Data ringkasan belum tersedia.</div>';
+    return;
+  }
+
+  const selisih = (p && b) ? (p.sd_bulan_ini - b.sd_bulan_ini) : null;
+  const cards = [
+    { label:'Total Pendapatan (s.d bulan ini)', value: p ? 'Rp '+fmt(p.sd_bulan_ini) : '-', sub: p ? `dari target Rp ${fmt(p.pagu)}` : 'data belum tersedia' },
+    { label:'% Realisasi Pendapatan', value: p ? (p.persen||0).toFixed(1)+'%' : '-', sub: p ? `sisa target Rp ${fmt(p.sisa_pagu)}` : '' },
+    { label:'Total Belanja (s.d bulan ini)', value: b ? 'Rp '+fmt(b.sd_bulan_ini) : '-', sub: b ? `dari pagu Rp ${fmt(b.pagu)}` : 'data belum tersedia' },
+    { label:'% Realisasi Belanja', value: b ? (b.persen||0).toFixed(1)+'%' : '-', sub: b ? `sisa pagu Rp ${fmt(b.sisa)}` : '' },
+    { label:'Sisa Anggaran Belanja', value: b ? 'Rp '+fmt(b.sisa) : '-', sub: 'pagu dikurangi realisasi SPJ berjalan' },
+    { label:'Selisih Pendapatan – Belanja', value: selisih!==null ? (selisih>=0?'Rp ':'-Rp ')+fmt(Math.abs(selisih)) : '-',
+      sub: selisih!==null ? (selisih>=0?'surplus s.d bulan ini':'defisit s.d bulan ini') : '',
+      cls: selisih!==null ? (selisih>=0?'positive':'negative') : '' },
+  ];
+  wrap.innerHTML = cards.map(c=>`
+    <div class="exec-kpi-card ${c.cls||''}">
+      <div class="exec-kpi-label">${c.label}</div>
+      <div class="exec-kpi-value">${c.value}</div>
+      <div class="exec-kpi-sub">${c.sub}</div>
+    </div>
+  `).join('');
+}
+
+// Status warna per kategori besar (depth===1 di pohon STATE.khusus/STATE_P.khusus,
+// mis. "Belanja Operasi", "Belanja Modal", "PENDAPATAN ASLI DAERAH (PAD)") --
+// dibanding target PROPORSIONAL (yearFraction = bulan berjalan/12), bukan cuma
+// dibanding 100%, supaya adil dibandingkan di pertengahan tahun.
+function yearFractionDariBulanLabel_(bulanLabel){
+  return (bulanLabel && bulanLabel.length) ? bulanLabel.length/12 : 0;
+}
+
+function statusWarnaKategoriG_(persen, yearFraction, isPendapatan){
+  const expected = yearFraction*100;
+  if(isPendapatan){
+    // Pendapatan: makin tinggi makin baik. Merah kalau jauh di bawah pace,
+    // kuning kalau agak di bawah, hijau kalau on-pace atau lebih (surplus
+    // pendapatan bukan masalah).
+    if(persen >= expected*0.75 || persen >= 90) return 'green';
+    if(persen >= expected*0.5) return 'yellow';
+    return 'red';
+  }
+  // Belanja: merah kalau nyaris habis/lewat pagu, ATAU jauh lebih cepat dari
+  // pace (risiko pagu habis sebelum tahun berakhir), ATAU (di paruh kedua
+  // tahun) jauh di bawah pace (risiko SILPA/anggaran tidak terserap).
+  if(persen > 100 || (persen - expected) > 25) return 'red';
+  if(yearFraction > 0.5 && persen < expected*0.5) return 'red';
+  if((persen - expected) > 10 || (yearFraction > 0.5 && persen < expected*0.75)) return 'yellow';
+  return 'green';
+}
+
+function renderExecStatusGridG_(){
+  const wrap = $('#execStatusGrid');
+  if(!wrap) return;
+  const year = execTahunAktifG_();
+  const kb = STATE.khusus[year], kp = STATE_P.khusus[year];
+  const items = [];
+  if(kb && kb.rows && kb.rows.length){
+    const yf = yearFractionDariBulanLabel_(kb.bulan_label);
+    kb.rows.filter(r=>r.depth===1).forEach(r=>{
+      const pagu = r['pagu'+year];
+      if(!pagu) return;
+      const persen = r.total/pagu*100;
+      items.push({ jenis:'Belanja', nama:r.nama, persen, sisa: pagu-r.total, status: statusWarnaKategoriG_(persen, yf, false) });
+    });
+  }
+  if(kp && kp.rows && kp.rows.length){
+    const yf = yearFractionDariBulanLabel_(kp.bulan_label);
+    kp.rows.filter(r=>r.depth===1).forEach(r=>{
+      const pagu = r['pagu'+year];
+      if(!pagu) return;
+      const persen = r.total/pagu*100;
+      items.push({ jenis:'Pendapatan', nama:r.nama, persen, sisa: pagu-r.total, status: statusWarnaKategoriG_(persen, yf, true) });
+    });
+  }
+  if(!items.length){
+    wrap.innerHTML = '<div class="anomaly-empty">Data kategori per tahun (Khusus Tahun) belum tersedia.</div>';
+    return;
+  }
+  wrap.innerHTML = items.map(it=>`
+    <div class="status-card st-${it.status}">
+      <div class="status-card-head">
+        <span class="status-dot dot-${it.status}"></span>
+        <span class="status-card-title">${it.nama}</span>
+      </div>
+      <div class="status-card-jenis">${it.jenis}</div>
+      <div class="status-card-pct">${it.persen.toFixed(1)}% terealisasi</div>
+      <div class="status-card-sub">${it.jenis==='Belanja' ? 'Sisa pagu' : 'Sisa target'} Rp ${fmt(it.sisa)}</div>
+      <div class="status-card-bar"><div class="status-card-bar-fill" style="width:${Math.min(Math.max(it.persen,0),100)}%"></div></div>
+    </div>
+  `).join('');
+}
+
+// Tren tahunan sederhana: total realisasi Pendapatan vs Belanja PER TAHUN
+// (2024/2025/2026), dari STATE.ringkasan/STATE_P.ringkasan yang sudah
+// terbukti benar (sama seperti KPI di atas) -- bukan dari pohon akun, jadi
+// tanpa kode rekening & tanpa perlu tebak kode root.
+let trenYearlyChartG;
+function renderTrenYearlyG_(){
+  const canvas = $('#trenYearlyChartG');
+  if(!canvas || typeof Chart === 'undefined') return;
+  const years = ['2024','2025','2026'];
+  const belanja = years.map(y => (STATE.ringkasan[y] && STATE.ringkasan[y].total) ? STATE.ringkasan[y].total.sd_bulan_ini : null);
+  const pendapatan = years.map(y => STATE_P.ringkasan[y] ? STATE_P.ringkasan[y].sd_bulan_ini : null);
+
+  const ctx = canvas.getContext('2d');
+  if(trenYearlyChartG) trenYearlyChartG.destroy();
+  trenYearlyChartG = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels: years,
+      datasets:[
+        {label:'Pendapatan', data:pendapatan, backgroundColor:'#f0a35b', borderRadius:6, maxBarThickness:70},
+        {label:'Belanja', data:belanja, backgroundColor:'#5b8def', borderRadius:6, maxBarThickness:70},
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{position:'top', labels:{boxWidth:12, font:{size:11}}},
+        tooltip:{callbacks:{label:c=> c.dataset.label + ': ' + (c.parsed.y===null ? 'tidak ada data' : 'Rp ' + fmt(c.parsed.y))}}
+      },
+      scales:{
+        y:{ticks:{callback:v=>(v/1e6).toFixed(0)+'jt'}, grid:{color:'#eef0fb'}},
+        x:{grid:{display:false}}
+      }
+    }
+  });
+  const lbl = $('#execTrenYearlyLabel');
+  if(lbl) lbl.textContent = '— total realisasi s.d bulan terakhir tiap tahun (2024 & 2025 satu tahun penuh, 2026 masih berjalan)';
+}
+
+// ---- Deteksi anomali otomatis (panel "Perlu Perhatian") ----
+// 3 kriteria sesuai arahan: (1) realisasi 0% padahal sudah pertengahan tahun,
+// (2) lonjakan bulanan >50% dari bulan sebelumnya, (3) realisasi sudah >90%
+// pagu padahal baru < separuh tahun anggaran berjalan. Dijalankan per akun
+// GRANULAR (leaf, depth>=2 -- bukan kategori besar/depth 1 atau total/depth 0)
+// dari STATE.khusus/STATE_P.khusus tahun berjalan, karena r.bulanan[] di situ
+// berisi angka BULANAN (bukan kumulatif) -- sudah diverifikasi dari data live
+// (nilainya naik-turun antar bulan, bukan monoton naik seperti angka kumulatif).
+function bulanFull_(abbr){ return MONTH_FULL_[abbr] || abbr || ''; }
+
+function scanAnomaliJenisG_(khususState, year, jenisLabel){
+  const data = khususState[year];
+  if(!data || !data.rows || !data.rows.length) return [];
+  const bulanLabel = data.bulan_label || [];
+  const monthsElapsed = bulanLabel.length;
+  const yearFraction = monthsElapsed ? monthsElapsed/12 : 0;
+  const items = [];
+
+  data.rows.filter(r=>r.depth >= 2).forEach(r=>{
+    const pagu = r['pagu'+year];
+    const total = r.total || 0;
+    const bulanan = r.bulanan || [];
+
+    // Kriteria 1: 0% padahal sudah >= separuh tahun anggaran berjalan
+    if(pagu && pagu > 0 && total === 0 && yearFraction >= 0.5){
+      items.push({
+        jenis: jenisLabel, severity:'red', kode:r.kode, nama:r.nama,
+        desc: `Realisasi masih Rp0 padahal sudah ${monthsElapsed} dari 12 bulan tahun anggaran ${year} berjalan (pagu Rp ${fmt(pagu)}).`
+      });
+    }
+
+    // Kriteria 2: lonjakan bulanan >50% vs bulan sebelumnya (ambil yg terbesar
+    // per akun, supaya 1 akun tidak membanjiri daftar dgn banyak entri).
+    // Catatan: lonjakan dari basis Rp0 (prev<=0) SENGAJA tidak dihitung --
+    // realisasi baru muncul dari nihil itu wajar (transaksi pertama tahun
+    // berjalan), bukan lonjakan yang perlu diwaspadai.
+    let spike = null;
+    for(let i=1; i<bulanan.length; i++){
+      const prev = bulanan[i-1], cur = bulanan[i];
+      if(prev === null || prev === undefined || cur === null || cur === undefined || prev <= 0) continue;
+      const pct = (cur-prev)/prev*100;
+      if(pct > 50 && (!spike || pct > spike.pct)) spike = {pct, i, prev, cur};
+    }
+    if(spike){
+      items.push({
+        jenis: jenisLabel, severity:'yellow', kode:r.kode, nama:r.nama,
+        desc: `Lonjakan ${pctChangeText_(spike.pct)} di bulan ${bulanFull_(bulanLabel[spike.i])} ${year} dibanding bulan sebelumnya (Rp ${fmt(spike.prev)} → Rp ${fmt(spike.cur)}).`
+      });
+    }
+
+    // Kriteria 3: sudah >90% pagu padahal baru < separuh tahun anggaran berjalan
+    if(pagu && pagu > 0 && yearFraction > 0 && yearFraction < 0.5){
+      const persen = total/pagu*100;
+      if(persen > 90){
+        items.push({
+          jenis: jenisLabel, severity:'red', kode:r.kode, nama:r.nama,
+          desc: `Realisasi sudah ${persen.toFixed(1)}% dari pagu, padahal baru ${monthsElapsed} dari 12 bulan (${Math.round(yearFraction*100)}%) tahun anggaran ${year} berjalan.`
+        });
+      }
+    }
+  });
+  return items;
+}
+
+function renderAnomaliG_(){
+  const wrap = $('#anomaliListG');
+  if(!wrap) return;
+  const year = execTahunAktifG_();
+  const itemsB = scanAnomaliJenisG_(STATE.khusus, year, 'Belanja');
+  const itemsP = scanAnomaliJenisG_(STATE_P.khusus, year, 'Pendapatan');
+  const all = itemsB.concat(itemsP);
+  const redItems = all.filter(i=>i.severity==='red');
+  const yellowItems = all.filter(i=>i.severity==='yellow');
+
+  const countLbl = $('#anomaliCountLabel');
+  if(countLbl) countLbl.textContent = `— deteksi otomatis, bukan hasil cari manual (${all.length} ditemukan)`;
+
+  const summaryWrap = $('#anomaliSummaryRow');
+  if(summaryWrap){
+    summaryWrap.innerHTML = `
+      <div class="anomaly-summary-pill"><span class="status-dot dot-red"></span>${redItems.length} perlu perhatian segera</div>
+      <div class="anomaly-summary-pill"><span class="status-dot dot-yellow"></span>${yellowItems.length} perlu dipantau</div>
+    `;
+  }
+
+  if(!all.length){
+    wrap.innerHTML = '<div class="anomaly-empty">Tidak ada anomali terdeteksi untuk periode berjalan.</div>';
+    return;
+  }
+
+  const renderGroup = (title, list) => !list.length ? '' : `<div class="anomaly-group-title">${title}</div>` + list.map(it=>`
+    <div class="anomaly-item">
+      <span class="anomaly-badge b-${it.severity}">${it.severity==='red'?'Segera':'Pantau'}</span>
+      <div class="anomaly-body">
+        <div class="anomaly-title"><span class="anomaly-jenis">${it.jenis}</span>${it.nama}</div>
+        <div class="anomaly-desc">${it.desc}</div>
+      </div>
+    </div>
+  `).join('');
+
+  wrap.innerHTML = renderGroup('Perlu Perhatian Segera', redItems) + renderGroup('Perlu Dipantau', yellowItems);
+}
+
+// ---- Narasi otomatis ----
+// Kalimat ringkas ala "Realisasi Belanja Agustus 2026 mencapai 66,3% dari
+// pagu, turun 2 poin dibanding periode sama tahun lalu. 3 rekening melebihi
+// pagu bulanan." -- dibangun dari field yg SAMA dgn kartu KPI & panel anomali
+// di atas/bawahnya (STATE.ringkasan/STATE_P.ringkasan utk angka bulan
+// berjalan, scanAnomaliJenisG_ utk jumlah anomali), bukan hitungan terpisah,
+// supaya angka yg disebut di kalimat tidak pernah beda dgn angka di kartu.
+function poinPersen_(cur, prev){
+  if(cur===null || cur===undefined || prev===null || prev===undefined) return null;
+  return cur - prev;
+}
+
+function frasaPoinDibandingTahunLalu_(diff){
+  if(diff === null) return '';
+  const bulat = Math.abs(diff).toFixed(1).replace('.', ',');
+  if(Math.abs(diff) < 0.05) return 'setara dengan periode sama tahun lalu';
+  return (diff>0 ? 'naik' : 'turun') + ' ' + bulat + ' poin dibanding periode sama tahun lalu';
+}
+
+// Baris "total" (akar) sebuah tahun di pohon Khusus Tahun -- diambil dari
+// depth PALING KECIL yg ada di array itu (bukan menebak kode rekening
+// tertentu spt '5'/'4', krn itu tidak bisa diverifikasi live saat fitur ini
+// ditulis -- depth adalah field asli dari backend, bukan asumsi).
+function cariRootRowKhususG_(khususYearData){
+  if(!khususYearData || !khususYearData.rows || !khususYearData.rows.length) return null;
+  return khususYearData.rows.reduce((min,r)=> (r.depth < min.depth ? r : min), khususYearData.rows[0]);
+}
+
+// % realisasi KUMULATIF suatu tahun s.d bulan ke-(monthIdx+1), dihitung dari
+// bulanan[] baris root -- dipakai utk bandingkan "periode sama" antar tahun
+// (mis. s.d Agustus 2026 vs s.d Agustus 2025), bukan cuma total 1 tahun penuh
+// (yg utk tahun yg sudah lewat = angka bulan Desember, bukan Agustus).
+function persenSdBulanKeG_(khususYearData, year, monthIdx){
+  const root = cariRootRowKhususG_(khususYearData);
+  if(!root || monthIdx < 0) return null;
+  const pagu = root['pagu'+year];
+  if(!pagu) return null;
+  const bulanan = root.bulanan || [];
+  if(bulanan.length <= monthIdx) return null;
+  const kumulatif = bulanan.slice(0, monthIdx+1).reduce((s,v)=> s + (v||0), 0);
+  return kumulatif / pagu * 100;
+}
+
+function renderNarasiEksekutifG_(){
+  const wrap = $('#execNarasiG');
+  if(!wrap) return;
+  const year = execTahunAktifG_();
+  const prevYear = String(parseInt(year,10) - 1);
+
+  const kb = STATE.khusus[year], kp = STATE_P.khusus[year];
+  const kbPrev = STATE.khusus[prevYear], kpPrev = STATE_P.khusus[prevYear];
+  const b = STATE.ringkasan[year] && STATE.ringkasan[year].total;
+  const p = STATE_P.ringkasan[year];
+
+  const monthsElapsed = (kb && kb.bulan_label && kb.bulan_label.length) || (kp && kp.bulan_label && kp.bulan_label.length) || 0;
+  const monthIdx = monthsElapsed - 1;
+  const labelBulan = (b && b.label_bulan) || (p && p.label_bulan) || '';
+  const namaBulanPenuh = MONTH_FULL_[labelBulan] || labelBulan;
+
+  if(!monthsElapsed || (!b && !p)){
+    wrap.innerHTML = '<p class="exec-narasi-empty">Narasi otomatis belum bisa dibuat — data ringkasan tahun berjalan belum tersedia.</p>';
+    return;
+  }
+
+  const kalimat = [];
+
+  if(b){
+    const persenPrev = persenSdBulanKeG_(kbPrev, prevYear, monthIdx);
+    const diff = poinPersen_(b.persen, persenPrev);
+    kalimat.push(`Realisasi Belanja ${namaBulanPenuh} ${year} mencapai ${fmtPersenID_(b.persen)} dari pagu (Rp ${fmt(b.sd_bulan_ini)} dari Rp ${fmt(b.pagu)})${diff!==null ? ', ' + frasaPoinDibandingTahunLalu_(diff) : ''}.`);
+  }
+
+  if(p){
+    const persenPrev = persenSdBulanKeG_(kpPrev, prevYear, monthIdx);
+    const diff = poinPersen_(p.persen, persenPrev);
+    kalimat.push(`Realisasi Pendapatan ${namaBulanPenuh} ${year} mencapai ${fmtPersenID_(p.persen)} dari target (Rp ${fmt(p.sd_bulan_ini)} dari Rp ${fmt(p.pagu)})${diff!==null ? ', ' + frasaPoinDibandingTahunLalu_(diff) : ''}.`);
+  }
+
+  if(b && p){
+    const selisih = p.sd_bulan_ini - b.sd_bulan_ini;
+    kalimat.push(selisih>=0
+      ? `Posisi Pendapatan vs Belanja s.d ${namaBulanPenuh} ${year} masih surplus Rp ${fmt(Math.abs(selisih))}.`
+      : `Posisi Pendapatan vs Belanja s.d ${namaBulanPenuh} ${year} defisit Rp ${fmt(Math.abs(selisih))} — realisasi belanja melebihi pendapatan yang sudah masuk.`);
+  }
+
+  // Rekening yg realisasi BULAN INI-nya melebihi rata-rata pagu bulanan (pagu
+  // setahun ÷ 12) -- sinyal cepat "belanja bulan ini lebih besar dari
+  // biasanya" per akun, beda dari 3 kriteria panel Perlu Perhatian di bawah
+  // (yg fokus ke lonjakan bulan-ke-bulan & 0%/>90% pagu thd tahun berjalan).
+  if(kb && kb.rows && monthIdx>=0){
+    const leafOver = kb.rows.filter(r=>{
+      if(r.depth < 2) return false;
+      const pagu = r['pagu'+year];
+      const bulanan = r.bulanan || [];
+      if(!pagu || bulanan.length <= monthIdx) return false;
+      return (bulanan[monthIdx]||0) > (pagu/12);
+    });
+    if(leafOver.length){
+      kalimat.push(`${leafOver.length} rekening Belanja melebihi rata-rata pagu bulanan (pagu setahun ÷ 12) pada bulan ${namaBulanPenuh}.`);
+    }
+  }
+
+  // Ringkasan jumlah anomali -- angka SAMA dgn panel "Perlu Perhatian" di
+  // bawah (dipakai ulang dari scanAnomaliJenisG_, bukan dihitung ulang dgn
+  // kriteria berbeda) supaya narasi & panel tidak pernah kontradiksi.
+  const itemsB = scanAnomaliJenisG_(STATE.khusus, year, 'Belanja');
+  const itemsP = scanAnomaliJenisG_(STATE_P.khusus, year, 'Pendapatan');
+  const semuaAnomali = itemsB.concat(itemsP);
+  const totalRed = semuaAnomali.filter(i=>i.severity==='red').length;
+  kalimat.push(semuaAnomali.length
+    ? `Sistem mendeteksi ${semuaAnomali.length} akun perlu perhatian (${totalRed} di antaranya perlu perhatian segera) — lihat rincian di panel "Perlu Perhatian" di bawah.`
+    : 'Tidak ada akun yang terdeteksi anomali pada periode berjalan.');
+
+  wrap.innerHTML = '<p>' + kalimat.join(' ') + '</p>';
+}
+
+function renderRingkasanEksekutifG_(){
+  renderExecKpiRowG_();
+  renderNarasiEksekutifG_();
+  renderExecStatusGridG_();
+  renderTrenYearlyG_();
+  renderAnomaliG_();
 }
 
 /* ---- Card 1: Tren Total SPJ Bulanan Pendapatan Vs Belanja (line chart, 2 series) ---- */
@@ -3107,8 +3544,7 @@ function initTrenExtrasG_(){
 function refreshGabunganIfVisible_(){
   const root = $('#appRootGabungan');
   if(!root || root.style.display !== 'flex') return;
-  renderTrenGabungan();
-  if(TREN_EXTRA_INITED_G_){ renderTrenRangeCompareG(); renderTrenSameMonthCompareG(); }
+  renderActiveGabunganView_();
 }
 
 // ---- Sinkronisasi manual (Belanja & Pendapatan) ----
@@ -3175,9 +3611,7 @@ async function syncPendapatan_(){
 // syncGabungan_() dipakai tombol Sync baru: menyinkron KEDUA sumber (Belanja &
 // Pendapatan) ke Google Sheet dulu lewat fungsi yang sudah ada, baru render ulang.
 function renderGabunganViews_(){
-  renderTrenGabungan();
-  renderTrenRangeCompareG();
-  renderTrenSameMonthCompareG();
+  renderActiveGabunganView_();
 }
 
 async function syncGabungan_(){
@@ -3228,6 +3662,7 @@ async function main(){
   // render pertamanya dipicu showGabunganApp() saat kartu diklik (bukan di sini,
   // supaya canvas Chart.js tidak dibuat saat masih display:none). Refresh tinggal
   // render ulang dari data STATE/STATE_P yang sudah ter-update oleh modul lain.
+  initNavG();
   $('#btnRefreshG')?.addEventListener('click', renderGabunganViews_);
   $('#btnSyncGabungan')?.addEventListener('click', syncGabungan_);
 
