@@ -1499,14 +1499,23 @@ function renderFilterCompareChart(label, currentYear, values){
       responsive: true, maintainAspectRatio: false,
       plugins: {
         legend: {display:false},
-        tooltip: {callbacks: {label: c => 'Rp ' + fmt(c.parsed.y)}}
+        tooltip: {callbacks: {
+          label: c => 'Rp ' + fmt(c.parsed.y),
+          afterLabel: c => {
+            if(c.dataIndex === 0) return '';
+            const prev = values[c.dataIndex - 1], cur = values[c.dataIndex];
+            if(prev === null || prev === undefined || cur === null || cur === undefined || prev === 0) return '';
+            const pct = (cur - prev) / Math.abs(prev) * 100;
+            return 'vs ' + FILTER_YEARS[c.dataIndex - 1] + ': ' + pctChangeText_(pct);
+          }
+        }}
       },
       scales: {
         y: {ticks: {callback: v => (v/1e6).toFixed(0)+'jt'}, grid: {color:'#eef0fb'}},
         x: {grid: {display:false}}
       }
     },
-    plugins: [barShadowPlugin]
+    plugins: [barShadowPlugin, pctChangeBarPlugin]
   });
 }
 
@@ -1869,14 +1878,23 @@ function renderFilterCompareChartP(label, currentYear, values){
       responsive: true, maintainAspectRatio: false,
       plugins: {
         legend: {display:false},
-        tooltip: {callbacks: {label: c => 'Rp ' + fmt(c.parsed.y)}}
+        tooltip: {callbacks: {
+          label: c => 'Rp ' + fmt(c.parsed.y),
+          afterLabel: c => {
+            if(c.dataIndex === 0) return '';
+            const prev = values[c.dataIndex - 1], cur = values[c.dataIndex];
+            if(prev === null || prev === undefined || cur === null || cur === undefined || prev === 0) return '';
+            const pct = (cur - prev) / Math.abs(prev) * 100;
+            return 'vs ' + FILTER_YEARS_P[c.dataIndex - 1] + ': ' + pctChangeText_(pct);
+          }
+        }}
       },
       scales: {
         y: {ticks: {callback: v => (v/1e6).toFixed(0)+'jt'}, grid: {color:'#eef0fb'}},
         x: {grid: {display:false}}
       }
     },
-    plugins: [barShadowPlugin]
+    plugins: [barShadowPlugin, pctChangeBarPlugin]
   });
 }
 
