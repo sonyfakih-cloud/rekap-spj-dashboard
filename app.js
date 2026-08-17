@@ -3158,6 +3158,15 @@ function severitasKekuranganTarget_(shortfall){
   return null;
 }
 
+// Toleransi TERPISAH utk kriteria 5 (per rekening, bukan total) -- lebih
+// longgar drpd severitasKekuranganTarget_ krn realisasi 1 rekening jauh lebih
+// bergejolak drpd total keseluruhan (lihat komentar panjang di kriteria 5).
+function severitasKekuranganTargetRekening_(shortfall){
+  if(shortfall > 40) return 'red';
+  if(shortfall > 20) return 'yellow';
+  return null;
+}
+
 function scanAnomaliJenisG_(khususState, year, jenisLabel, totalPersen, isPendapatan){
   const data = khususState[year];
   if(!data || !data.rows || !data.rows.length) return [];
@@ -3219,6 +3228,37 @@ function scanAnomaliJenisG_(khususState, year, jenisLabel, totalPersen, isPendap
         items.push({
           jenis: jenisLabel, severity:'red', kode:r.kode, nama:r.nama,
           desc: `Realisasi sudah ${persen.toFixed(1)}% dari pagu, padahal baru ${monthsElapsed} dari 12 bulan (${Math.round(yearFraction*100)}%) tahun anggaran ${year} berjalan.`
+        });
+      }
+    }
+
+    // Kriteria 5 (BARU, atas permintaan user): realisasi REKENING INI (bukan
+    // cuma total keseluruhan spt kriteria 4 di atas) di bawah target
+    // proporsional bulan berjalan, dibanding pagu rekening itu sendiri.
+    // "total===0" SENGAJA dilewati di sini -- kasus itu sudah lebih spesifik
+    // ditangani kriteria 1 (pesan "masih Rp0"), supaya 1 rekening yg sama
+    // tidak muncul 2x dgn pesan yg mirip.
+    //
+    // AMBANG (dipilih user via 3 opsi yg diuji langsung ke data live: ketat
+    // >5 poin -> 73/121 rekening, SEDANG (dipakai sekarang) sudah lewat
+    // separuh tahun & >20 poin -> ~40 rekening, longgar >40 poin -> ~21
+    // rekening) -- "sedang" dipilih user: baru dicek kalau tahun anggaran
+    // SUDAH lewat separuh (yearFraction>=0.5, sama spt kriteria 1), krn di
+    // paruh pertama tahun realisasi per rekening yg belum rata itu masih
+    // wajar (banyak belanja modal/tunjangan tahunan blm jatuh tempo). Pakai
+    // toleransi sendiri (severitasKekuranganTargetRekening_, >20/>40 poin) --
+    // SENGAJA beda dari severitasKekuranganTarget_ (>5/>20 poin) yg dipakai
+    // kriteria 4 (total keseluruhan) -- karena total jauh lebih stabil (efek
+    // rata-rata dari banyak rekening) drpd 1 rekening individual.
+    if(pagu && pagu > 0 && total > 0 && yearFraction >= 0.5){
+      const persenRekening = total/pagu*100;
+      const shortfallRekening = (yearFraction*100) - persenRekening;
+      const sevRekening = severitasKekuranganTargetRekening_(shortfallRekening);
+      if(sevRekening){
+        const kata = isPendapatan ? 'target' : 'pagu';
+        items.push({
+          jenis: jenisLabel, severity: sevRekening, kode:r.kode, nama:r.nama,
+          desc: `Realisasi rekening ini baru ${persenRekening.toFixed(1)}% dari ${kata}, padahal seharusnya minimal ~${Math.round(yearFraction*100)}% di bulan ke-${monthsElapsed} tahun anggaran ${year} (kurang ${shortfallRekening.toFixed(1)} poin).`
         });
       }
     }
