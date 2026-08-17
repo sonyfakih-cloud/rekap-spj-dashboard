@@ -3132,22 +3132,53 @@ function filterLeafRowsG_(rows){
 }
 
 // ---- Deteksi anomali otomatis (panel "Perlu Perhatian") ----
-// 3 kriteria sesuai arahan: (1) realisasi 0% padahal sudah pertengahan tahun,
-// (2) lonjakan bulanan >50% dari bulan sebelumnya, (3) realisasi sudah >90%
-// pagu padahal baru < separuh tahun anggaran berjalan. Dijalankan per akun
-// GRANULAR (leaf, lihat filterLeafRowsG_ di atas -- bukan kategori/subtotal)
-// dari STATE.khusus/STATE_P.khusus tahun berjalan, karena r.bulanan[] di situ
-// berisi angka BULANAN (bukan kumulatif) -- sudah diverifikasi dari data live
-// (nilainya naik-turun antar bulan, bukan monoton naik seperti angka kumulatif).
+// 4 kriteria: (1) realisasi 0% padahal sudah pertengahan tahun, (2) lonjakan
+// bulanan >50% dari bulan sebelumnya, (3) realisasi sudah >90% pagu padahal
+// baru < separuh tahun anggaran berjalan, (4) TOTAL realisasi Belanja/
+// Pendapatan di bawah target proporsional bulan berjalan (mis. bulan Juni,
+// realisasi/SPJ Belanja seharusnya minimal ~50% dari pagu, Pendapatan minimal
+// ~50% dari target -- sesuai arahan user). Kriteria (1)-(3) dijalankan per
+// akun GRANULAR (leaf, lihat filterLeafRowsG_ di atas -- bukan kategori/
+// subtotal); kriteria (4) di level TOTAL keseluruhan Belanja/Pendapatan (bukan
+// per rekening -- kategori besar sudah ada indikator warnanya sendiri di
+// panel "Status Realisasi per Kategori" di atas, supaya tidak dobel).
+// r.bulanan[] dipakai kriteria (1)-(3) berisi angka BULANAN (bukan kumulatif)
+// -- sudah diverifikasi dari data live (naik-turun antar bulan, bukan monoton
+// naik spt angka kumulatif).
 function bulanFull_(abbr){ return MONTH_FULL_[abbr] || abbr || ''; }
 
-function scanAnomaliJenisG_(khususState, year, jenisLabel){
+// Toleransi kriteria (4): TIDAK memakai "persen < target" mentah (selisih
+// tipis krn pembulatan bulan/tanggal berjalan bukan anomali sungguhan -- mis.
+// Belanja 66,26% vs target proporsional 66,67% di tgl 17 Agustus itu hampir
+// pas, bukan "kurang"). Baru dianggap kuning kalau selisih >5 poin, merah
+// kalau >20 poin di bawah target.
+function severitasKekuranganTarget_(shortfall){
+  if(shortfall > 20) return 'red';
+  if(shortfall > 5) return 'yellow';
+  return null;
+}
+
+function scanAnomaliJenisG_(khususState, year, jenisLabel, totalPersen, isPendapatan){
   const data = khususState[year];
   if(!data || !data.rows || !data.rows.length) return [];
   const bulanLabel = data.bulan_label || [];
   const monthsElapsed = bulanLabel.length;
   const yearFraction = monthsElapsed ? monthsElapsed/12 : 0;
   const items = [];
+
+  // Kriteria 4: TOTAL Belanja/Pendapatan di bawah target proporsional
+  if(totalPersen !== null && totalPersen !== undefined && yearFraction > 0){
+    const expected = yearFraction*100;
+    const shortfall = expected - totalPersen;
+    const sev = severitasKekuranganTarget_(shortfall);
+    if(sev){
+      const kata = isPendapatan ? 'target' : 'pagu';
+      items.push({
+        jenis: jenisLabel, severity: sev, kode:'', nama:`Total ${jenisLabel}`,
+        desc: `Realisasi ${jenisLabel} baru ${totalPersen.toFixed(1)}%, padahal seharusnya minimal ~${Math.round(expected)}% dari ${kata} di bulan ke-${monthsElapsed} tahun anggaran ${year} (kurang ${shortfall.toFixed(1)} poin).`
+      });
+    }
+  }
 
   filterLeafRowsG_(data.rows).forEach(r=>{
     const pagu = r['pagu'+year];
@@ -3199,8 +3230,10 @@ function renderAnomaliG_(){
   const wrap = $('#anomaliListG');
   if(!wrap) return;
   const year = execTahunAktifG_();
-  const itemsB = scanAnomaliJenisG_(STATE.khusus, year, 'Belanja');
-  const itemsP = scanAnomaliJenisG_(STATE_P.khusus, year, 'Pendapatan');
+  const persenB = STATE.ringkasan[year] && STATE.ringkasan[year].total ? STATE.ringkasan[year].total.persen : null;
+  const persenP = STATE_P.ringkasan[year] ? STATE_P.ringkasan[year].persen : null;
+  const itemsB = scanAnomaliJenisG_(STATE.khusus, year, 'Belanja', persenB, false);
+  const itemsP = scanAnomaliJenisG_(STATE_P.khusus, year, 'Pendapatan', persenP, true);
   const all = itemsB.concat(itemsP);
   const redItems = all.filter(i=>i.severity==='red');
   const yellowItems = all.filter(i=>i.severity==='yellow');
@@ -3338,8 +3371,8 @@ function renderNarasiEksekutifG_(){
   // Ringkasan jumlah anomali -- angka SAMA dgn panel "Perlu Perhatian" di
   // bawah (dipakai ulang dari scanAnomaliJenisG_, bukan dihitung ulang dgn
   // kriteria berbeda) supaya narasi & panel tidak pernah kontradiksi.
-  const itemsB = scanAnomaliJenisG_(STATE.khusus, year, 'Belanja');
-  const itemsP = scanAnomaliJenisG_(STATE_P.khusus, year, 'Pendapatan');
+  const itemsB = scanAnomaliJenisG_(STATE.khusus, year, 'Belanja', b ? b.persen : null, false);
+  const itemsP = scanAnomaliJenisG_(STATE_P.khusus, year, 'Pendapatan', p ? p.persen : null, true);
   const semuaAnomali = itemsB.concat(itemsP);
   const totalRed = semuaAnomali.filter(i=>i.severity==='red').length;
   kalimat.push(semuaAnomali.length
