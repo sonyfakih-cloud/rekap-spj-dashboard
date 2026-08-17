@@ -10,7 +10,7 @@
      pengunjung yang sudah pernah buka situs ini masih bisa melihat versi lama (ini akar
      masalah "kok belum berubah" yang pernah dilaporkan). Setiap kali app.js/style.css
      diupdate, NAIKKAN angka v= di bawah supaya browser dipaksa ambil versi baru. -->
-<link rel="stylesheet" href="style.css?v=23">
+<link rel="stylesheet" href="style.css?v=24">
 <script src="chart.umd.min.js"></script>
 <script src="xlsx.full.min.js?v=8"></script>
 </head>
@@ -614,6 +614,15 @@
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 6"/><polyline points="14 6 21 6 21 13"/></svg>
       <span class="tip">Pendapatan Vs Belanja (Detail)</span>
     </div>
+
+    <div class="nav-item" id="btnRefreshG">
+      <span class="nav-glyph">⟳</span>
+      <span class="tip">Reload</span>
+    </div>
+    <div class="nav-item" id="btnLogoutG">
+      <span class="nav-glyph">⏻</span>
+      <span class="tip">Keluar</span>
+    </div>
   </aside>
 
   <main class="main">
@@ -693,12 +702,6 @@
 
     <p class="footer-note" id="footerDataSumberG">Data gabungan Pendapatan &amp; Belanja RSUD dr. R. Soeprapto Cepu (Rekap_Belanja_SPJ_2024_2025_2026_v2.xlsx &amp; Rekap_Pendapatan_2024_2025_2026.xlsx).</p>
   </main>
-
-  <div class="fab-group">
-    <button class="fab" id="btnRefreshG" title="Muat ulang tampilan">⟳</button>
-    <button class="fab" id="btnLogoutG" title="Keluar">⏻</button>
-  </div>
-
 </div>
 
 <!-- ===== MODAL DETAIL TRANSAKSI BKU ===== -->
@@ -735,6 +738,6 @@
 <script src="auth.js?v=10"></script>
 <script src="data.js?v=8"></script>
 <script src="data_pendapatan.js?v=1"></script>
-<script src="app.js?v=40"></script>
+<script src="app.js?v=41"></script>
 </body>
 </html>

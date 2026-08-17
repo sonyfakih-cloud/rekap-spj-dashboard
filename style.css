@@ -3,11 +3,11 @@
   --bg2:#f6f3fd;
   --navy:#1b1f3b;
   --navy2:#262b52;
-  --accent:#5b8def;
+  --accent:#84AAF3;
   --accent-soft:#e8f0ff;
-  --green:#3fae6a;
-  --amber:#d99a2b;
-  --red:#d0554a;
+  --green:#6FC28F;
+  --amber:#E3B360;
+  --red:#DC8077;
   --text:#1b1f3b;
   --muted:#8a8fa3;
   --card:rgba(255,255,255,0.72);
@@ -151,7 +151,7 @@ body{
 
 .topbar-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
 .btn-sync{
-  background:linear-gradient(165deg, #6577e4, var(--accent));
+  background:linear-gradient(165deg, #8C99EB, var(--accent));
   color:#fff;border:none;border-radius:var(--radius-sm);
   padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;
   box-shadow:0 8px 18px rgba(79,99,210,0.28);
@@ -407,7 +407,7 @@ table.data tbody tr:hover{background:var(--accent-soft);}
 .fab:active{ transform: translateY(1px); box-shadow: inset 0 2px 6px rgba(31,41,71,0.25); }
 
 .auth-card button{
-  background:linear-gradient(165deg, #6577e4, var(--accent));
+  background:linear-gradient(165deg, #8C99EB, var(--accent));
   box-shadow: 0 8px 18px rgba(79,99,210,0.38), var(--top-hl);
   transition: transform .12s ease, box-shadow .12s ease;
 }
@@ -441,7 +441,7 @@ table.data thead th{ background:linear-gradient(180deg, #ffffff, #f4f5fb); }
 
 /* ===== TEMA BIRU-PUTIH (mengikuti referensi desain) ===== */
 :root{
-  --accent2:#8fb3ff;
+  --accent2:#ABC6FF;
   --shadow: 0 2px 2px rgba(60,100,200,0.05), 0 10px 20px rgba(60,100,200,0.08), 0 26px 44px -14px rgba(60,100,200,0.16);
   --shadow-sm: 0 1px 2px rgba(60,100,200,0.05), 0 5px 10px rgba(60,100,200,0.07), 0 12px 20px -8px rgba(60,100,200,0.10);
 }
@@ -710,7 +710,7 @@ table.data.data-clickable tbody tr:hover td:nth-child(2){background:var(--accent
 .coming-soon-card p{margin:0 0 8px;color:var(--muted);font-size:13px;line-height:1.5;}
 .hub-back-btn{
   border:none;border-radius:var(--radius-sm);padding:11px 18px;
-  background:linear-gradient(165deg, #6577e4, var(--accent));color:#fff;
+  background:linear-gradient(165deg, #8C99EB, var(--accent));color:#fff;
   font-size:13px;font-weight:600;cursor:pointer;
   box-shadow:0 8px 18px rgba(79,99,210,0.38), var(--top-hl);
   transition:transform .12s ease;
@@ -782,8 +782,8 @@ table.data.data-clickable tbody tr:hover td:nth-child(2){background:var(--accent
   box-shadow:var(--shadow-sm), var(--top-hl);
 }
 .range-dot{width:10px;height:10px;border-radius:3px;flex:none;}
-.range-dot-a{background:#5b8def;}
-.range-dot-b{background:#2fb8c4;}
+.range-dot-a{background:#84AAF3;}
+.range-dot-b{background:#63CAD3;}
 .range-label{font-size:12px;font-weight:700;color:var(--navy);white-space:nowrap;}
 .range-sep{color:var(--muted);font-size:12px;}
 .range-group input[type=month]{

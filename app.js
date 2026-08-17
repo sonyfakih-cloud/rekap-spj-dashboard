@@ -305,9 +305,9 @@ function renderKomponenFallbackTable(d){
 }
 
 const KOMPONEN_WARNA = {
-  pegawai:     { color:'#5b8def', label:'Belanja Pegawai' },
-  barang_jasa: { color:'#2fb8c4', label:'Belanja Barang & Jasa' },
-  modal:       { color:'#f0a35b', label:'Belanja Modal' },
+  pegawai:     { color:'#84AAF3', label:'Belanja Pegawai' },
+  barang_jasa: { color:'#63CAD3', label:'Belanja Barang & Jasa' },
+  modal:       { color:'#F4BA84', label:'Belanja Modal' },
 };
 
 // PENTING: "Lainnya" (kode 2.1.1 dkk) BUKAN belanja -- itu pos Utang/Kewajiban
@@ -386,7 +386,7 @@ function buildDonutSVG(segments, total){
 // sekaligus (mis. #trenRangeChart, rentang A vs B) -- masing2 garis dihitung
 // independen terhadap dirinya sendiri (bukan dibandingkan silang ke garis lain).
 function pctChangeColor_(pct){
-  return pct >= 0 ? '#1f9d55' : '#e0483e';
+  return pct >= 0 ? '#57B680' : '#E8766E';
 }
 function pctChangeText_(pct){
   return (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%';
@@ -443,7 +443,7 @@ const pctChangeBarPlugin = {
       const color = pctChangeColor_(pct);
       const w = ctx.measureText(text).width + 12;
       const h = 18;
-      ctx.fillStyle = pct >= 0 ? 'rgba(31,157,85,0.14)' : 'rgba(224,72,62,0.14)';
+      ctx.fillStyle = pct >= 0 ? 'rgba(87,182,128,0.14)' : 'rgba(232,118,110,0.14)';
       if(ctx.roundRect){
         ctx.beginPath();
         ctx.roundRect(midX - w/2, topY - h/2, w, h, 9);
@@ -562,7 +562,7 @@ const pctChangeRangeComparePlugin = {
       if(item.kind === 'pill'){
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillStyle = item.pct >= 0 ? 'rgba(31,157,85,0.16)' : 'rgba(224,72,62,0.16)';
+        ctx.fillStyle = item.pct >= 0 ? 'rgba(87,182,128,0.16)' : 'rgba(232,118,110,0.16)';
         if(ctx.roundRect){
           ctx.beginPath();
           ctx.roundRect(item.x - item.w/2, item.y - item.h/2, item.w, item.h, 7);
@@ -629,8 +629,8 @@ function renderTren(){
     data:{
       labels,
       datasets:[
-        {type:'bar', label:'SPJ Bulan Ini', data:bulanIni, backgroundColor:'rgba(91,141,239,0.55)', borderRadius:6, order:2},
-        {type:'line', label:'SPJ s.d Bulan Ini (kumulatif)', data:sd, borderColor:'#2fb8c4', backgroundColor:'rgba(47,184,196,0.15)', tension:0, yAxisID:'y1', order:1, pointRadius:2},
+        {type:'bar', label:'SPJ Bulan Ini', data:bulanIni, backgroundColor:'rgba(132,170,243,0.55)', borderRadius:6, order:2},
+        {type:'line', label:'SPJ s.d Bulan Ini (kumulatif)', data:sd, borderColor:'#63CAD3', backgroundColor:'rgba(99,202,211,0.15)', tension:0, yAxisID:'y1', order:1, pointRadius:2},
       ]
     },
     options:{
@@ -751,8 +751,8 @@ function renderTrenRangeCompare(){
     data:{
       labels,
       datasets:[
-        {label: labelA, data:dataA, borderColor:'#5b8def', backgroundColor:'rgba(91,141,239,0.12)', tension:0, pointRadius:4, borderWidth:3, spanGaps:true},
-        {label: labelB, data:dataB, borderColor:'#2fb8c4', backgroundColor:'rgba(47,184,196,0.12)', tension:0, pointRadius:4, borderWidth:3, spanGaps:true},
+        {label: labelA, data:dataA, borderColor:'#84AAF3', backgroundColor:'rgba(132,170,243,0.12)', tension:0, pointRadius:4, borderWidth:3, spanGaps:true},
+        {label: labelB, data:dataB, borderColor:'#63CAD3', backgroundColor:'rgba(99,202,211,0.12)', tension:0, pointRadius:4, borderWidth:3, spanGaps:true},
       ]
     },
     options:{
@@ -807,11 +807,11 @@ function populateTrenSameMonth(){
 }
 
 const TREN_SAME_MONTH_PALETTE_ = [
-  {top:'#a9c4f5', bottom:'#7ba4ef'},
-  {top:'#8fb3ff', bottom:'#5b8def'},
-  {top:'#5b8def', bottom:'#3566d6'},
-  {top:'#3566d6', bottom:'#1f3f9e'},
-  {top:'#2fb8c4', bottom:'#1f8a93'},
+  {top:'#BFD3F8', bottom:'#9CBBF3'},
+  {top:'#ABC6FF', bottom:'#84AAF3'},
+  {top:'#84AAF3', bottom:'#688CE0'},
+  {top:'#688CE0', bottom:'#576FB6'},
+  {top:'#63CAD3', bottom:'#57A7AE'},
 ];
 
 function renderTrenSameMonthCompare(){
@@ -981,8 +981,8 @@ function renderTrenRangeCompareP(){
     data:{
       labels,
       datasets:[
-        {label: labelA, data:dataA, borderColor:'#5b8def', backgroundColor:'rgba(91,141,239,0.12)', tension:0, pointRadius:4, borderWidth:3, spanGaps:true},
-        {label: labelB, data:dataB, borderColor:'#2fb8c4', backgroundColor:'rgba(47,184,196,0.12)', tension:0, pointRadius:4, borderWidth:3, spanGaps:true},
+        {label: labelA, data:dataA, borderColor:'#84AAF3', backgroundColor:'rgba(132,170,243,0.12)', tension:0, pointRadius:4, borderWidth:3, spanGaps:true},
+        {label: labelB, data:dataB, borderColor:'#63CAD3', backgroundColor:'rgba(99,202,211,0.12)', tension:0, pointRadius:4, borderWidth:3, spanGaps:true},
       ]
     },
     options:{
@@ -1364,7 +1364,7 @@ const ribbon3dPlugin = {
     if(!meta || !meta.data || meta.data.length < 2) return;
     const points = meta.data;
     const ds = chart.data.datasets[0];
-    const base = (ds && ds.borderColor) || '#5b8def';
+    const base = (ds && ds.borderColor) || '#84AAF3';
     const depthX = 7, depthY = 12;
     const {ctx} = chart;
     ctx.save();
@@ -1410,8 +1410,8 @@ function renderFilterChart(labels, values){
   const ctx = canvas.getContext('2d');
   if(!ctx) return;
   const gradient = ctx.createLinearGradient(0, 0, 0, 240);
-  gradient.addColorStop(0, 'rgba(91,141,239,0.48)');
-  gradient.addColorStop(1, 'rgba(91,141,239,0.02)');
+  gradient.addColorStop(0, 'rgba(132,170,243,0.48)');
+  gradient.addColorStop(1, 'rgba(132,170,243,0.02)');
   if(filterChartInstance) filterChartInstance.destroy();
   filterChartInstance = new Chart(ctx, {
     type: 'line',
@@ -1419,14 +1419,14 @@ function renderFilterChart(labels, values){
       labels,
       datasets: [{
         data: values,
-        borderColor: '#5b8def',
+        borderColor: '#84AAF3',
         borderWidth: 3,
         backgroundColor: gradient,
         fill: true,
         tension: 0,
         pointRadius: 4,
         pointBackgroundColor: '#ffffff',
-        pointBorderColor: '#5b8def',
+        pointBorderColor: '#84AAF3',
         pointBorderWidth: 2,
         pointHoverRadius: 6,
       }]
@@ -1469,9 +1469,9 @@ function renderFilterCompareChart(label, currentYear, values){
   if(!ctx) return;
 
   const colors = [
-    {top:'#a9c4f5', bottom:'#7ba4ef'}, // 2024 (biru muda)
-    {top:'#8fb3ff', bottom:'#5b8def'}, // 2025 (biru sedang)
-    {top:'#5b8def', bottom:'#3566d6'}, // 2026 (biru tua)
+    {top:'#BFD3F8', bottom:'#9CBBF3'}, // 2024 (biru muda)
+    {top:'#ABC6FF', bottom:'#84AAF3'}, // 2025 (biru sedang)
+    {top:'#84AAF3', bottom:'#688CE0'}, // 2026 (biru tua)
   ];
   const backgrounds = FILTER_YEARS.map((y,i)=>{
     const g = ctx.createLinearGradient(0, 0, 0, 230);
@@ -1678,8 +1678,8 @@ function renderFilterRangeCompare(){
     data:{
       labels,
       datasets:[
-        {label: labelA, data:dataA, borderColor:'#5b8def', backgroundColor:'rgba(91,141,239,0.12)', tension:0, pointRadius:4, borderWidth:3, spanGaps:true},
-        {label: labelB, data:dataB, borderColor:'#2fb8c4', backgroundColor:'rgba(47,184,196,0.12)', tension:0, pointRadius:4, borderWidth:3, spanGaps:true},
+        {label: labelA, data:dataA, borderColor:'#84AAF3', backgroundColor:'rgba(132,170,243,0.12)', tension:0, pointRadius:4, borderWidth:3, spanGaps:true},
+        {label: labelB, data:dataB, borderColor:'#63CAD3', backgroundColor:'rgba(99,202,211,0.12)', tension:0, pointRadius:4, borderWidth:3, spanGaps:true},
       ]
     },
     options:{
@@ -1803,8 +1803,8 @@ function renderFilterChartP(labels, values){
   const ctx = canvas.getContext('2d');
   if(!ctx) return;
   const gradient = ctx.createLinearGradient(0, 0, 0, 240);
-  gradient.addColorStop(0, 'rgba(91,141,239,0.48)');
-  gradient.addColorStop(1, 'rgba(91,141,239,0.02)');
+  gradient.addColorStop(0, 'rgba(132,170,243,0.48)');
+  gradient.addColorStop(1, 'rgba(132,170,243,0.02)');
   if(filterChartInstanceP) filterChartInstanceP.destroy();
   filterChartInstanceP = new Chart(ctx, {
     type: 'line',
@@ -1812,14 +1812,14 @@ function renderFilterChartP(labels, values){
       labels,
       datasets: [{
         data: values,
-        borderColor: '#5b8def',
+        borderColor: '#84AAF3',
         borderWidth: 3,
         backgroundColor: gradient,
         fill: true,
         tension: 0,
         pointRadius: 4,
         pointBackgroundColor: '#ffffff',
-        pointBorderColor: '#5b8def',
+        pointBorderColor: '#84AAF3',
         pointBorderWidth: 2,
         pointHoverRadius: 6,
       }]
@@ -1848,9 +1848,9 @@ function renderFilterCompareChartP(label, currentYear, values){
   if(!ctx) return;
 
   const colors = [
-    {top:'#a9c4f5', bottom:'#7ba4ef'}, // 2024 (biru muda)
-    {top:'#8fb3ff', bottom:'#5b8def'}, // 2025 (biru sedang)
-    {top:'#5b8def', bottom:'#3566d6'}, // 2026 (biru tua)
+    {top:'#BFD3F8', bottom:'#9CBBF3'}, // 2024 (biru muda)
+    {top:'#ABC6FF', bottom:'#84AAF3'}, // 2025 (biru sedang)
+    {top:'#84AAF3', bottom:'#688CE0'}, // 2026 (biru tua)
   ];
   const backgrounds = FILTER_YEARS_P.map((y,i)=>{
     const g = ctx.createLinearGradient(0, 0, 0, 230);
@@ -2039,8 +2039,8 @@ function renderFilterRangeCompareP(){
     data:{
       labels,
       datasets:[
-        {label: labelA, data:dataA, borderColor:'#5b8def', backgroundColor:'rgba(91,141,239,0.12)', tension:0, pointRadius:4, borderWidth:3, spanGaps:true},
-        {label: labelB, data:dataB, borderColor:'#2fb8c4', backgroundColor:'rgba(47,184,196,0.12)', tension:0, pointRadius:4, borderWidth:3, spanGaps:true},
+        {label: labelA, data:dataA, borderColor:'#84AAF3', backgroundColor:'rgba(132,170,243,0.12)', tension:0, pointRadius:4, borderWidth:3, spanGaps:true},
+        {label: labelB, data:dataB, borderColor:'#63CAD3', backgroundColor:'rgba(99,202,211,0.12)', tension:0, pointRadius:4, borderWidth:3, spanGaps:true},
       ]
     },
     options:{
@@ -2516,8 +2516,8 @@ function updateRingkasanPeriodeLabelP_(){
 }
 
 const KOMPONEN_WARNA_PENDAPATAN = {
-  retribusi: { color:'#5b8def', label:'Retribusi Daerah' },
-  blud:       { color:'#f0a35b', label:'Lain-lain PAD (BLUD, dst)' },
+  retribusi: { color:'#84AAF3', label:'Retribusi Daerah' },
+  blud:       { color:'#F4BA84', label:'Lain-lain PAD (BLUD, dst)' },
 };
 
 function renderRingkasanPendapatan(){
@@ -2598,8 +2598,8 @@ function renderTrenPendapatan(){
     data:{
       labels,
       datasets:[
-        {type:'bar', label:'Pendapatan Bulan Ini', data:bulanIni, backgroundColor:'rgba(240,163,91,0.55)', borderRadius:6, order:2},
-        {type:'line', label:'Pendapatan s.d Bulan Ini (kumulatif)', data:sd, borderColor:'#5b8def', backgroundColor:'rgba(91,141,239,0.15)', tension:0, yAxisID:'y1', order:1, pointRadius:2},
+        {type:'bar', label:'Pendapatan Bulan Ini', data:bulanIni, backgroundColor:'rgba(244,186,132,0.55)', borderRadius:6, order:2},
+        {type:'line', label:'Pendapatan s.d Bulan Ini (kumulatif)', data:sd, borderColor:'#84AAF3', backgroundColor:'rgba(132,170,243,0.15)', tension:0, yAxisID:'y1', order:1, pointRadius:2},
       ]
     },
     options:{
@@ -2912,7 +2912,7 @@ function initHub(){
    Tidak punya sumber data sendiri -- murni menggabungkan STATE.tren
    (Belanja, sudah dimuat modul Belanja) & STATE_P.tren (Pendapatan,
    sudah dimuat modul Pendapatan). Warna konsisten dipakai di ketiga
-   grafik: Belanja = biru (#5b8def), Pendapatan = oranye (#f0a35b) --
+   grafik: Belanja = biru (#84AAF3), Pendapatan = oranye (#F4BA84) --
    sama dengan warna aksen utama tiap modul aslinya.
    ================================================================ */
 
@@ -3089,8 +3089,8 @@ function renderTrenYearlyG_(){
     data:{
       labels: years,
       datasets:[
-        {label:'Pendapatan', data:pendapatan, backgroundColor:'#f0a35b', borderRadius:6, maxBarThickness:70},
-        {label:'Belanja', data:belanja, backgroundColor:'#5b8def', borderRadius:6, maxBarThickness:70},
+        {label:'Pendapatan', data:pendapatan, backgroundColor:'#F4BA84', borderRadius:6, maxBarThickness:70},
+        {label:'Belanja', data:belanja, backgroundColor:'#84AAF3', borderRadius:6, maxBarThickness:70},
       ]
     },
     options:{
@@ -3103,7 +3103,8 @@ function renderTrenYearlyG_(){
         y:{ticks:{callback:v=>(v/1e6).toFixed(0)+'jt'}, grid:{color:'#eef0fb'}},
         x:{grid:{display:false}}
       }
-    }
+    },
+    plugins: [barShadowPlugin]
   });
   const lbl = $('#execTrenYearlyLabel');
   if(lbl) lbl.textContent = '— total realisasi s.d bulan terakhir tiap tahun (2024 & 2025 satu tahun penuh, 2026 masih berjalan)';
@@ -3451,8 +3452,8 @@ function renderTrenGabungan(){
     data:{
       labels: periods,
       datasets:[
-        {label:'Belanja', data:dataBelanja, borderColor:'#5b8def', backgroundColor:'rgba(91,141,239,0.12)', tension:0, pointRadius:2, borderWidth:2.5, spanGaps:true},
-        {label:'Pendapatan', data:dataPendapatan, borderColor:'#f0a35b', backgroundColor:'rgba(240,163,91,0.12)', tension:0, pointRadius:2, borderWidth:2.5, spanGaps:true},
+        {label:'Belanja', data:dataBelanja, borderColor:'#84AAF3', backgroundColor:'rgba(132,170,243,0.12)', tension:0, pointRadius:2, borderWidth:2.5, spanGaps:true},
+        {label:'Pendapatan', data:dataPendapatan, borderColor:'#F4BA84', backgroundColor:'rgba(244,186,132,0.12)', tension:0, pointRadius:2, borderWidth:2.5, spanGaps:true},
       ]
     },
     options:{
@@ -3534,8 +3535,8 @@ function renderTrenRangeCompareG(){
   const rangeLabel = `${periodeLabelShort_(from)} – ${periodeLabelShort_(to)}`;
 
   summary.innerHTML = `
-    <div class="range-stat"><div class="lbl"><span class="range-dot" style="background:#5b8def"></span>Total Belanja ${rangeLabel}</div><div class="val">Rp ${fmt(totalBelanja)}</div></div>
-    <div class="range-stat"><div class="lbl"><span class="range-dot" style="background:#f0a35b"></span>Total Pendapatan ${rangeLabel}</div><div class="val">Rp ${fmt(totalPendapatan)}</div></div>
+    <div class="range-stat"><div class="lbl"><span class="range-dot" style="background:#84AAF3"></span>Total Belanja ${rangeLabel}</div><div class="val">Rp ${fmt(totalBelanja)}</div></div>
+    <div class="range-stat"><div class="lbl"><span class="range-dot" style="background:#F4BA84"></span>Total Pendapatan ${rangeLabel}</div><div class="val">Rp ${fmt(totalPendapatan)}</div></div>
     <div class="range-stat diff"><div class="lbl">${selisihLabel} (Pendapatan − Belanja)</div><div class="val ${selisihClass}">${selisihText}</div></div>
   `;
 
@@ -3546,8 +3547,8 @@ function renderTrenRangeCompareG(){
     data:{
       labels,
       datasets:[
-        {label:'Belanja', data:dataBelanja, borderColor:'#5b8def', backgroundColor:'rgba(91,141,239,0.12)', tension:0, pointRadius:4, borderWidth:3, spanGaps:true},
-        {label:'Pendapatan', data:dataPendapatan, borderColor:'#f0a35b', backgroundColor:'rgba(240,163,91,0.12)', tension:0, pointRadius:4, borderWidth:3, spanGaps:true},
+        {label:'Belanja', data:dataBelanja, borderColor:'#84AAF3', backgroundColor:'rgba(132,170,243,0.12)', tension:0, pointRadius:4, borderWidth:3, spanGaps:true},
+        {label:'Pendapatan', data:dataPendapatan, borderColor:'#F4BA84', backgroundColor:'rgba(244,186,132,0.12)', tension:0, pointRadius:4, borderWidth:3, spanGaps:true},
       ]
     },
     options:{
@@ -3624,8 +3625,8 @@ function renderTrenSameMonthCompareG(){
     data:{
       labels: years,
       datasets:[
-        {label:'Belanja', data:belanjaValues, backgroundColor:'#5b8def', borderRadius:8, borderSkipped:false, maxBarThickness:60},
-        {label:'Pendapatan', data:pendapatanValues, backgroundColor:'#f0a35b', borderRadius:8, borderSkipped:false, maxBarThickness:60},
+        {label:'Belanja', data:belanjaValues, backgroundColor:'#84AAF3', borderRadius:8, borderSkipped:false, maxBarThickness:60},
+        {label:'Pendapatan', data:pendapatanValues, backgroundColor:'#F4BA84', borderRadius:8, borderSkipped:false, maxBarThickness:60},
       ]
     },
     options:{
