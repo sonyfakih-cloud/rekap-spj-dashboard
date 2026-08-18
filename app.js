@@ -9,6 +9,56 @@ const fmtPersenID_ = n => (n===null||n===undefined||n==='') ? '-' : Number(n).to
 const $ = sel => document.querySelector(sel);
 const $$ = sel => Array.from(document.querySelectorAll(sel));
 
+// ================================================================
+// MODE GELAP (Dark Mode) -- toggle terang/gelap, disimpan di localStorage,
+// diterapkan lewat atribut data-theme di <html> (dibaca CSS via selector
+// [data-theme="dark"], lihat style.css). Ganti tema memuat ulang halaman
+// (location.reload()) supaya SEMUA elemen -- termasuk grafik Chart.js yang
+// warnanya di-generate sekali saat render -- pasti konsisten dgn tema baru,
+// tanpa perlu melacak "view mana yg sedang aktif & fungsi render mana yg
+// harus dipanggil ulang" di 4 modul x puluhan grafik. Script anti-flash yg
+// membaca localStorage & set atribut SEBELUM body dirender ada di <head>
+// index.html (harus sinkron/blocking, makanya bukan taruh di sini).
+function currentTheme_(){
+  return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+}
+function toggleTheme_(){
+  const next = currentTheme_() === 'dark' ? 'light' : 'dark';
+  try{ localStorage.setItem('spj_theme', next); }catch(e){}
+  location.reload();
+}
+function refreshThemeToggleUI_(){
+  const dark = currentTheme_() === 'dark';
+  $$('.theme-toggle-btn').forEach(el=>{
+    const icon = el.querySelector('.theme-icon');
+    const label = el.querySelector('.theme-label');
+    if(icon) icon.textContent = dark ? '☀️' : '🌙';
+    if(label) label.textContent = dark ? 'Mode Terang' : 'Mode Gelap';
+    el.title = dark ? 'Mode Terang' : 'Mode Gelap';
+  });
+}
+document.addEventListener('click', e=>{
+  const btn = e.target.closest('.theme-toggle-btn');
+  if(btn) toggleTheme_();
+});
+document.addEventListener('DOMContentLoaded', refreshThemeToggleUI_);
+// Kalau app.js kebetulan baru jalan SETELAH DOMContentLoaded (dokumen sudah
+// selesai parsing), panggil langsung juga -- jangan andalkan event yg mungkin
+// sudah lewat.
+if(document.readyState !== 'loading') refreshThemeToggleUI_();
+
+// Warna grid/teks Chart.js supaya tetap kebaca di kedua tema. CHART_GRID_()
+// dipanggil ULANG tiap grafik dibuat (bukan konstanta statis), krn banyak
+// grafik baru dibuat belakangan (setelah data live masuk / pindah tab) --
+// pemanggilan fungsi memastikan warnanya selalu sesuai tema SAAT ITU.
+// Chart.defaults.color menentukan warna default teks (tick sumbu & legend)
+// utk semua chart yg tidak override warnanya sendiri secara eksplisit.
+function CHART_GRID_(){ return currentTheme_()==='dark' ? 'rgba(255,255,255,0.08)' : '#eef0fb'; }
+function CHART_TEXT_(){ return currentTheme_()==='dark' ? '#9aa3c9' : '#5a5f78'; }
+if(typeof Chart !== 'undefined'){
+  Chart.defaults.color = CHART_TEXT_();
+}
+
 let STATE = {
   ringkasan: REKAP_DATA.ringkasan,
   tren: REKAP_DATA.tren,
@@ -638,7 +688,7 @@ function renderTren(){
       interaction:{mode:'index', intersect:false},
       plugins:{legend:{position:'top', labels:{boxWidth:12, font:{size:11}}}},
       scales:{
-        y:{ticks:{callback:v=>(v/1e6).toFixed(0)+'jt'}, grid:{color:'#eef0fb'}},
+        y:{ticks:{callback:v=>(v/1e6).toFixed(0)+'jt'}, grid:{color:CHART_GRID_()}},
         y1:{position:'right', grid:{drawOnChartArea:false}, ticks:{callback:v=>(v/1e9).toFixed(1)+'M'}},
         x:{ticks:{maxRotation:90,minRotation:60, font:{size:9}}}
       }
@@ -764,7 +814,7 @@ function renderTrenRangeCompare(){
         tooltip:{callbacks:{label:c=> c.dataset.label + ': ' + (c.parsed.y===null ? 'tidak ada data' : 'Rp ' + fmt(c.parsed.y))}}
       },
       scales:{
-        y:{ticks:{callback:v=>(v/1e6).toFixed(0)+'jt'}, grid:{color:'#eef0fb'}},
+        y:{ticks:{callback:v=>(v/1e6).toFixed(0)+'jt'}, grid:{color:CHART_GRID_()}},
         x:{grid:{display:false}}
       }
     },
@@ -857,7 +907,7 @@ function renderTrenSameMonthCompare(){
         tooltip:{callbacks:{label:c=> c.parsed.y===null ? 'Tidak ada data' : 'Rp ' + fmt(c.parsed.y)}}
       },
       scales:{
-        y:{ticks:{callback:v=>(v/1e6).toFixed(0)+'jt'}, grid:{color:'#eef0fb'}},
+        y:{ticks:{callback:v=>(v/1e6).toFixed(0)+'jt'}, grid:{color:CHART_GRID_()}},
         x:{grid:{display:false}}
       }
     },
@@ -994,7 +1044,7 @@ function renderTrenRangeCompareP(){
         tooltip:{callbacks:{label:c=> c.dataset.label + ': ' + (c.parsed.y===null ? 'tidak ada data' : 'Rp ' + fmt(c.parsed.y))}}
       },
       scales:{
-        y:{ticks:{callback:v=>(v/1e6).toFixed(0)+'jt'}, grid:{color:'#eef0fb'}},
+        y:{ticks:{callback:v=>(v/1e6).toFixed(0)+'jt'}, grid:{color:CHART_GRID_()}},
         x:{grid:{display:false}}
       }
     },
@@ -1079,7 +1129,7 @@ function renderTrenSameMonthCompareP(){
         tooltip:{callbacks:{label:c=> c.parsed.y===null ? 'Tidak ada data' : 'Rp ' + fmt(c.parsed.y)}}
       },
       scales:{
-        y:{ticks:{callback:v=>(v/1e6).toFixed(0)+'jt'}, grid:{color:'#eef0fb'}},
+        y:{ticks:{callback:v=>(v/1e6).toFixed(0)+'jt'}, grid:{color:CHART_GRID_()}},
         x:{grid:{display:false}}
       }
     },
@@ -1691,7 +1741,7 @@ function renderFilterRangeCompare(){
         tooltip:{callbacks:{label:c=> c.dataset.label + ': ' + (c.parsed.y===null ? 'tidak ada data' : 'Rp ' + fmt(c.parsed.y))}}
       },
       scales:{
-        y:{ticks:{callback:v=>(v/1e6).toFixed(0)+'jt'}, grid:{color:'#eef0fb'}},
+        y:{ticks:{callback:v=>(v/1e6).toFixed(0)+'jt'}, grid:{color:CHART_GRID_()}},
         x:{grid:{display:false}}
       }
     },
@@ -2052,7 +2102,7 @@ function renderFilterRangeCompareP(){
         tooltip:{callbacks:{label:c=> c.dataset.label + ': ' + (c.parsed.y===null ? 'tidak ada data' : 'Rp ' + fmt(c.parsed.y))}}
       },
       scales:{
-        y:{ticks:{callback:v=>(v/1e6).toFixed(0)+'jt'}, grid:{color:'#eef0fb'}},
+        y:{ticks:{callback:v=>(v/1e6).toFixed(0)+'jt'}, grid:{color:CHART_GRID_()}},
         x:{grid:{display:false}}
       }
     },
@@ -2334,10 +2384,20 @@ function buildPerbandinganFromKhususP_(){
     if(!d) return;
     d.rows.forEach(r=>{
       const konv = PENDAPATAN_KONVERSI_MAP_[r.kode];
+      // Baris "tak dikenal" (nama gagal ter-lookup dari KODE_NAMA_PENDAPATAN, backend
+      // fallback ke kode itu sendiri sbg nama) TIDAK boleh ikut digabung lewat kode
+      // ternormalisasi -- berisiko collision dgn akun LAIN yg sungguhan (ditemukan nyata
+      // 19 Agt 2026 di cabang "4.1.04.16.04..."/"4.1.04.16.004..." -- lihat komentar
+      // panjang di resolveKonversiKodeP_). Baris tak dikenal begini fallback ke kode
+      // mentahnya sendiri sbg kunci -- tetap tampil apa adanya, cuma tidak digabung lintas
+      // tahun (aman drpd salah gabung & menampilkan angka yg salah).
+      const isNamed = r.nama !== r.kode;
       // Kunci gabungan: utamakan padanan dari peta Konversi kalau ada (override manual
-      // utk kasus non-struktural), fallback ke kode ternormalisasi (berlaku utk semua
-      // level, leaf maupun hierarki, tanpa perlu kurasi manual).
-      const key = konv ? ('KV#' + (konv.kode2026 || konv.kode2025 || konv.kode2024)) : ('NM#' + normalizeKodeP_(r.kode));
+      // utk kasus non-struktural), lalu kode ternormalisasi utk baris yg namanya dikenal
+      // (berlaku semua level, leaf maupun hierarki, tanpa perlu kurasi manual), fallback
+      // terakhir ke kode mentah apa adanya.
+      const key = konv ? ('KV#' + (konv.kode2026 || konv.kode2025 || konv.kode2024))
+        : isNamed ? ('NM#' + normalizeKodeP_(r.kode)) : ('RAW#' + r.kode);
       if(!map[key]) map[key] = { kode:r.kode, kodeByYear:{}, nama:r.nama, depth:r.depth, '2024':null, '2025':null, '2026':null,
         pagu2024:null, pagu2025:null, pagu2026:null, persen2026:null };
       map[key][y] = r.total;
@@ -2475,16 +2535,36 @@ async function loadKhususLivePendapatan(){
 }
 
 // ---- Peta konversi kode rekening Pendapatan lintas tahun ----
-// Sumbernya sheet 'Konversi' di Rekap_Pendapatan_2024_2025_2026.xlsx (backend
-// Code.gs -> getPendapatanKonversiList_()), dipakai supaya fitur "Perbandingan
-// Rentang Bulan per Rekening" bisa menarik data tahun lain pakai kode PADANAN
-// (bukan asumsi kode sama persis) -- lihat resolveKonversiKodeP_ di bawah.
-// Map dibangun 1x per kode: kode2024/2025/2026 (kalau ada) semuanya menunjuk ke
-// row yang sama, jadi lookup dari kode tahun manapun langsung ketemu row-nya.
+// Sumbernya (idealnya) sheet 'Konversi' di Rekap_Pendapatan_2024_2025_2026.xlsx
+// (backend Code.gs -> getPendapatanKonversiList_()) -- TAPI fungsi itu TIDAK ADA
+// di Code.gs saat ini (dicek 18 Agt 2026), jadi json.konversi_pendapatan dari
+// backend selalu undefined & peta ini TIDAK PERNAH terisi dari live data. Untuk
+// mayoritas kasus (beda padding leading-zero antar tahun) ini sudah otomatis
+// tertangani oleh normalizeKodeP_() di resolveKonversiKodeP_ tanpa perlu peta ini
+// sama sekali. Peta ini sekarang HANYA menyimpan PENDAPATAN_MANUAL_KONVERSI_ --
+// daftar kecil kasus yang TIDAK bisa dideteksi normalisasi murni (akun ganti nama
+// & struktur kode total antar tahun, bukan cuma beda padding) -- lihat daftarnya
+// di bawah. Kalau backend-nya suatu saat diimplementasi & mengirim data sungguhan,
+// data live itu digabung DI ATAS (override) daftar manual, bukan menggantikannya.
 let PENDAPATAN_KONVERSI_LIST_ = [];
 let PENDAPATAN_KONVERSI_MAP_ = {};
+
+// Kasus akun yang gonta-ganti NAMA & STRUKTUR kode total antar tahun (bukan cuma
+// beda padding) -- tiap kasus di sini sudah dikonfirmasi manual oleh user, bukan
+// tebakan/asumsi otomatis, supaya tidak ada risiko salah gabung 2 akun yang beda.
+const PENDAPATAN_MANUAL_KONVERSI_ = [
+  // Dikonfirmasi user 19 Agt 2026 (sebelumnya ditandai "Belum pasti - diduga
+  // dipecah, perlu konfirmasi" di KONVERSI.xlsx yg diupload 15 Agt 2026): akun
+  // "Pendapatan Diklat (Pendidikan dan Pelatihan)" di 2024/2025 berganti nama &
+  // kode jadi "Hasil Kerja Sama Program Pendidikan" mulai 2026.
+  { kode2024:'4.1.04.16.06.0001.001.05', kode2025:'4.1.04.16.06.0001.001.05', kode2026:'4.1.04.16.004.00001.001.02',
+    nama:'Pendapatan Diklat (Pendidikan dan Pelatihan) / Hasil Kerja Sama Program Pendidikan' },
+];
+
 function setPendapatanKonversiMap_(list){
-  PENDAPATAN_KONVERSI_LIST_ = list || [];
+  // Manual dulu, lalu live (kalau ada) menimpa entri manual yg kodenya sama --
+  // live dianggap lebih otoritatif begitu backend-nya benar2 ada.
+  PENDAPATAN_KONVERSI_LIST_ = PENDAPATAN_MANUAL_KONVERSI_.concat(list || []);
   const map = {};
   PENDAPATAN_KONVERSI_LIST_.forEach(row=>{
     ['kode2024','kode2025','kode2026'].forEach(k=>{
@@ -2493,6 +2573,9 @@ function setPendapatanKonversiMap_(list){
   });
   PENDAPATAN_KONVERSI_MAP_ = map;
 }
+// Isi peta dgn daftar manual sejak awal (jangan tunggu live fetch, yg saat ini
+// tidak pernah mengirim konversi_pendapatan sama sekali -- lihat komentar di atas).
+setPendapatanKonversiMap_([]);
 
 // Normalisasi kode rekening Pendapatan: lucuti leading zero tiap segmen yang
 // dipisah titik. SAMA PERSIS dengan normalizeKode_() di backend (Code.gs),
@@ -2538,7 +2621,18 @@ function resolveKonversiKodeP_(kode, targetYear){
   const targetData = STATE_P.khusus[targetYear];
   if(targetData && targetData.rows && targetData.rows.length){
     const targetNorm = normalizeKodeP_(kode);
-    const hit = targetData.rows.find(r=>normalizeKodeP_(r.kode) === targetNorm);
+    // PENTING (fix false-positive, ditemukan 19 Agt 2026): syarat `r.nama !== r.kode`
+    // menyaring baris yg NAMANYA gagal ter-lookup dari KODE_NAMA_PENDAPATAN (backend
+    // fallback ke kode itu sendiri sbg nama, lihat getKhususDataPendapatan_ di Code.gs)
+    // -- baris "tak dikenal" begini kadang kebetulan ternormalisasi sama dgn kode akun
+    // LAIN yg sungguhan (mis. cabang "4.1.04.16.04..." 2025 yg tak bernama vs cabang
+    // "4.1.04.16.004..." 2026 yg bernama "Hasil Kerja Sama..." -- keduanya normalize ke
+    // "4.1.4.16.4...", padahal BUKAN akun yg sama). Tanpa syarat ini, akun yg sungguhan
+    // bisa salah tertaut ke baris tak-dikenal itu & menampilkan nilai yg SALAH TOTAL
+    // (bukan cuma "-"), yang jauh lebih berbahaya drpd data hilang. Diverifikasi live:
+    // syarat ini menghapus PERSIS 4 false-positive (semua di cabang yg sama) tanpa
+    // mengubah satupun dari 40 pencocokan yg sudah benar.
+    const hit = targetData.rows.find(r=>normalizeKodeP_(r.kode) === targetNorm && r.nama !== r.kode);
     if(hit) return hit.kode;
   }
   const row = PENDAPATAN_KONVERSI_MAP_[kode];
@@ -2653,7 +2747,7 @@ function renderTrenPendapatan(){
       interaction:{mode:'index', intersect:false},
       plugins:{legend:{position:'top', labels:{boxWidth:12, font:{size:11}}}},
       scales:{
-        y:{ticks:{callback:v=>(v/1e6).toFixed(0)+'jt'}, grid:{color:'#eef0fb'}},
+        y:{ticks:{callback:v=>(v/1e6).toFixed(0)+'jt'}, grid:{color:CHART_GRID_()}},
         y1:{position:'right', grid:{drawOnChartArea:false}, ticks:{callback:v=>(v/1e9).toFixed(1)+'M'}},
         x:{ticks:{maxRotation:90,minRotation:60, font:{size:9}}}
       }
@@ -3146,7 +3240,7 @@ function renderTrenYearlyG_(){
         tooltip:{callbacks:{label:c=> c.dataset.label + ': ' + (c.parsed.y===null ? 'tidak ada data' : 'Rp ' + fmt(c.parsed.y))}}
       },
       scales:{
-        y:{ticks:{callback:v=>(v/1e6).toFixed(0)+'jt'}, grid:{color:'#eef0fb'}},
+        y:{ticks:{callback:v=>(v/1e6).toFixed(0)+'jt'}, grid:{color:CHART_GRID_()}},
         x:{grid:{display:false}}
       }
     },
@@ -3510,7 +3604,7 @@ function renderTrenGabungan(){
         tooltip:{callbacks:{label:c=> c.dataset.label + ': ' + (c.parsed.y===null ? 'tidak ada data' : 'Rp ' + fmt(c.parsed.y))}}
       },
       scales:{
-        y:{ticks:{callback:v=>(v/1e6).toFixed(0)+'jt'}, grid:{color:'#eef0fb'}},
+        y:{ticks:{callback:v=>(v/1e6).toFixed(0)+'jt'}, grid:{color:CHART_GRID_()}},
         x:{ticks:{maxRotation:90,minRotation:60, font:{size:9}}}
       }
     },
@@ -3605,7 +3699,7 @@ function renderTrenRangeCompareG(){
         tooltip:{callbacks:{label:c=> c.dataset.label + ': ' + (c.parsed.y===null ? 'tidak ada data' : 'Rp ' + fmt(c.parsed.y))}}
       },
       scales:{
-        y:{ticks:{callback:v=>(v/1e6).toFixed(0)+'jt'}, grid:{color:'#eef0fb'}},
+        y:{ticks:{callback:v=>(v/1e6).toFixed(0)+'jt'}, grid:{color:CHART_GRID_()}},
         x:{grid:{display:false}}
       }
     },
@@ -3682,7 +3776,7 @@ function renderTrenSameMonthCompareG(){
         tooltip:{callbacks:{label:c=> c.dataset.label + ': ' + (c.parsed.y===null ? 'Tidak ada data' : 'Rp ' + fmt(c.parsed.y))}}
       },
       scales:{
-        y:{ticks:{callback:v=>(v/1e6).toFixed(0)+'jt'}, grid:{color:'#eef0fb'}},
+        y:{ticks:{callback:v=>(v/1e6).toFixed(0)+'jt'}, grid:{color:CHART_GRID_()}},
         x:{grid:{display:false}}
       }
     },

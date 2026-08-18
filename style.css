@@ -216,7 +216,7 @@ body{
   margin:4px auto;position:relative;
 }
 .kpi-ring::before{
-  content:'';position:absolute;inset:7px;background:#fff;border-radius:50%;
+  content:'';position:absolute;inset:7px;background:var(--card-solid);border-radius:50%;
 }
 .kpi-ring span{position:relative;font-size:13px;font-weight:700;color:var(--navy);}
 .kpi-stats{display:flex;flex-direction:column;gap:6px;font-size:12.5px;}
@@ -1002,3 +1002,147 @@ table.data.data-clickable tbody tr:hover td:nth-child(2){background:var(--accent
 @media (max-width:560px){
   .status-grid{grid-template-columns:1fr;}
 }
+
+/* ================================================================
+   MODE GELAP (Dark Mode) -- diaktifkan lewat atribut [data-theme="dark"]
+   di <html>, diset oleh toggleTheme_() di app.js & dipertahankan lewat
+   localStorage (lihat script no-flash di <head> index.html). Semua aturan
+   di sini pakai selector [data-theme="dark"] + selector asli supaya
+   spesifisitasnya SELALU menang thd aturan warna manapun di atas (baik yg
+   masih pakai var(--card-solid) dkk, maupun yg sudah di-hardcode di blok
+   "3D THEME" / "TEMA BIRU-PUTIH") -- jadi urutan taruh di file tidak
+   berpengaruh, cukup ditaruh di akhir file spy gampang dicari/dirawat.
+   Variabel inti (--bg1/2, --navy, --text, --muted, --card, --card-solid,
+   --accent-soft, --shadow*) di-override dulu supaya elemen yg MASIH
+   murni pakai var() otomatis ikut gelap; elemen yg sudah di-hardcode
+   warnanya di blok lain (gradient putih dkk) di-override manual satu2
+   di bawah. --accent/--green/--amber/--red TIDAK diubah -- sudah warna
+   pastel yg cukup kontras di kedua tema. ================================================================ */
+[data-theme="dark"]{
+  --bg1:#12162c;
+  --bg2:#171b30;
+  --navy:#e9edfb;      /* teks "kuat"/heading -- terang di atas bg gelap */
+  --navy2:#c7cfef;
+  --text:#dbe0f5;
+  --muted:#98a1c7;
+  --card:rgba(30,35,64,0.68);
+  --card-solid:#1e2340;
+  --accent-soft:rgba(132,170,243,0.16);
+  --shadow: 0 2px 4px rgba(0,0,0,0.28), 0 10px 22px rgba(0,0,0,0.35), 0 26px 44px -14px rgba(0,0,0,0.5);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.28), 0 5px 12px rgba(0,0,0,0.3), 0 12px 20px -8px rgba(0,0,0,0.35);
+  --top-hl: inset 0 1px 0 rgba(255,255,255,0.06);
+}
+
+[data-theme="dark"] body{
+  background:
+    radial-gradient(circle at 92% 6%, rgba(91,141,239,0.10) 0%, transparent 35%),
+    radial-gradient(circle at 12% 92%, rgba(91,141,239,0.06) 0%, transparent 42%),
+    linear-gradient(160deg, #12162c 0%, #171b30 55%, #10131f 100%);
+}
+[data-theme="dark"] body::before{ opacity:.25; }
+
+/* Sidebar (menimpa balik jadi gelap -- blok "TEMA BIRU-PUTIH" di atas
+   sengaja membuatnya putih utk mode terang) */
+[data-theme="dark"] .sidebar{
+  background:linear-gradient(180deg, #1b2040, #12152a);
+  box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,0.06);
+}
+[data-theme="dark"] .nav-item{ color:#8b93b8; }
+[data-theme="dark"] .nav-item:hover{ background:rgba(132,170,243,0.14); color:var(--accent); box-shadow:none; }
+[data-theme="dark"] .nav-item.active{
+  background:linear-gradient(135deg, #262c52, #1c2140);
+  color:var(--accent);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
+}
+[data-theme="dark"] .marquee-refresh-badge{ background:linear-gradient(180deg, #2a3060, #1c2140); }
+
+/* Kartu (card, kpi-card, tabel, dst) */
+[data-theme="dark"] .card{
+  background:linear-gradient(180deg, rgba(30,35,64,0.9), rgba(23,27,48,0.75));
+  border-color: rgba(255,255,255,0.06);
+}
+[data-theme="dark"] .kpi-card,
+[data-theme="dark"] .big-card,
+[data-theme="dark"] .yr-box,
+[data-theme="dark"] .auth-card,
+[data-theme="dark"] .hub-menu-card,
+[data-theme="dark"] .coming-soon-card,
+[data-theme="dark"] .range-summary .range-stat{
+  background:linear-gradient(165deg, #1e2340 0%, #171b30 100%);
+  border-color: rgba(255,255,255,0.06);
+}
+[data-theme="dark"] .hub-menu-card{ border-color: rgba(255,255,255,0.06); }
+[data-theme="dark"] .badge-src{ background:var(--card); }
+[data-theme="dark"] .kpi-ring{ background:conic-gradient(var(--accent) calc(var(--pct)*1%), #2a2f52 0); }
+
+[data-theme="dark"] table.data{ background:var(--card-solid); }
+[data-theme="dark"] table.data thead th{
+  background:linear-gradient(180deg, #262c52, #1c2140);
+  color:var(--navy);
+  border-bottom-color: rgba(255,255,255,0.10);
+}
+[data-theme="dark"] table.data tbody td{ border-bottom-color: rgba(255,255,255,0.06); }
+[data-theme="dark"] table.data tbody tr:hover{ background:rgba(132,170,243,0.10); }
+[data-theme="dark"] .subtable th{ border-bottom-color: rgba(255,255,255,0.10); }
+[data-theme="dark"] .subtable td{ border-bottom-color: rgba(255,255,255,0.06); }
+[data-theme="dark"] table.data.data-clickable thead th:first-child,
+[data-theme="dark"] table.data.data-clickable thead th:nth-child(2),
+[data-theme="dark"] table.data.data-clickable tbody td:first-child,
+[data-theme="dark"] table.data.data-clickable tbody td:nth-child(2){ background:#1c2140; }
+[data-theme="dark"] table.data.data-clickable thead th:first-child,
+[data-theme="dark"] table.data.data-clickable thead th:nth-child(2){ background:linear-gradient(180deg, #262c52, #1c2140); }
+[data-theme="dark"] table.data.data-clickable tbody tr:hover td:first-child,
+[data-theme="dark"] table.data.data-clickable tbody tr:hover td:nth-child(2){ background:rgba(132,170,243,0.16); }
+
+/* Form: input teks/select/password/bulan */
+[data-theme="dark"] .toolbar select,
+[data-theme="dark"] .toolbar input[type=text]{
+  background:linear-gradient(165deg, #1e2340, #171b30); color:var(--text);
+}
+[data-theme="dark"] .auth-card input[type=password]{
+  background:#12162c; border-color:rgba(255,255,255,0.14); color:var(--text); color-scheme:dark;
+}
+[data-theme="dark"] .auth-copyright{ border-top-color: rgba(255,255,255,0.08); }
+[data-theme="dark"] .range-group{ background:linear-gradient(165deg, #1e2340, #171b30); }
+[data-theme="dark"] .range-group input[type=month]{ background:#12162c; color:var(--text); color-scheme:dark; }
+[data-theme="dark"] .year-check-item{ background:var(--card-solid); }
+
+/* Tombol fab/hub-logout (gradient putih -> gelap) */
+[data-theme="dark"] .fab{ background:linear-gradient(165deg, #1e2340, #171b30); color:var(--text); }
+[data-theme="dark"] .fab:hover{ background:linear-gradient(135deg, var(--accent2), var(--accent)); color:#0d1022; }
+[data-theme="dark"] .hub-logout{ background:linear-gradient(165deg, #1e2340, #171b30); color:var(--text); }
+[data-theme="dark"] .hub-logout:hover{ background:linear-gradient(135deg, var(--accent2), var(--accent)); color:#0d1022; }
+
+/* Panel Ringkasan Eksekutif / Anomali (Gabungan) */
+[data-theme="dark"] .exec-kpi-card,
+[data-theme="dark"] .status-card{ background:var(--card-solid); }
+[data-theme="dark"] .status-card-bar{ background:rgba(255,255,255,0.10); }
+[data-theme="dark"] .status-dot.dot-gray{ background:#4a5170; }
+[data-theme="dark"] .anomaly-summary-pill{ background:#262c52; color:var(--text); }
+[data-theme="dark"] .anomaly-item{ background:#1c2140; }
+
+/* Flyout "Tahun Khusus" */
+[data-theme="dark"] .year-flyout{
+  background:linear-gradient(165deg, #1e2340 0%, #171b30 100%);
+  box-shadow:0 16px 30px rgba(0,0,0,0.5), 0 4px 10px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05);
+}
+[data-theme="dark"] .year-flyout::before{ background:#1e2340; box-shadow:-1px 1px 1px rgba(0,0,0,0.25); }
+[data-theme="dark"] .year-flyout-item{ color:var(--text); }
+[data-theme="dark"] .year-flyout-item:hover{ background:rgba(132,170,243,0.14); color:var(--accent); }
+
+/* Overlay password gate */
+[data-theme="dark"] .auth-overlay{
+  background:
+    radial-gradient(circle at 92% 6%, rgba(91,141,239,0.10) 0%, transparent 35%),
+    radial-gradient(circle at 12% 92%, rgba(91,141,239,0.06) 0%, transparent 42%),
+    linear-gradient(160deg, #12162c 0%, #171b30 55%, #10131f 100%);
+}
+
+/* Grafik (Chart.js sendiri diatur lewat app.js/CHART_TEXT_/CHART_GRID_,
+   ini cuma bingkai kartu di sekitarnya) */
+[data-theme="dark"] .chart-wrap{ background:linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.015)); }
+
+/* ---- Tombol Mode Terang/Gelap (nav-item sidebar & hub-logout) ---- */
+.theme-toggle-btn{ }
+.theme-toggle-btn .theme-icon{ font-size:16px;line-height:1; }
+

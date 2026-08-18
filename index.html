@@ -4,13 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MonEv P3A — RSUD dr. R. Soeprapto Cepu</title>
+<!-- PENTING (anti-flash mode gelap): baca preferensi tema dari localStorage & set atribut
+     data-theme di <html> SEBELUM CSS/body dirender, supaya tidak ada kedipan "putih dulu baru
+     gelap" saat halaman dibuka dgn mode gelap tersimpan. Harus sinkron (bukan di app.js yang
+     dimuat belakangan) & di paling atas <head>. Lihat toggleTheme_() di app.js utk sisi tulis. -->
+<script>(function(){try{if(localStorage.getItem('spj_theme')==='dark'){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}})();</script>
 <!-- PENTING: parameter ?v=... di bawah ini sengaja ditambahkan sebagai "cache-buster".
      Tanpa ini, browser (dan CDN GitHub Pages) suka menyimpan cache app.js/style.css versi
      LAMA sampai 10 menit atau lebih, jadi walau file di GitHub sudah benar-benar ter-update,
      pengunjung yang sudah pernah buka situs ini masih bisa melihat versi lama (ini akar
      masalah "kok belum berubah" yang pernah dilaporkan). Setiap kali app.js/style.css
      diupdate, NAIKKAN angka v= di bawah supaya browser dipaksa ambil versi baru. -->
-<link rel="stylesheet" href="style.css?v=24">
+<link rel="stylesheet" href="style.css?v=25">
 <script src="chart.umd.min.js"></script>
 <script src="xlsx.full.min.js?v=8"></script>
 </head>
@@ -149,6 +154,7 @@
       <h1>Rekap Keuangan RSUD dr. R. Soeprapto Cepu</h1>
       <p>BLUD — pilih modul yang ingin dibuka</p>
     </div>
+    <button type="button" id="hubThemeToggle" class="hub-logout theme-toggle-btn" title="Ganti mode tampilan"><span class="theme-icon">🌙</span> <span class="theme-label">Mode Gelap</span></button>
     <button type="button" id="hubLogout" class="hub-logout" title="Keluar">⏻ Keluar</button>
   </div>
 
@@ -229,6 +235,10 @@
       </div>
     </div>
 
+    <div class="nav-item theme-toggle-btn" id="btnThemeToggle">
+      <span class="nav-glyph theme-icon">🌙</span>
+      <span class="tip theme-label">Mode Gelap</span>
+    </div>
     <div class="nav-item" id="btnRefresh">
       <span class="nav-glyph">⟳</span>
       <span class="tip">Reload</span>
@@ -431,6 +441,10 @@
       </div>
     </div>
 
+    <div class="nav-item theme-toggle-btn" id="btnThemeToggleP">
+      <span class="nav-glyph theme-icon">🌙</span>
+      <span class="tip theme-label">Mode Gelap</span>
+    </div>
     <div class="nav-item" id="btnRefreshP">
       <span class="nav-glyph">⟳</span>
       <span class="tip">Reload</span>
@@ -615,6 +629,10 @@
       <span class="tip">Pendapatan Vs Belanja (Detail)</span>
     </div>
 
+    <div class="nav-item theme-toggle-btn" id="btnThemeToggleG">
+      <span class="nav-glyph theme-icon">🌙</span>
+      <span class="tip theme-label">Mode Gelap</span>
+    </div>
     <div class="nav-item" id="btnRefreshG">
       <span class="nav-glyph">⟳</span>
       <span class="tip">Reload</span>
@@ -738,6 +756,6 @@
 <script src="auth.js?v=10"></script>
 <script src="data.js?v=8"></script>
 <script src="data_pendapatan.js?v=1"></script>
-<script src="app.js?v=42"></script>
+<script src="app.js?v=44"></script>
 </body>
 </html>
