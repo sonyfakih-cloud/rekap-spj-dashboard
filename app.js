@@ -2311,16 +2311,22 @@ let STATE_P = {
 
 // Versi Pendapatan dari buildPerbandinganFromKhusus_() (Belanja) -- BEDA dari Belanja
 // dalam 1 hal (atas permintaan eksplisit user): baris dari kode 2024/2025 digabung
-// OTOMATIS dengan padanan kode 2026-nya lewat peta Konversi (PENDAPATAN_KONVERSI_MAP_,
-// sumbernya sheet "Konversi" -- sama seperti yang dipakai fitur "Perbandingan Rentang
-// Bulan per Rekening" di halaman Filter). Kode akun HIERARKI (bukan level akun/leaf,
-// mis. "4", "4.1", "4.1.02" dst) TETAP digabung apa adanya lewat kode mentah seperti
-// biasa -- itu memang identik persis antar tahun sampai level "4.1.02" (lihat komentar
-// di resolveKonversiKodeP_). KETERBATASAN yang perlu diketahui: peta Konversi cuma
-// mencakup 42 akun level LEAF (paling detail), jadi kode level MENENGAH (antara "4.1.02"
-// dan leaf) yang konvensinya beda 2024/2025 vs 2026 TIDAK ada di peta ini -- baris level
-// menengah itu tetap tampil terpisah per konvensi (sama seperti sebelumnya), sampai peta
-// Konversi diperluas mencakup semua level.
+// OTOMATIS dengan padanan kode 2026-nya.
+//
+// BUG LAMA (ditemukan 18 Agt 2026): kunci gabungan sebelumnya dibangun dari peta
+// Konversi (PENDAPATAN_KONVERSI_MAP_), tapi peta itu SELALU KOSONG di live (backend
+// Code.gs tidak pernah mengirim konversi_pendapatan -- lihat komentar panjang di
+// resolveKonversiKodeP_ soal ini). Akibatnya `konv` di bawah SELALU undefined, jadi
+// key SELALU fallback ke kode mentah -- baris 2024/2025/2026 akun yang sama TIDAK
+// PERNAH benar-benar tergabung di versi live manapun (identik dgn akar masalah yang
+// dilaporkan user utk halaman Filter).
+//
+// FIX: kunci gabungan sekarang pakai normalizeKodeP_(kode) langsung (lucuti leading
+// zero tiap segmen) -- mekanis, tidak butuh peta manual, dan otomatis berlaku utk
+// SEMUA level (leaf maupun hierarki "4", "4.1", "4.1.02" dst), bukan cuma 42 akun
+// leaf yang sempat dikurasi manual. Peta Konversi tetap dicek duluan sbg override utk
+// kasus non-struktural (akun yang benar2 dipecah/digabung, bukan cuma beda padding),
+// kalau suatu saat backend-nya diimplementasi.
 function buildPerbandinganFromKhususP_(){
   const map = {};
   ['2024','2025','2026'].forEach(y=>{
@@ -2328,12 +2334,10 @@ function buildPerbandinganFromKhususP_(){
     if(!d) return;
     d.rows.forEach(r=>{
       const konv = PENDAPATAN_KONVERSI_MAP_[r.kode];
-      // Kunci gabungan: kalau kode ini ada di peta Konversi (akun leaf), pakai kunci
-      // stabil berbasis padanan (kode2026 diutamakan, lalu 2025, lalu 2024) supaya baris
-      // 2024/2025/2026 akun yang SAMA (mis. "Rawat Jalan") jatuh ke 1 baris yang sama.
-      // Kalau tidak ada di peta (kode hierarki/level menengah), fallback ke kode mentah
-      // seperti semula -- baris cuma gabung kalau kode mentahnya memang identik.
-      const key = konv ? ('KV#' + (konv.kode2026 || konv.kode2025 || konv.kode2024)) : r.kode;
+      // Kunci gabungan: utamakan padanan dari peta Konversi kalau ada (override manual
+      // utk kasus non-struktural), fallback ke kode ternormalisasi (berlaku utk semua
+      // level, leaf maupun hierarki, tanpa perlu kurasi manual).
+      const key = konv ? ('KV#' + (konv.kode2026 || konv.kode2025 || konv.kode2024)) : ('NM#' + normalizeKodeP_(r.kode));
       if(!map[key]) map[key] = { kode:r.kode, kodeByYear:{}, nama:r.nama, depth:r.depth, '2024':null, '2025':null, '2026':null,
         pagu2024:null, pagu2025:null, pagu2026:null, persen2026:null };
       map[key][y] = r.total;
@@ -2490,17 +2494,59 @@ function setPendapatanKonversiMap_(list){
   PENDAPATAN_KONVERSI_MAP_ = map;
 }
 
-// Diberi 1 kode (dari tahun manapun) + tahun tujuan, kembalikan kode yang
-// SEHARUSNYA dipakai di tahun tujuan itu (kode padanan dari sheet Konversi).
-// Kalau kodenya tidak terdaftar di peta (mis. bukan rekening Pendapatan yang
-// ada di sheet Konversi -- jarang terjadi tapi mungkin ada rekening baru yang
-// belum sempat dipetakan manual), fallback ke kode aslinya apa adanya supaya
-// perilaku lama (asumsi kode sama) tetap jalan alih-alih data hilang total.
+// Normalisasi kode rekening Pendapatan: lucuti leading zero tiap segmen yang
+// dipisah titik. SAMA PERSIS dengan normalizeKode_() di backend (Code.gs),
+// yang sudah dipakai & terbukti benar utk drill-down BKU Belanja & kategorisasi
+// Komponen Belanja. Dipakai HANYA sebagai kunci pencocokan lintas tahun -- kode
+// yang ditampilkan ke user tetap kode asli/native per tahun (tidak pernah kode
+// hasil normalisasi ini), jadi tidak ada perubahan tampilan.
+function normalizeKodeP_(kode){
+  if(!kode) return '';
+  return String(kode).trim().split('.').map(function(p){
+    const t = p.replace(/^0+/, '');
+    return t === '' ? '0' : t;
+  }).join('.');
+}
+
+// Diberi 1 kode (dari tahun manapun) + tahun tujuan, kembalikan kode NATIVE
+// yang dipakai tahun tujuan itu utk akun yang SAMA.
+//
+// BUG LAMA (ditemukan 18 Agt 2026, laporan user + KONVERSI.xlsx terlampir):
+// fungsi ini sebelumnya HANYA mengandalkan peta Konversi dari sheet 'Konversi'
+// (PENDAPATAN_KONVERSI_MAP_) -- tapi backend Code.gs TIDAK PERNAH mengirim
+// field konversi_pendapatan (tidak ada fungsi getPendapatanKonversiList_() di
+// Code.gs sama sekali), jadi PENDAPATAN_KONVERSI_MAP_ SELALU kosong ({}) di
+// versi live manapun. Akibatnya fallback "if(!row) return kode" SELALU kena,
+// utk SEMUA kode, tanpa kecuali -- jadi perbandingan lintas tahun di halaman
+// Filter cuma "kebetulan" berhasil kalau kode mentahnya identik apa adanya
+// (2024 <-> 2025, yang memang 1 konvensi kode lama), dan SELALU gagal kalau
+// salah satu sisinya 2026 (konvensi baru, padding lebih panjang di 2 segmen
+// tengah) -- persis sesuai 5 screenshot yang dilaporkan: filter 2026 -> 2024/
+// 2025 hilang; filter 2024 atau 2025 -> hanya 2024/2025 yg muncul, 2026 selalu
+// hilang.
+//
+// FIX: cocokkan dulu via normalizeKodeP_() thd kode NATIVE tiap baris di tahun
+// tujuan (mekanis, tidak butuh peta manual/sheet Konversi sama sekali) --
+// sudah diverifikasi programatis cocok 100% (0 pengecualian) thd 21 contoh
+// nyata di KONVERSI.xlsx yang diupload user (15 Agustus 2026). Peta Konversi
+// (PENDAPATAN_KONVERSI_MAP_) tetap dipakai sbg fallback kedua -- utk kasus yg
+// TIDAK bisa dideteksi normalisasi murni (mis. akun yg strukturnya benar2
+// beda/dipecah/digabung antar tahun, bukan cuma beda padding), kalau suatu
+// saat backend-nya diimplementasi & sheet Konversi diisi. Fallback terakhir:
+// kode asli apa adanya (perilaku lama, drpd data hilang total).
 function resolveKonversiKodeP_(kode, targetYear){
+  const targetData = STATE_P.khusus[targetYear];
+  if(targetData && targetData.rows && targetData.rows.length){
+    const targetNorm = normalizeKodeP_(kode);
+    const hit = targetData.rows.find(r=>normalizeKodeP_(r.kode) === targetNorm);
+    if(hit) return hit.kode;
+  }
   const row = PENDAPATAN_KONVERSI_MAP_[kode];
-  if(!row) return kode;
-  const target = row['kode' + targetYear];
-  return target || kode;
+  if(row){
+    const target = row['kode' + targetYear];
+    if(target) return target;
+  }
+  return kode;
 }
 
 function updateRingkasanPeriodeLabelP_(){
