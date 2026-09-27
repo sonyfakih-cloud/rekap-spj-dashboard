@@ -804,6 +804,23 @@ table.data.data-clickable tbody tr:hover td:nth-child(2){background:var(--accent
 .range-summary .range-stat.diff .val.pos{color:var(--green);}
 .range-summary .range-stat.diff .val.neg{color:var(--red);}
 
+/* ---- Tabel rincian Rupiah per bulan di bawah grafik "Perbandingan Rentang
+   Bulan" (permintaan user: angka realisasi tiap bulan langsung kelihatan,
+   tidak cuma dari posisi titik grafik / hover tooltip). ---- */
+.range-detail-wrap{margin-top:12px;overflow-x:auto;border-radius:var(--radius-sm);}
+table.range-detail{width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap;}
+table.range-detail thead th{
+  padding:8px 10px;text-align:right;font-weight:700;color:var(--muted);
+  border-bottom:2px solid #eceefa;
+}
+table.range-detail thead th:first-child{text-align:left;}
+table.range-detail tbody td{padding:7px 10px;text-align:right;border-bottom:1px solid #f3f4fb;color:var(--text);}
+table.range-detail tbody td:first-child{text-align:left;white-space:normal;min-width:160px;font-weight:600;}
+table.range-detail tbody tr:last-child td{border-bottom:none;}
+/* dot warna di kolom label -- tetap "table-cell" biar tinggi baris & border
+   antar kolom rapi (bukan flex, supaya tidak keluar dari layout tabel) */
+table.range-detail .range-dot{display:inline-block;vertical-align:middle;margin-right:6px;}
+
 .year-checks{display:flex;gap:8px;flex-wrap:wrap;}
 .year-check-item{
   display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:20px;
@@ -1071,6 +1088,8 @@ table.data.data-clickable tbody tr:hover td:nth-child(2){background:var(--accent
   background:linear-gradient(165deg, #1e2340 0%, #171b30 100%);
   border-color: rgba(255,255,255,0.06);
 }
+[data-theme="dark"] table.range-detail thead th{ border-bottom-color: rgba(255,255,255,0.10); }
+[data-theme="dark"] table.range-detail tbody td{ border-bottom-color: rgba(255,255,255,0.06); }
 [data-theme="dark"] .hub-menu-card{ border-color: rgba(255,255,255,0.06); }
 [data-theme="dark"] .badge-src{ background:var(--card); }
 [data-theme="dark"] .kpi-ring{ background:conic-gradient(var(--accent) calc(var(--pct)*1%), #2a2f52 0); }

@@ -236,6 +236,24 @@ function normalizePeriode_(v){
 // baiknya tetap dicek & dibersihkan langsung di sheet backend-nya juga,
 // karena dedup di sini cuma jaring pengaman tampilan, bukan pengganti
 // perbaikan di sumber data.
+// Tabel rincian angka Rupiah per bulan di bawah grafik "Perbandingan Rentang
+// Bulan" (permintaan user: biar realisasi tiap bulan kelihatan jelas
+// angkanya, tidak cuma dari posisi titik di grafik / hover tooltip).
+function buildRangeDetailTableHtml_(labels, labelA, dataA, labelB, dataB){
+  const monthHeaders = labels.map(l=>`<th>${l}</th>`).join('');
+  const cellsFor = arr => arr.map(v=>{
+    const txt = fmt(v);
+    return `<td>${txt==='-' ? '-' : 'Rp ' + txt}</td>`;
+  }).join('');
+  return `
+    <thead><tr><th>Bulan</th>${monthHeaders}</tr></thead>
+    <tbody>
+      <tr><td><span class="range-dot range-dot-a"></span>${labelA}</td>${cellsFor(dataA)}</tr>
+      <tr><td><span class="range-dot range-dot-b"></span>${labelB}</td>${cellsFor(dataB)}</tr>
+    </tbody>
+  `;
+}
+
 function dedupTrenByPeriode_(rows, labelForLog){
   const map = new Map();
   const conflicts = [];
@@ -804,8 +822,10 @@ function renderTrenRangeCompare(){
   const rowsA = periodeInRange_(fromA, toA);
   const rowsB = periodeInRange_(fromB, toB);
 
+  const detailTable = $('#trenRangeDetailTable');
   if(!fromA || !toA || !fromB || !toB || fromA > toA || fromB > toB || (!rowsA.length && !rowsB.length)){
     summary.innerHTML = '<div class="filter-empty">Pilih rentang bulan yang valid untuk kedua sisi (A dan B).</div>';
+    if(detailTable) detailTable.innerHTML = '';
     if(trenRangeChart){ trenRangeChart.destroy(); trenRangeChart = null; }
     return;
   }
@@ -832,6 +852,7 @@ function renderTrenRangeCompare(){
     <div class="range-stat"><div class="lbl"><span class="range-dot range-dot-b"></span>Total ${labelB}</div><div class="val">Rp ${fmt(totalB)}</div></div>
     <div class="range-stat diff"><div class="lbl">Selisih B vs A</div><div class="val ${diffClass}">${diffText}</div></div>
   `;
+  if(detailTable) detailTable.innerHTML = buildRangeDetailTableHtml_(labels, labelA, dataA, labelB, dataB);
 
   const ctx = canvas.getContext('2d');
   if(trenRangeChart) trenRangeChart.destroy();
@@ -1034,8 +1055,10 @@ function renderTrenRangeCompareP(){
   const rowsA = periodeInRangeP_(fromA, toA);
   const rowsB = periodeInRangeP_(fromB, toB);
 
+  const detailTable = $('#trenRangeDetailTableP');
   if(!fromA || !toA || !fromB || !toB || fromA > toA || fromB > toB || (!rowsA.length && !rowsB.length)){
     summary.innerHTML = '<div class="filter-empty">Pilih rentang bulan yang valid untuk kedua sisi (A dan B).</div>';
+    if(detailTable) detailTable.innerHTML = '';
     if(trenRangeChartP){ trenRangeChartP.destroy(); trenRangeChartP = null; }
     return;
   }
@@ -1062,6 +1085,7 @@ function renderTrenRangeCompareP(){
     <div class="range-stat"><div class="lbl"><span class="range-dot range-dot-b"></span>Total ${labelB}</div><div class="val">Rp ${fmt(totalB)}</div></div>
     <div class="range-stat diff"><div class="lbl">Selisih B vs A</div><div class="val ${diffClass}">${diffText}</div></div>
   `;
+  if(detailTable) detailTable.innerHTML = buildRangeDetailTableHtml_(labels, labelA, dataA, labelB, dataB);
 
   const ctx = canvas.getContext('2d');
   if(trenRangeChartP) trenRangeChartP.destroy();
