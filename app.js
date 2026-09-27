@@ -220,6 +220,42 @@ function normalizePeriode_(v){
   return d.toISOString().slice(0,7);
 }
 
+// PENTING (bug ditemukan live: grafik "Perbandingan Rentang Bulan" menampilkan
+// label sumbu-X ganda, mis. "...Ags Sep Sep" -- dan totalnya berpotensi
+// DOBEL-HITUNG kalau ini dibiarkan, bukan cuma salah tampilan label). Root
+// cause: sheet "Tren"/"Tren Pendapatan" di backend Apps Script punya LEBIH
+// DARI SATU baris untuk periode yang sama (mis. dua baris "2026-09"), padahal
+// tiap periode seharusnya cuma 1 baris. periodeInRange_()/periodeInRangeP_()
+// tidak pernah membuang duplikat itu, jadi ikut kehitung 2x di rowsA/rowsB.
+// Fungsi ini WAJIB dipanggil setiap kali STATE.tren / STATE_P.tren diisi dari
+// data live, supaya kalaupun sheet backend-nya masih ada duplikat, dashboard
+// tidak menampilkan/menjumlahkan periode yang sama dua kali. Kalau ada
+// duplikat & nilainya BEDA, baris yang dipakai adalah yang TERAKHIR muncul di
+// data (asumsi: baris yang lebih baru ditambahkan di backend = hasil sync
+// paling akhir) -- dicatat ke console.warn supaya kelihatan saat debug, dan
+// baiknya tetap dicek & dibersihkan langsung di sheet backend-nya juga,
+// karena dedup di sini cuma jaring pengaman tampilan, bukan pengganti
+// perbaikan di sumber data.
+function dedupTrenByPeriode_(rows, labelForLog){
+  const map = new Map();
+  const conflicts = [];
+  rows.forEach(r=>{
+    if(!r.periode) return;
+    if(map.has(r.periode)){
+      const prev = map.get(r.periode);
+      if(prev.bulan_ini !== r.bulan_ini || prev.sd_bulan_ini !== r.sd_bulan_ini){
+        conflicts.push({periode:r.periode, sebelum:prev, sesudah:r});
+      }
+    }
+    map.set(r.periode, r); // baris terakhir untuk periode ini yang dipakai
+  });
+  if(conflicts.length){
+    console.warn(`[${labelForLog}] Ditemukan baris duplikat utk periode yang sama di sheet Tren backend -- `
+      + `dipakai nilai TERAKHIR, tapi ini WAJIB dicek & dibersihkan langsung di sheet-nya:`, conflicts);
+  }
+  return Array.from(map.values()).sort((a,b)=> a.periode.localeCompare(b.periode));
+}
+
 async function tryLoadLive(){
   if(!window.APPS_SCRIPT_URL) return;
   // PENTING (bug sama seperti Pendapatan sebelumnya: klik "Sync Google Sheet"
@@ -269,7 +305,10 @@ async function tryLoadLive(){
       // snapshot data.js. Kalau dipakai langsung sebagai label sumbu-X,
       // labelnya jadi timestamp panjang yang tidak terbaca. Dinormalisasi ke
       // "yyyy-MM" dulu supaya konsisten dengan format snapshot.
-      STATE.tren = json.tren.map(r=>({periode: normalizePeriode_(r.periode), bulan_ini:+r.bulan_ini, sd_bulan_ini:+r.sd_bulan_ini, pagu:+r.pagu}));
+      STATE.tren = dedupTrenByPeriode_(
+        json.tren.map(r=>({periode: normalizePeriode_(r.periode), bulan_ini:+r.bulan_ini, sd_bulan_ini:+r.sd_bulan_ini, pagu:+r.pagu})),
+        'Tren Belanja'
+      );
       // refresh batas min/max picker Rentang A/B supaya ikut bulan terbaru yang baru masuk
       if(typeof updateTrenRangeBounds_ === 'function'){
         const clamped = updateTrenRangeBounds_();
@@ -2490,8 +2529,10 @@ async function tryLoadLivePendapatan(){
     if(!res2.ok) throw new Error('bad status ' + res2.status);
     const json2 = await res2.json();
     if(json2.tren_pendapatan && json2.tren_pendapatan.length){
-      STATE_P.tren = json2.tren_pendapatan.map(r=>({periode: normalizePeriode_(r.periode), bulan_ini:+r.bulan_ini, sd_bulan_ini:+r.sd_bulan_ini, pagu:+r.pagu}))
-        .sort((a,b)=> a.periode.localeCompare(b.periode));
+      STATE_P.tren = dedupTrenByPeriode_(
+        json2.tren_pendapatan.map(r=>({periode: normalizePeriode_(r.periode), bulan_ini:+r.bulan_ini, sd_bulan_ini:+r.sd_bulan_ini, pagu:+r.pagu})),
+        'Tren Pendapatan'
+      );
       // refresh batas min/max picker Rentang A/B supaya ikut bulan terbaru yang baru masuk
       if(typeof updateTrenRangeBoundsP_ === 'function'){
         const clamped = updateTrenRangeBoundsP_();
