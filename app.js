@@ -1755,8 +1755,10 @@ function renderFilterRangeCompare(){
   const rowsA = khususPeriodeInRange_(kode, fromA, toA);
   const rowsB = khususPeriodeInRange_(kode, fromB, toB);
 
+  const detailTable = $('#filterRangeDetailTable');
   if(!kode || !fromA || !toA || !fromB || !toB || fromA > toA || fromB > toB || (!rowsA.length && !rowsB.length)){
     summary.innerHTML = '<div class="filter-empty">Pilih rekening & rentang bulan yang valid untuk kedua sisi (A dan B).</div>';
+    if(detailTable) detailTable.innerHTML = '';
     if(filterRangeChart){ filterRangeChart.destroy(); filterRangeChart = null; }
     return;
   }
@@ -1783,6 +1785,7 @@ function renderFilterRangeCompare(){
     <div class="range-stat"><div class="lbl"><span class="range-dot range-dot-b"></span>Total ${labelB}</div><div class="val">Rp ${fmt(totalB)}</div></div>
     <div class="range-stat diff"><div class="lbl">Selisih B vs A</div><div class="val ${diffClass}">${diffText}</div></div>
   `;
+  if(detailTable) detailTable.innerHTML = buildRangeDetailTableHtml_(labels, labelA, dataA, labelB, dataB);
 
   const ctx = canvas.getContext('2d');
   if(filterRangeChart) filterRangeChart.destroy();
@@ -2116,8 +2119,10 @@ function renderFilterRangeCompareP(){
   const rowsA = khususPeriodeInRangeP_(kode, fromA, toA);
   const rowsB = khususPeriodeInRangeP_(kode, fromB, toB);
 
+  const detailTable = $('#filterRangeDetailTableP');
   if(!kode || !fromA || !toA || !fromB || !toB || fromA > toA || fromB > toB || (!rowsA.length && !rowsB.length)){
     summary.innerHTML = '<div class="filter-empty">Pilih rekening & rentang bulan yang valid untuk kedua sisi (A dan B).</div>';
+    if(detailTable) detailTable.innerHTML = '';
     if(filterRangeChartP){ filterRangeChartP.destroy(); filterRangeChartP = null; }
     return;
   }
@@ -2144,6 +2149,7 @@ function renderFilterRangeCompareP(){
     <div class="range-stat"><div class="lbl"><span class="range-dot range-dot-b"></span>Total ${labelB}</div><div class="val">Rp ${fmt(totalB)}</div></div>
     <div class="range-stat diff"><div class="lbl">Selisih B vs A</div><div class="val ${diffClass}">${diffText}</div></div>
   `;
+  if(detailTable) detailTable.innerHTML = buildRangeDetailTableHtml_(labels, labelA, dataA, labelB, dataB);
 
   const ctx = canvas.getContext('2d');
   if(filterRangeChartP) filterRangeChartP.destroy();
