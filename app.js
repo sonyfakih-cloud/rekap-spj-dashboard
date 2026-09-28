@@ -1605,54 +1605,80 @@ function initTrenExtrasP_(){
 
 /* ---------------- Perbandingan ---------------- */
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Ags","Sep","Okt","Nov","Des"];
-// null = pakai nilai "Bulan Ini" bawaan (snapshot terakhir tiap tahun, seperti semula).
-// angka 0-11 = bulan spesifik yang dipilih user, dicari dari data bulanan STATE.khusus
-// (bukan dari STATE.perbandingan yang cuma simpan 1 nilai per tahun).
+// PERBANDINGAN DENGAN PERIODE YANG SAMA (kumulatif Januari s.d. bulan yang sama).
+// Dulu mode bawaan menampilkan realisasi SETAHUN PENUH 2024 & 2025 (s.d. Des)
+// berdampingan dengan 2026 yang baru s.d. bulan berjalan (mis. Sep) -- tidak
+// sebanding, 2024/2025 selalu tampak jauh lebih besar. Dan kalau user memilih
+// bulan di dropdown, yang tampil malah realisasi BULAN ITU SAJA (bukan kumulatif),
+// sehingga % SPJ & Sisa Pagu ikut dihitung dari angka satu bulan -- juga tidak
+// sebanding dengan mode bawaan. Sekarang SEMUA mode = kumulatif Jan s.d. bulan X
+// untuk ketiga tahun sekaligus:
+//   null  = otomatis s.d. bulan TERAKHIR yang sudah ada datanya di 2026
+//           (ikut maju sendiri tiap kali data 2026 bertambah bulan),
+//   0-11  = s.d. bulan pilihan user.
+// Sumbernya STATE.khusus[tahun].rows[].bulanan (realisasi per akun per bulan).
 let PERBANDINGAN_BULAN_SEL = null;
 
 function populatePerbandinganBulan(){
   const sel = $('#filterBulanPerbandingan');
   if(!sel) return;
-  const opts = ['<option value="">Bulan Ini (terakhir)</option>']
-    .concat(MONTH_NAMES.map((m,i)=>`<option value="${i}">${m}</option>`));
+  const opts = ['<option value="">s.d. Bulan Terakhir 2026 (otomatis)</option>']
+    .concat(MONTH_NAMES.map((m,i)=>`<option value="${i}">s.d. ${m}</option>`));
   sel.innerHTML = opts.join('');
 }
 
-// Cari nilai belanja akun tertentu di bulan spesifik, dari data khusus tahun
-// tsb (yang punya rincian bulanan lengkap) -- bukan dari STATE.perbandingan
-// yang cuma menyimpan 1 angka "bulan ini" per tahun.
-function getPerbandinganBulanValue(kode, year, bulanIdx){
+// Indeks bulan (0-11) terakhir yang sudah punya data di 2026 -- diambil dari
+// data tabel ini sendiri (STATE.khusus['2026'].bulan_label), fallback ke tren.
+function perbandinganRefMonthIdx_(){
+  const d = STATE.khusus && STATE.khusus['2026'];
+  if(d && d.bulan_label && d.bulan_label.length) return d.bulan_label.length - 1;
+  if(d && d.rows && d.rows.length && d.rows[0].bulanan) return d.rows[0].bulanan.length - 1;
+  const m = refMonthFromTren_(STATE.tren);
+  return m ? m - 1 : 11;
+}
+
+// Realisasi kumulatif akun `kode` tahun `year`, Januari s.d. bulan `uptoIdx` (0-11).
+//  - bulan itu belum ada datanya di tahun tsb (mis. s.d. Okt 2026 padahal data baru
+//    s.d. Sep) -> null (ditampilkan '-'), bukan angka yang menyesatkan;
+//  - s.d. bulan TERAKHIR yang ada datanya -> pakai field `total` apa adanya, supaya
+//    angka setahun/s.d. bulan berjalan tetap identik dengan halaman lain. (Backend
+//    saat ini punya selisih kecil Rp1-2 ribu antara total & jumlah kolom bulanan di
+//    1 baris per tahun -- kemungkinan 1 transaksi BKU yang tanggalnya tidak terbaca;
+//    angka `total` dipertahankan agar tidak ada dua versi angka di dashboard);
+//  - selain itu -> jumlah kolom bulanan Jan..uptoIdx.
+function getPerbandinganKumulatif_(kode, year, uptoIdx){
   const data = STATE.khusus[year];
-  if(!data) return null;
+  const r0 = STATE.perbandingan.find(x=>x.kode===kode);
+  if(!data){
+    return (uptoIdx >= 11 && r0) ? r0[year] : null;
+  }
   const row = data.rows.find(x=>x.kode===kode);
-  if(!row) return null;
-  return (bulanIdx < row.bulanan.length) ? row.bulanan[bulanIdx] : null;
+  const nBulan = (data.bulan_label && data.bulan_label.length) || (row && row.bulanan ? row.bulanan.length : 12);
+  if(uptoIdx >= nBulan) return null;
+  if(!row) return null; // akun tsb tidak punya transaksi di tahun itu
+  if(uptoIdx === nBulan - 1) return (row.total !== undefined && row.total !== null) ? row.total : (r0 ? r0[year] : null);
+  let s = 0;
+  for(let i=0;i<=uptoIdx && i<row.bulanan.length;i++) s += (row.bulanan[i] || 0);
+  return s;
 }
 
 function updatePerbandinganPill(){
   const pill = $('#pillPerbandingan');
   if(!pill) return;
-  if(PERBANDINGAN_BULAN_SEL === null){
-    const labels = ['2024','2025','2026'].map(y=>{
-      const d = STATE.ringkasan[y];
-      return d && d.label_bulan ? `${d.label_bulan} ${y}` : y;
-    });
-    pill.textContent = labels.join(' · ');
-  } else {
-    const m = MONTH_NAMES[PERBANDINGAN_BULAN_SEL];
-    pill.textContent = ['2024','2025','2026'].map(y=>`${m} ${y}`).join(' · ');
-  }
+  const idx = PERBANDINGAN_BULAN_SEL === null ? perbandinganRefMonthIdx_() : PERBANDINGAN_BULAN_SEL;
+  const m = MONTH_NAMES[idx];
+  pill.textContent = ['2024','2025','2026'].map(y=>`s.d. ${m} ${y}`).join(' · ');
 }
 
 function renderPerbandingan(){
   const tbody = $('#tblPerbandingan tbody');
   const q = ($('#searchPerbandingan').value||'').toLowerCase();
   const rows = STATE.perbandingan.filter(r => r.nama.toLowerCase().includes(q) || r.kode.includes(q));
-  const bulanIdx = PERBANDINGAN_BULAN_SEL;
+  const bulanIdx = PERBANDINGAN_BULAN_SEL === null ? perbandinganRefMonthIdx_() : PERBANDINGAN_BULAN_SEL;
   tbody.innerHTML = rows.map(r=>{
-    const v24 = bulanIdx===null ? r['2024'] : getPerbandinganBulanValue(r.kode,'2024',bulanIdx);
-    const v25 = bulanIdx===null ? r['2025'] : getPerbandinganBulanValue(r.kode,'2025',bulanIdx);
-    const v26 = bulanIdx===null ? r['2026'] : getPerbandinganBulanValue(r.kode,'2026',bulanIdx);
+    const v24 = getPerbandinganKumulatif_(r.kode,'2024',bulanIdx);
+    const v25 = getPerbandinganKumulatif_(r.kode,'2025',bulanIdx);
+    const v26 = getPerbandinganKumulatif_(r.kode,'2026',bulanIdx);
     // % SPJ & Sisa Pagu HARUS dinamis mengikuti bulan yang dipilih -- dulu selalu
     // pakai r.persen2026 (persentase snapshot bulan TERAKHIR) walau user memilih
     // bulan lain, sehingga terlihat "salah" (nilainya sama terus). Sekarang dihitung
@@ -1678,37 +1704,55 @@ function renderPerbandingan(){
 }
 
 /* ---------------- Perbandingan Pendapatan (konsep sama dengan Perbandingan Belanja per Akun) ---------------- */
+// Sama persis dengan Perbandingan Belanja (lihat komentar panjang di atas
+// getPerbandinganKumulatif_): SEMUA mode = kumulatif Januari s.d. bulan yang sama
+// utk ketiga tahun. null = otomatis s.d. bulan terakhir yang ada datanya di 2026;
+// 0-11 = s.d. bulan pilihan user.
 let PERBANDINGAN_BULAN_SEL_P = null;
 
 function populatePerbandinganBulanP(){
   const sel = $('#filterBulanPerbandinganP');
   if(!sel) return;
-  const opts = ['<option value="">Bulan Ini (terakhir)</option>']
-    .concat(MONTH_NAMES.map((m,i)=>`<option value="${i}">${m}</option>`));
+  const opts = ['<option value="">s.d. Bulan Terakhir 2026 (otomatis)</option>']
+    .concat(MONTH_NAMES.map((m,i)=>`<option value="${i}">s.d. ${m}</option>`));
   sel.innerHTML = opts.join('');
 }
 
-function getPerbandinganBulanValueP(kode, year, bulanIdx){
+function perbandinganRefMonthIdxP_(){
+  const d = STATE_P.khusus && STATE_P.khusus['2026'];
+  if(d && d.bulan_label && d.bulan_label.length) return d.bulan_label.length - 1;
+  if(d && d.rows && d.rows.length && d.rows[0].bulanan) return d.rows[0].bulanan.length - 1;
+  const m = refMonthFromTren_(STATE_P.tren);
+  return m ? m - 1 : 11;
+}
+
+// Realisasi kumulatif Jan s.d. `uptoIdx` utk baris perbandingan `r`, tahun `year`.
+// WAJIB pakai kode asli tahun itu (r.kodeByYear[year]) krn baris Pendapatan sudah
+// digabung lintas konvensi kode (lihat buildPerbandinganFromKhususP_). Aturan
+// sama dgn Belanja: bulan belum ada data -> null; s.d. bulan terakhir yg ada data
+// -> field `total` apa adanya (identik dgn halaman lain); selain itu -> jumlah bulanan.
+function getPerbandinganKumulatifP_(r, year, uptoIdx){
   const data = STATE_P.khusus[year];
-  if(!data) return null;
+  if(!data){
+    return (uptoIdx >= 11) ? r[year] : null;
+  }
+  const kode = (r.kodeByYear && r.kodeByYear[year]) || r.kode;
   const row = data.rows.find(x=>x.kode===kode);
-  if(!row) return null;
-  return (bulanIdx < row.bulanan.length) ? row.bulanan[bulanIdx] : null;
+  const nBulan = (data.bulan_label && data.bulan_label.length) || (row && row.bulanan ? row.bulanan.length : 12);
+  if(uptoIdx >= nBulan) return null;
+  if(!row) return null; // akun tsb tidak punya transaksi di tahun itu
+  if(uptoIdx === nBulan - 1) return (row.total !== undefined && row.total !== null) ? row.total : r[year];
+  let s = 0;
+  for(let i=0;i<=uptoIdx && i<row.bulanan.length;i++) s += (row.bulanan[i] || 0);
+  return s;
 }
 
 function updatePerbandinganPillP(){
   const pill = $('#pillPerbandinganP');
   if(!pill) return;
-  if(PERBANDINGAN_BULAN_SEL_P === null){
-    const labels = ['2024','2025','2026'].map(y=>{
-      const d = STATE_P.ringkasan[y];
-      return d && d.label_bulan ? `${d.label_bulan} ${y}` : y;
-    });
-    pill.textContent = labels.join(' · ');
-  } else {
-    const m = MONTH_NAMES[PERBANDINGAN_BULAN_SEL_P];
-    pill.textContent = ['2024','2025','2026'].map(y=>`${m} ${y}`).join(' · ');
-  }
+  const idx = PERBANDINGAN_BULAN_SEL_P === null ? perbandinganRefMonthIdxP_() : PERBANDINGAN_BULAN_SEL_P;
+  const m = MONTH_NAMES[idx];
+  pill.textContent = ['2024','2025','2026'].map(y=>`s.d. ${m} ${y}`).join(' · ');
 }
 
 function renderPerbandinganP(){
@@ -1716,19 +1760,12 @@ function renderPerbandinganP(){
   if(!tbody) return;
   const q = ($('#searchPerbandinganP').value||'').toLowerCase();
   const rows = STATE_P.perbandingan.filter(r => r.nama.toLowerCase().includes(q) || r.kode.includes(q));
-  const bulanIdx = PERBANDINGAN_BULAN_SEL_P;
+  const bulanIdx = PERBANDINGAN_BULAN_SEL_P === null ? perbandinganRefMonthIdxP_() : PERBANDINGAN_BULAN_SEL_P;
   tbody.innerHTML = rows.map(r=>{
-    // PENTING: sejak baris digabung lewat peta Konversi, r.kode cuma 1 representasi
-    // (diutamakan kode 2026) -- kalau dipakai langsung utk cari data bulanan tahun LAIN
-    // (mis. 2024) yg kode mentahnya beda konvensi, pencarian akan gagal (row not found).
-    // Makanya di sini WAJIB pakai kode ASLI per tahun dari r.kodeByYear (fallback r.kode
-    // kalau kebetulan baris ini tidak digabung / tidak ada di peta Konversi).
-    const kode24 = (r.kodeByYear && r.kodeByYear['2024']) || r.kode;
-    const kode25 = (r.kodeByYear && r.kodeByYear['2025']) || r.kode;
-    const kode26 = (r.kodeByYear && r.kodeByYear['2026']) || r.kode;
-    const v24 = bulanIdx===null ? r['2024'] : getPerbandinganBulanValueP(kode24,'2024',bulanIdx);
-    const v25 = bulanIdx===null ? r['2025'] : getPerbandinganBulanValueP(kode25,'2025',bulanIdx);
-    const v26 = bulanIdx===null ? r['2026'] : getPerbandinganBulanValueP(kode26,'2026',bulanIdx);
+    // Kode asli per tahun (r.kodeByYear) dipakai di dalam getPerbandinganKumulatifP_.
+    const v24 = getPerbandinganKumulatifP_(r,'2024',bulanIdx);
+    const v25 = getPerbandinganKumulatifP_(r,'2025',bulanIdx);
+    const v26 = getPerbandinganKumulatifP_(r,'2026',bulanIdx);
     // % SPJ & Sisa Target dihitung ulang tiap render mengikuti bulan yang dipilih
     // (konsep sama dengan Perbandingan Belanja) -- realisasi bulan terpilih (v26)
     // dibagi/dikurangi Pagu (Target) 2026, bukan persentase snapshot bulan terakhir.
@@ -3713,8 +3750,29 @@ function renderTrenYearlyG_(){
   const canvas = $('#trenYearlyChartG');
   if(!canvas || typeof Chart === 'undefined') return;
   const years = ['2024','2025','2026'];
-  const belanja = years.map(y => (STATE.ringkasan[y] && STATE.ringkasan[y].total) ? STATE.ringkasan[y].total.sd_bulan_ini : null);
-  const pendapatan = years.map(y => STATE_P.ringkasan[y] ? STATE_P.ringkasan[y].sd_bulan_ini : null);
+  // PERIODE YANG SAMA: 2024 & 2025 dipotong s.d. bulan terakhir yang sudah ada di
+  // 2026 (mis. s.d. Sep), pakai mekanisme yang PERSIS sama dgn kartu Ringkasan
+  // (refMonthFromTren_ + cutoffRingkasanForYear_, termasuk jaring pengaman data-nya)
+  // -- dulu 2024/2025 setahun penuh dibandingkan dgn 2026 yang baru s.d. bulan
+  // berjalan, sehingga % perubahan 2026 selalu tampak anjlok. 2026 tetap dari
+  // ringkasan apa adanya. Kalau cutoff gagal (data tren tidak ada / tidak
+  // konsisten), fallback ke total setahun penuh spt semula.
+  const refB = refMonthFromTren_(STATE.tren);
+  const refP = refMonthFromTren_(STATE_P.tren);
+  const belanja = years.map(y => {
+    const d = STATE.ringkasan[y] && STATE.ringkasan[y].total;
+    if(!d) return null;
+    if(y === '2026') return d.sd_bulan_ini;
+    const c = cutoffRingkasanForYear_(STATE.tren, y, refB, d.pagu, d.sd_bulan_ini);
+    return c ? c.sd_bulan_ini : d.sd_bulan_ini;
+  });
+  const pendapatan = years.map(y => {
+    const d = STATE_P.ringkasan[y];
+    if(!d) return null;
+    if(y === '2026') return d.sd_bulan_ini;
+    const c = cutoffRingkasanForYear_(STATE_P.tren, y, refP, d.pagu, d.sd_bulan_ini);
+    return c ? c.sd_bulan_ini : d.sd_bulan_ini;
+  });
 
   const wrapPendapatan = $('#trenYearlyDetailWrapPendapatan');
   const captionPendapatan = $('#trenYearlyDetailCaptionPendapatan');
@@ -3753,7 +3811,12 @@ function renderTrenYearlyG_(){
     plugins: [barShadowPlugin, pctChangeGroupedBarPlugin, alignDetailTablePlugin_(wrapPendapatan, tablePendapatan, 0), alignDetailTablePlugin_(wrapBelanja, tableBelanja, 1)]
   });
   const lbl = $('#execTrenYearlyLabel');
-  if(lbl) lbl.textContent = '— total realisasi s.d bulan terakhir tiap tahun (2024 & 2025 satu tahun penuh, 2026 masih berjalan)';
+  if(lbl){
+    const mB = refB ? MONTH_ABBR_BY_NUM_[refB-1] : null;
+    const mP = refP ? MONTH_ABBR_BY_NUM_[refP-1] : null;
+    const periode = (mB && mP && mB !== mP) ? `Belanja s.d. ${mB}, Pendapatan s.d. ${mP}` : `s.d. ${mB || mP || 'bulan terakhir'}`;
+    lbl.textContent = `— realisasi kumulatif periode yang sama tiap tahun (${periode})`;
+  }
 }
 
 // Baris "leaf" (rekening paling detail, bukan kategori/subtotal) di satu
