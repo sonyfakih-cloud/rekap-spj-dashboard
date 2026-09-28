@@ -15,7 +15,7 @@
      pengunjung yang sudah pernah buka situs ini masih bisa melihat versi lama (ini akar
      masalah "kok belum berubah" yang pernah dilaporkan). Setiap kali app.js/style.css
      diupdate, NAIKKAN angka v= di bawah supaya browser dipaksa ambil versi baru. -->
-<link rel="stylesheet" href="style.css?v=26">
+<link rel="stylesheet" href="style.css?v=27">
 <script src="chart.umd.min.js"></script>
 <script src="xlsx.full.min.js?v=8"></script>
 </head>
@@ -311,7 +311,10 @@
           <div class="year-checks" id="trenSameMonthYears"></div>
         </div>
         <div class="chart-wrap" style="height:280px;"><canvas id="trenSameMonthChart"></canvas></div>
-        <div class="range-detail-wrap"><table class="range-detail" id="trenSameMonthDetailTable"></table></div>
+        <div class="range-detail-wrap" id="trenSameMonthDetailWrap">
+          <div class="range-detail-caption" id="trenSameMonthDetailCaption"></div>
+          <table class="range-detail range-detail-nolabel" id="trenSameMonthDetailTable"></table>
+        </div>
       </div>
     </section>
 
@@ -521,7 +524,10 @@
           <div class="year-checks" id="trenSameMonthYearsP"></div>
         </div>
         <div class="chart-wrap" style="height:280px;"><canvas id="trenSameMonthChartP"></canvas></div>
-        <div class="range-detail-wrap"><table class="range-detail" id="trenSameMonthDetailTableP"></table></div>
+        <div class="range-detail-wrap" id="trenSameMonthDetailWrapP">
+          <div class="range-detail-caption" id="trenSameMonthDetailCaptionP"></div>
+          <table class="range-detail range-detail-nolabel" id="trenSameMonthDetailTableP"></table>
+        </div>
       </div>
     </section>
 
@@ -683,6 +689,7 @@
       <div class="card">
         <h3>Tren Tahunan Pendapatan Vs Belanja <span id="execTrenYearlyLabel">— 2024–2026</span></h3>
         <div class="chart-wrap"><canvas id="trenYearlyChartG"></canvas></div>
+        <div class="range-detail-wrap"><table class="range-detail" id="trenYearlyDetailTableG"></table></div>
       </div>
 
       <div class="card">
@@ -764,6 +771,6 @@
 <script src="auth.js?v=10"></script>
 <script src="data.js?v=8"></script>
 <script src="data_pendapatan.js?v=1"></script>
-<script src="app.js?v=48"></script>
+<script src="app.js?v=49"></script>
 </body>
 </html>

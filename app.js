@@ -278,6 +278,45 @@ function buildMultiRowDetailTableHtml_(labels, rows, cornerLabel){
   return `<thead><tr><th>${cornerLabel}</th>${monthHeaders}</tr></thead><tbody>${bodyRows}</tbody>`;
 }
 
+// Versi TANPA kolom label baris -- dipakai bersama class CSS
+// "range-detail-nolabel" + alignDetailTableToChartPlot_() di bawah, khusus
+// utk tabel yang HARUS lurus dgn posisi bar di grafik (mis. "Perbandingan
+// Bulan yang Sama Antar Tahun", yg cuma py 1 baris nilai). Nama barisnya
+// ditulis di caption terpisah di luar tabel (lihat pemanggilnya), bukan di
+// kolom pertama, supaya SEMUA kolom di tabel ini murni kolom nilai yang bisa
+// dibagi rata table-layout:fixed persis seperti bar kategori Chart.js.
+function buildAlignedRowTableHtml_(labels, data){
+  const headerCells = labels.map(l=>`<th>${l}</th>`).join('');
+  const dataCells = data.map(v=>{
+    const txt = fmt(v);
+    return `<td>${txt==='-' ? '-' : 'Rp ' + txt}</td>`;
+  }).join('');
+  return `<thead><tr>${headerCells}</tr></thead><tbody><tr>${dataCells}</tr></tbody>`;
+}
+
+// PENTING (perbaikan atas laporan user: tabel nilai di bawah grafik "tidak
+// lurus/tidak sejajar" dgn bar-nya): Chart.js membagi bar kategori secara
+// RATA di dalam chart.chartArea (area plot, TIDAK termasuk gutter label
+// sumbu-Y di kiri & sisa margin di kanan). Kalau tabel HTML di bawahnya
+// dibiarkan selebar penuh kartu tanpa penyesuaian, kolom nilainya otomatis
+// TIDAK sejajar dgn bar (karena bar mulai dari chartArea.left, bukan dari x=0
+// kartu). Perbaikannya: beri wrapper tabel padding kiri = chartArea.left (%
+// dari lebar chart) & padding kanan = sisa lebar setelah chartArea.right --
+// dgn begitu, sisa lebar tabel PERSIS sama dgn lebar chartArea, dan
+// table-layout:fixed (tanpa width eksplisit per kolom, lihat CSS
+// .range-detail-nolabel) otomatis membagi kolom itu RATA, sama seperti Chart.js
+// membagi rata bar kategori di area yg sama. Dipanggil ulang tiap chart
+// resize (lewat options.onResize) supaya tetap sejajar saat lebar layar
+// berubah (mis. buka/tutup sidebar, resize window).
+function alignDetailTableToChartPlot_(chart, wrapEl){
+  if(!chart || !wrapEl || !chart.chartArea || !chart.width) return;
+  const w = chart.width;
+  const leftPct = (chart.chartArea.left / w) * 100;
+  const rightPct = ((w - chart.chartArea.right) / w) * 100;
+  wrapEl.style.paddingLeft = leftPct.toFixed(2) + '%';
+  wrapEl.style.paddingRight = rightPct.toFixed(2) + '%';
+}
+
 function dedupTrenByPeriode_(rows, labelForLog){
   const map = new Map();
   const conflicts = [];
@@ -1028,13 +1067,12 @@ function renderTrenSameMonthCompare(){
     return g;
   });
 
+  const detailWrap = $('#trenSameMonthDetailWrap');
+  const detailCaption = $('#trenSameMonthDetailCaption');
   const detailTable = $('#trenSameMonthDetailTable');
+  if(detailCaption) detailCaption.textContent = 'SPJ Realisasi';
   if(detailTable){
-    detailTable.innerHTML = buildMultiRowDetailTableHtml_(
-      years.map(y => MONTH_NAMES[monthIdx] + ' ' + y),
-      [{label:'SPJ Realisasi', data:values}],
-      'Tahun'
-    );
+    detailTable.innerHTML = buildAlignedRowTableHtml_(years.map(y => MONTH_NAMES[monthIdx] + ' ' + y), values);
   }
 
   if(trenSameMonthChart) trenSameMonthChart.destroy();
@@ -1053,6 +1091,7 @@ function renderTrenSameMonthCompare(){
     options:{
       responsive:true, maintainAspectRatio:false,
       layout:{padding:{top:26}},
+      onResize: (chart)=> alignDetailTableToChartPlot_(chart, detailWrap),
       plugins:{
         legend:{display:false},
         tooltip:{callbacks:{label:c=> c.parsed.y===null ? 'Tidak ada data' : 'Rp ' + fmt(c.parsed.y)}}
@@ -1064,6 +1103,7 @@ function renderTrenSameMonthCompare(){
     },
     plugins:[barShadowPlugin, pctChangeBarPlugin]
   });
+  alignDetailTableToChartPlot_(trenSameMonthChart, detailWrap);
 }
 
 // Dropdown/checkbox rentang & bulan-sama cukup dibangun sekali (biar pilihan
@@ -1262,13 +1302,12 @@ function renderTrenSameMonthCompareP(){
     return g;
   });
 
+  const detailWrap = $('#trenSameMonthDetailWrapP');
+  const detailCaption = $('#trenSameMonthDetailCaptionP');
   const detailTable = $('#trenSameMonthDetailTableP');
+  if(detailCaption) detailCaption.textContent = 'Pendapatan Realisasi';
   if(detailTable){
-    detailTable.innerHTML = buildMultiRowDetailTableHtml_(
-      years.map(y => MONTH_NAMES[monthIdx] + ' ' + y),
-      [{label:'Pendapatan Realisasi', data:values}],
-      'Tahun'
-    );
+    detailTable.innerHTML = buildAlignedRowTableHtml_(years.map(y => MONTH_NAMES[monthIdx] + ' ' + y), values);
   }
 
   if(trenSameMonthChartP) trenSameMonthChartP.destroy();
@@ -1287,6 +1326,7 @@ function renderTrenSameMonthCompareP(){
     options:{
       responsive:true, maintainAspectRatio:false,
       layout:{padding:{top:26}},
+      onResize: (chart)=> alignDetailTableToChartPlot_(chart, detailWrap),
       plugins:{
         legend:{display:false},
         tooltip:{callbacks:{label:c=> c.parsed.y===null ? 'Tidak ada data' : 'Rp ' + fmt(c.parsed.y)}}
@@ -1298,6 +1338,7 @@ function renderTrenSameMonthCompareP(){
     },
     plugins:[barShadowPlugin, pctChangeBarPlugin]
   });
+  alignDetailTableToChartPlot_(trenSameMonthChartP, detailWrap);
 }
 
 let TREN_EXTRA_INITED_P_ = false;
@@ -3402,6 +3443,18 @@ function renderTrenYearlyG_(){
   const years = ['2024','2025','2026'];
   const belanja = years.map(y => (STATE.ringkasan[y] && STATE.ringkasan[y].total) ? STATE.ringkasan[y].total.sd_bulan_ini : null);
   const pendapatan = years.map(y => STATE_P.ringkasan[y] ? STATE_P.ringkasan[y].sd_bulan_ini : null);
+
+  const detailTable = $('#trenYearlyDetailTableG');
+  if(detailTable){
+    detailTable.innerHTML = buildMultiRowDetailTableHtml_(
+      years,
+      [
+        {label:'Pendapatan', data:pendapatan, color:'#F4BA84'},
+        {label:'Belanja', data:belanja, color:'#84AAF3'},
+      ],
+      'Tahun'
+    );
+  }
 
   const ctx = canvas.getContext('2d');
   if(trenYearlyChartG) trenYearlyChartG.destroy();

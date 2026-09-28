@@ -821,6 +821,21 @@ table.range-detail tbody tr:last-child td{border-bottom:none;}
    antar kolom rapi (bukan flex, supaya tidak keluar dari layout tabel) */
 table.range-detail .range-dot{display:inline-block;vertical-align:middle;margin-right:6px;}
 
+/* ---- Varian "sejajar" (tanpa kolom label): dipakai saat kolom nilai perlu
+   LURUS persis dengan posisi bar di grafik (mis. "Perbandingan Bulan yang
+   Sama Antar Tahun"). Nama baris dipindah ke caption di atas tabel (bukan
+   kolom pertama), supaya semua kolom yang tersisa adalah kolom nilai yang
+   lebar/posisinya dibagi RATA oleh table-layout:fixed -- app.js lalu memberi
+   padding kiri/kanan pada .range-detail-wrap sebesar gutter sumbu-Y grafik
+   (lihat alignDetailTableToChartPlot_), sehingga kolom-kolom ini match
+   dengan bar kategori yang juga dibagi rata Chart.js di area yang sama. ---- */
+.range-detail-caption{font-size:12px;font-weight:700;color:var(--muted);margin-bottom:4px;padding-left:2px;}
+table.range-detail-nolabel{table-layout:fixed;}
+table.range-detail-nolabel thead th:first-child,
+table.range-detail-nolabel tbody td:first-child{
+  text-align:right;white-space:nowrap;width:auto;min-width:0;font-weight:400;
+}
+
 .year-checks{display:flex;gap:8px;flex-wrap:wrap;}
 .year-check-item{
   display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:20px;
