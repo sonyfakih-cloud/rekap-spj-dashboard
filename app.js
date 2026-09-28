@@ -47,6 +47,74 @@ document.addEventListener('DOMContentLoaded', refreshThemeToggleUI_);
 // sudah lewat.
 if(document.readyState !== 'loading') refreshThemeToggleUI_();
 
+// ================================================================
+// MODE HP vs MODE KOMPUTER -- tombol pilihan tampilan perangkat,
+// disimpan di localStorage (key 'spj_devicemode', nilai 'mobile' atau
+// 'desktop'). Class "mode-hp" di <html> yang jadi saklarnya (lihat
+// aturan html.mode-hp ... di style.css, bagian paling bawah file).
+//
+// Dua sumber yang bisa mengatur class ini:
+// 1) OTOMATIS (belum pernah klik tombol / localStorage kosong): ikut
+//    lebar layar sekarang (<=600px = Mode HP), termasuk saat window
+//    di-resize atau HP diputar -- lihat listener 'resize' di bawah.
+//    Script anti-flash sinkron di <head> index.html sudah memasang
+//    class ini SEBELUM render pertama utk kasus reload/buka baru.
+// 2) MANUAL (sudah pernah klik tombol): pilihan tersimpan & DIPAKSA,
+//    tidak lagi mengikuti lebar layar, sampai user klik tombol lagi
+//    utk berpindah pilihan.
+//
+// Beda dari toggleTheme_(): TIDAK reload halaman. Class "mode-hp"
+// murni CSS (posisi sidebar jadi bottom bar, padding, dst) -- semua
+// grafik Chart.js di file ini sudah dibuat responsive:true dgn
+// ResizeObserver (lihat alignDetailTablePlugin_ dkk), jadi begitu
+// lebar .main berubah karena sidebar pindah posisi, grafik & tabel
+// rinciannya otomatis re-render pas sendiri tanpa perlu reload.
+function isPhoneWidth_(){
+  return window.matchMedia('(max-width:600px)').matches;
+}
+function currentDeviceModePref_(){
+  // 'mobile' | 'desktop' | null (null = belum pernah dipilih manual = "auto")
+  try{ return localStorage.getItem('spj_devicemode'); }catch(e){ return null; }
+}
+function applyDeviceModeClass_(mobile){
+  document.documentElement.classList.toggle('mode-hp', !!mobile);
+}
+function refreshDeviceModeUI_(){
+  const mobileActive = document.documentElement.classList.contains('mode-hp');
+  // Ikon/label menunjukkan TARGET kalau diklik (bakal pindah ke mode
+  // apa), sama seperti pola tombol tema (🌙/☀️) -- bukan status sekarang.
+  $$('.devicemode-toggle-btn').forEach(el=>{
+    const icon = el.querySelector('.devicemode-icon');
+    const label = el.querySelector('.devicemode-label');
+    if(icon) icon.textContent = mobileActive ? '🖥️' : '📱';
+    if(label) label.textContent = mobileActive ? 'Mode Komputer' : 'Mode HP';
+    el.title = mobileActive ? 'Ganti ke tampilan Mode Komputer' : 'Ganti ke tampilan Mode HP';
+  });
+}
+function toggleDeviceMode_(){
+  const mobileActive = document.documentElement.classList.contains('mode-hp');
+  const next = mobileActive ? 'desktop' : 'mobile';
+  try{ localStorage.setItem('spj_devicemode', next); }catch(e){}
+  applyDeviceModeClass_(next === 'mobile');
+  refreshDeviceModeUI_();
+}
+document.addEventListener('click', e=>{
+  const btn = e.target.closest('.devicemode-toggle-btn');
+  if(btn) toggleDeviceMode_();
+});
+// Selama user BELUM pernah klik tombol (pref masih null = "auto"),
+// ikuti lebar layar secara live -- resize jendela / putar HP tetap
+// menyesuaikan otomatis, sama seperti sebelum tombol ini ada. Begitu
+// user sudah memilih manual, listener ini sengaja tidak melakukan apa2
+// (pilihan user tidak boleh "kalah" oleh resize).
+window.addEventListener('resize', ()=>{
+  if(currentDeviceModePref_() !== null) return;
+  applyDeviceModeClass_(isPhoneWidth_());
+  refreshDeviceModeUI_();
+});
+document.addEventListener('DOMContentLoaded', refreshDeviceModeUI_);
+if(document.readyState !== 'loading') refreshDeviceModeUI_();
+
 // Warna grid/teks Chart.js supaya tetap kebaca di kedua tema. CHART_GRID_()
 // dipanggil ULANG tiap grafik dibuat (bukan konstanta statis), krn banyak
 // grafik baru dibuat belakangan (setelah data live masuk / pindah tab) --
