@@ -254,6 +254,30 @@ function buildRangeDetailTableHtml_(labels, labelA, dataA, labelB, dataB){
   `;
 }
 
+// Versi generik dari buildRangeDetailTableHtml_ di atas -- dipakai utk tabel
+// rincian Rupiah di grafik yang BUKAN perbandingan 2 rentang tanggal (jadi
+// tidak selalu "Rentang A/B" dgn warna biru/teal tetap), misalnya:
+// - "Tren Total Bulanan" (2 baris: Bulan Ini vs Kumulatif, warnanya ikut
+//   warna asli bar/garis di grafik yg bersangkutan, bukan biru/teal generik)
+// - "Perbandingan Bulan yang Sama Antar Tahun" (cuma 1 baris nilai, kolom =
+//   tahun-tahun yang dipilih)
+// rows: [{label, data:[...], color?:'#hex'}, ...] -- color opsional, kalau
+// tidak diisi baris tidak diberi dot warna (dipakai saat cuma 1 baris & warna
+// tidak relevan, mis. tabel Bulan-yang-Sama).
+function buildMultiRowDetailTableHtml_(labels, rows, cornerLabel){
+  cornerLabel = cornerLabel || 'Bulan';
+  const monthHeaders = labels.map(l=>`<th>${l}</th>`).join('');
+  const cellsFor = arr => arr.map(v=>{
+    const txt = fmt(v);
+    return `<td>${txt==='-' ? '-' : 'Rp ' + txt}</td>`;
+  }).join('');
+  const bodyRows = rows.map(r=>{
+    const dot = r.color ? `<span class="range-dot" style="background:${r.color}"></span>` : '';
+    return `<tr><td>${dot}${r.label}</td>${cellsFor(r.data)}</tr>`;
+  }).join('');
+  return `<thead><tr><th>${cornerLabel}</th>${monthHeaders}</tr></thead><tbody>${bodyRows}</tbody>`;
+}
+
 function dedupTrenByPeriode_(rows, labelForLog){
   const map = new Map();
   const conflicts = [];
@@ -565,6 +589,54 @@ const pctChangeBarPlugin = {
   }
 };
 
+// pctChangeGroupedBarPlugin: untuk grafik BATANG BERKELOMPOK dengan >=2 dataset
+// per kategori (mis. "Tren Tahunan Pendapatan Vs Belanja": tiap tahun ada 2 bar
+// bersebelahan, Pendapatan & Belanja). BEDA dari pctChangeBarPlugin di atas
+// (yang cuma baca dataset index 0 & taruh label DI ANTARA 2 bar) -- di sini
+// %kenaikan dihitung PER DATASET SENDIRI-SENDIRI (mis. Pendapatan tahun ini vs
+// Pendapatan tahun lalu, terpisah dari Belanja), lalu labelnya digambar tepat
+// DI ATAS bar-nya masing-masing -- supaya tidak salah kaprah seolah
+// membandingkan Pendapatan vs Belanja secara langsung. Tahun pertama (index 0)
+// tidak diberi label karena belum ada pembanding "tahun sebelumnya".
+const pctChangeGroupedBarPlugin = {
+  id: 'pctChangeGroupedBar',
+  afterDatasetsDraw(chart){
+    const {ctx} = chart;
+    ctx.save();
+    ctx.font = 'bold 10.5px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    chart.data.datasets.forEach((ds, dsIndex)=>{
+      const meta = chart.getDatasetMeta(dsIndex);
+      if(!meta || meta.hidden || !meta.data) return;
+      const values = ds.data;
+      meta.data.forEach((bar, i)=>{
+        if(i === 0) return;
+        const prev = values[i-1], cur = values[i];
+        if(prev === null || prev === undefined || cur === null || cur === undefined || prev === 0) return;
+        const pct = (cur - prev) / Math.abs(prev) * 100;
+        const text = pctChangeText_(pct);
+        const color = pctChangeColor_(pct);
+        const midX = bar.x;
+        const topY = bar.y - 14;
+        const w = ctx.measureText(text).width + 10;
+        const h = 16;
+        ctx.fillStyle = pct >= 0 ? 'rgba(87,182,128,0.14)' : 'rgba(232,118,110,0.14)';
+        if(ctx.roundRect){
+          ctx.beginPath();
+          ctx.roundRect(midX - w/2, topY - h/2, w, h, 8);
+          ctx.fill();
+        } else {
+          ctx.fillRect(midX - w/2, topY - h/2, w, h);
+        }
+        ctx.fillStyle = color;
+        ctx.fillText(text, midX, topY + 1);
+      });
+    });
+    ctx.restore();
+  }
+};
+
 // pctChangeRangeComparePlugin: khusus grafik garis "Perbandingan Rentang Bulan"
 // (#trenRangeChart / #trenRangeChartP) yang selalu berisi TEPAT 2 dataset --
 // rentang A (mis. Jan-Jun 2025) dan rentang B (mis. Jan-Jun 2026). Ada 2 jenis
@@ -730,6 +802,16 @@ function renderTren(){
   const labels = STATE.tren.map(r=>r.periode);
   const bulanIni = STATE.tren.map(r=>r.bulan_ini);
   const sd = STATE.tren.map(r=>r.sd_bulan_ini);
+  const detailTable = $('#trenDetailTable');
+  if(detailTable){
+    detailTable.innerHTML = buildMultiRowDetailTableHtml_(
+      labels.map(periodeLabelShort_),
+      [
+        {label:'SPJ Bulan Ini', data:bulanIni, color:'#84AAF3'},
+        {label:'SPJ s.d Bulan Ini (kumulatif)', data:sd, color:'#63CAD3'},
+      ]
+    );
+  }
   if(trenChart) trenChart.destroy();
   trenChart = new Chart(ctx, {
     type:'bar',
@@ -945,6 +1027,15 @@ function renderTrenSameMonthCompare(){
     g.addColorStop(1, c.bottom);
     return g;
   });
+
+  const detailTable = $('#trenSameMonthDetailTable');
+  if(detailTable){
+    detailTable.innerHTML = buildMultiRowDetailTableHtml_(
+      years.map(y => MONTH_NAMES[monthIdx] + ' ' + y),
+      [{label:'SPJ Realisasi', data:values}],
+      'Tahun'
+    );
+  }
 
   if(trenSameMonthChart) trenSameMonthChart.destroy();
   trenSameMonthChart = new Chart(ctx, {
@@ -1170,6 +1261,15 @@ function renderTrenSameMonthCompareP(){
     g.addColorStop(1, c.bottom);
     return g;
   });
+
+  const detailTable = $('#trenSameMonthDetailTableP');
+  if(detailTable){
+    detailTable.innerHTML = buildMultiRowDetailTableHtml_(
+      years.map(y => MONTH_NAMES[monthIdx] + ' ' + y),
+      [{label:'Pendapatan Realisasi', data:values}],
+      'Tahun'
+    );
+  }
 
   if(trenSameMonthChartP) trenSameMonthChartP.destroy();
   trenSameMonthChartP = new Chart(ctx, {
@@ -2803,6 +2903,16 @@ function renderTrenPendapatan(){
   const labels = STATE_P.tren.map(r=>r.periode);
   const bulanIni = STATE_P.tren.map(r=>r.bulan_ini);
   const sd = STATE_P.tren.map(r=>r.sd_bulan_ini);
+  const detailTable = $('#trenDetailTableP');
+  if(detailTable){
+    detailTable.innerHTML = buildMultiRowDetailTableHtml_(
+      labels.map(periodeLabelShort_),
+      [
+        {label:'Pendapatan Bulan Ini', data:bulanIni, color:'#F4BA84'},
+        {label:'Pendapatan s.d Bulan Ini (kumulatif)', data:sd, color:'#84AAF3'},
+      ]
+    );
+  }
   if(trenChartP) trenChartP.destroy();
   trenChartP = new Chart(ctx, {
     type:'bar',
@@ -3306,6 +3416,7 @@ function renderTrenYearlyG_(){
     },
     options:{
       responsive:true, maintainAspectRatio:false,
+      layout:{padding:{top:26}},
       plugins:{
         legend:{position:'top', labels:{boxWidth:12, font:{size:11}}},
         tooltip:{callbacks:{label:c=> c.dataset.label + ': ' + (c.parsed.y===null ? 'tidak ada data' : 'Rp ' + fmt(c.parsed.y))}}
@@ -3315,7 +3426,7 @@ function renderTrenYearlyG_(){
         x:{grid:{display:false}}
       }
     },
-    plugins: [barShadowPlugin]
+    plugins: [barShadowPlugin, pctChangeGroupedBarPlugin]
   });
   const lbl = $('#execTrenYearlyLabel');
   if(lbl) lbl.textContent = '— total realisasi s.d bulan terakhir tiap tahun (2024 & 2025 satu tahun penuh, 2026 masih berjalan)';
