@@ -280,37 +280,68 @@ function buildMultiRowDetailTableHtml_(labels, rows, cornerLabel){
 
 // Versi TANPA kolom label baris -- dipakai bersama class CSS
 // "range-detail-nolabel" + alignDetailTableToChartPlot_() di bawah, khusus
-// utk tabel yang HARUS lurus dgn posisi bar di grafik (mis. "Perbandingan
-// Bulan yang Sama Antar Tahun", yg cuma py 1 baris nilai). Nama barisnya
+// utk tabel yang HARUS lurus dgn posisi bar/titik di grafik. Nama barisnya
 // ditulis di caption terpisah di luar tabel (lihat pemanggilnya), bukan di
-// kolom pertama, supaya SEMUA kolom di tabel ini murni kolom nilai yang bisa
-// dibagi rata table-layout:fixed persis seperti bar kategori Chart.js.
+// kolom pertama, supaya SEMUA kolom di tabel ini murni kolom nilai yang
+// lebarnya diatur presisi oleh alignDetailTableToChartPlot_.
+// PENTING soal perataan teks per kolom: kolom PERTAMA rata KIRI, kolom
+// TERAKHIR rata KANAN, kolom tengah rata TENGAH -- BUKAN rata kanan semua.
+// Alasannya (sudah diuji terpisah, lihat komentar alignDetailTableToChartPlot_):
+// utk grafik GARIS, titik pertama/terakhir digambar Chart.js PAS DI TEPI area
+// plot (tanpa spasi kosong di luarnya, beda dgn bar yg py "bantalan" band di
+// kedua sisi) -- jadi kalau teks kolom tepi rata tengah/kanan spt kolom
+// lain, teksnya akan kelihatan meleset s.d puluhan pixel dari titik aslinya.
+// Rata kiri utk kolom pertama & rata kanan utk kolom terakhir membuat
+// teksnya nempel ke tepi kolom yg PALING DEKAT dgn posisi pixel titik asli.
 function buildAlignedRowTableHtml_(labels, data){
-  const headerCells = labels.map(l=>`<th>${l}</th>`).join('');
-  const dataCells = data.map(v=>{
+  const n = labels.length;
+  const alignFor = i => i===0 ? 'left' : (i===n-1 ? 'right' : 'center');
+  const headerCells = labels.map((l,i)=>`<th style="text-align:${alignFor(i)}">${l}</th>`).join('');
+  const dataCells = data.map((v,i)=>{
     const txt = fmt(v);
-    return `<td>${txt==='-' ? '-' : 'Rp ' + txt}</td>`;
+    return `<td style="text-align:${alignFor(i)}">${txt==='-' ? '-' : 'Rp ' + txt}</td>`;
   }).join('');
   return `<thead><tr>${headerCells}</tr></thead><tbody><tr>${dataCells}</tr></tbody>`;
 }
 
 // PENTING (perbaikan atas laporan user: tabel nilai di bawah grafik "tidak
-// lurus/tidak sejajar" dgn bar-nya): Chart.js membagi bar kategori secara
-// RATA di dalam chart.chartArea (area plot, TIDAK termasuk gutter label
-// sumbu-Y di kiri & sisa margin di kanan). Kalau tabel HTML di bawahnya
-// dibiarkan selebar penuh kartu tanpa penyesuaian, kolom nilainya otomatis
-// TIDAK sejajar dgn bar (karena bar mulai dari chartArea.left, bukan dari x=0
-// kartu). Perbaikannya: beri wrapper tabel padding kiri = chartArea.left (%
-// dari lebar chart) & padding kanan = sisa lebar setelah chartArea.right --
-// dgn begitu, sisa lebar tabel PERSIS sama dgn lebar chartArea, dan
-// table-layout:fixed (tanpa width eksplisit per kolom, lihat CSS
-// .range-detail-nolabel) otomatis membagi kolom itu RATA, sama seperti Chart.js
-// membagi rata bar kategori di area yg sama. Dipanggil ulang otomatis tiap
-// chart selesai digambar (lewat plugin afterRender, lihat
-// alignDetailTablePlugin_ di bawah) supaya tetap sejajar saat lebar layar
-// berubah (mis. buka/tutup sidebar, resize window) maupun saat ukuran chart
-// dikoreksi sendiri oleh Chart.js setelah render pertama.
-function alignDetailTableToChartPlot_(chart, wrapEl){
+// lurus/tidak sejajar" dgn bar/garis-nya, DAN perbaikan lanjutan atas
+// pendekatan "kolom rata" yg SALAH utk grafik garis -- lihat riwayat
+// perbaikan di bawah):
+//
+// TAHAP 1 (padding wrapper): Chart.js menggambar bar/titik di dalam
+// chart.chartArea (area plot, TIDAK termasuk gutter label sumbu-Y di kiri &
+// sisa margin di kanan). Kalau tabel HTML di bawahnya dibiarkan selebar
+// penuh kartu tanpa penyesuaian, kolom nilainya otomatis TIDAK sejajar
+// (karena bar/titik mulai dari chartArea.left, bukan dari x=0 kartu).
+// Perbaikannya: beri wrapper tabel padding kiri = chartArea.left (% dari
+// lebar chart) & padding kanan = sisa lebar setelah chartArea.right -- dgn
+// begitu, sisa lebar tabel PERSIS sama dgn lebar chartArea.
+//
+// TAHAP 2 (lebar per-kolom presisi, BUKAN rata): percobaan pertama membagi
+// kolom RATA (table-layout:fixed tanpa width per kolom) ternyata cuma benar
+// utk grafik BATANG (bar-nya memang di TENGAH band yg rata besarnya). Utk
+// grafik GARIS (mis. "Perbandingan Rentang Bulan"), titik PERTAMA & TERAKHIR
+// digambar PAS DI TEPI chartArea (offset:false, tanpa band di luar), beda
+// dari titik tengah yg jaraknya rata -- kalau tetap dipaksa kolom rata,
+// kolom di ujung bisa meleset >100px (sudah diuji terpisah). Perbaikan:
+// baca posisi pixel bar/titik yg SUNGGUH digambar Chart.js
+// (chart.getDatasetMeta(0).data[i].x -- valid utk bar MAUPUN garis), lalu
+// batas tiap kolom = titik tengah (midpoint) antara 2 posisi pixel yg
+// bersebelahan (tepi kiri kolom pertama = chartArea.left, tepi kanan kolom
+// terakhir = chartArea.right). Sudah diuji: hasilnya 0px meleset utk SEMUA
+// kolom grafik batang (termasuk tepi), dan 0px meleset utk kolom TENGAH
+// grafik garis -- cuma kolom tepi grafik garis yg masih py sedikit slop
+// (inheren, krn titik tepi grafik garis memang tidak py "ruang di luar"),
+// makanya buildAlignedRowTableHtml_ menaruh kolom pertama/terakhir rata
+// kiri/kanan (bukan tengah) utk meminimalkan slop itu.
+//
+// Dipanggil ulang otomatis tiap chart selesai digambar (lewat plugin
+// afterRender, lihat alignDetailTablePlugin_ di bawah) supaya tetap sejajar
+// saat lebar layar berubah maupun saat ukuran chart dikoreksi sendiri oleh
+// Chart.js setelah render pertama (lihat juga riwayat bug timing di bawah).
+function alignDetailTableToChartPlot_(chart, wrapEl, tableEl, datasetIndex){
+  datasetIndex = datasetIndex || 0;
   if(!chart || !wrapEl || !chart.chartArea || !chart.width) return;
   const w = chart.width;
   if(!(w > 0)) return; // jaring pengaman: canvas belum benar-benar berukuran (lihat komentar plugin di bawah)
@@ -323,6 +354,42 @@ function alignDetailTableToChartPlot_(chart, wrapEl){
   if(!(leftPct >= 0 && leftPct < 30) || !(rightPct >= 0 && rightPct < 30)) return;
   wrapEl.style.paddingLeft = leftPct.toFixed(2) + '%';
   wrapEl.style.paddingRight = rightPct.toFixed(2) + '%';
+
+  if(!tableEl) return;
+  const labelCount = (chart.data && chart.data.labels) ? chart.data.labels.length : 0;
+  if(labelCount < 2) return;
+  // PENTING (bug ditemukan & diperbaiki sblm dikirim: grafik BATANG
+  // BERKELOMPOK spt "Tren Tahunan Pendapatan Vs Belanja" py 2 dataset yg
+  // bar-nya digambar BERSEBELAHAN dlm band yg sama, BUKAN di posisi x yg
+  // sama -- jadi kalau tabel Belanja ikut baca posisi dataset index 0
+  // (Pendapatan), hasilnya meleset ~30-40px krn posisi bar Belanja yg
+  // sebenarnya beda. Sudah diuji terpisah. Makanya datasetIndex WAJIB diisi
+  // sesuai dataset milik tabel itu sendiri utk grafik batang berkelompok --
+  // utk grafik garis (semua dataset berbagi x yg sama per kategori) atau
+  // grafik dgn 1 dataset saja, datasetIndex=0 (default) sudah benar.
+  const meta = chart.getDatasetMeta(datasetIndex);
+  if(!meta || !meta.data || meta.data.length < labelCount) return;
+  const xs = [];
+  for(let i=0;i<labelCount;i++){
+    const el = meta.data[i];
+    if(!el || typeof el.x !== 'number' || isNaN(el.x)) return;
+    xs.push(el.x);
+  }
+  const left = chart.chartArea.left, right = chart.chartArea.right;
+  const contentWidth = right - left;
+  if(!(contentWidth > 0)) return;
+  const bounds = [left];
+  for(let i=0;i<xs.length-1;i++) bounds.push((xs[i]+xs[i+1])/2);
+  bounds.push(right);
+  const widths = [];
+  for(let i=0;i<bounds.length-1;i++){
+    const pct = ((bounds[i+1]-bounds[i]) / contentWidth) * 100;
+    if(!(pct >= 0)) return; // jaring pengaman: batal semua kalau ada hasil yg aneh
+    widths.push(pct);
+  }
+  const ths = tableEl.querySelectorAll('thead th');
+  if(ths.length !== widths.length) return; // jaring pengaman: jumlah kolom tabel != jumlah kategori chart
+  ths.forEach((th,i)=>{ th.style.width = widths[i].toFixed(3) + '%'; });
 }
 
 // PENTING (bug ditemukan live: tabel sejajar kadang cuma bergeser sedikit,
@@ -341,10 +408,10 @@ function alignDetailTableToChartPlot_(chart, wrapEl){
 // angka yg sudah benar). Ini otomatis menggantikan kombinasi lama
 // (onResize option + panggilan manual sekali di akhir), jadi kedua itu
 // dihapus dari pemanggilnya.
-function alignDetailTablePlugin_(wrapEl){
+function alignDetailTablePlugin_(wrapEl, tableEl, datasetIndex){
   return {
     id: 'alignDetailTable',
-    afterRender(chart){ alignDetailTableToChartPlot_(chart, wrapEl); }
+    afterRender(chart){ alignDetailTableToChartPlot_(chart, wrapEl, tableEl, datasetIndex); }
   };
 }
 
@@ -974,10 +1041,11 @@ function renderTrenRangeCompare(){
   const rowsA = periodeInRange_(fromA, toA);
   const rowsB = periodeInRange_(fromB, toB);
 
-  const detailTable = $('#trenRangeDetailTable');
+  const wrapA = $('#trenRangeDetailWrapA'), captionA = $('#trenRangeDetailCaptionA'), tableA = $('#trenRangeDetailTableA');
+  const wrapB = $('#trenRangeDetailWrapB'), captionB = $('#trenRangeDetailCaptionB'), tableB = $('#trenRangeDetailTableB');
   if(!fromA || !toA || !fromB || !toB || fromA > toA || fromB > toB || (!rowsA.length && !rowsB.length)){
     summary.innerHTML = '<div class="filter-empty">Pilih rentang bulan yang valid untuk kedua sisi (A dan B).</div>';
-    if(detailTable) detailTable.innerHTML = '';
+    if(tableA) tableA.innerHTML = ''; if(tableB) tableB.innerHTML = '';
     if(trenRangeChart){ trenRangeChart.destroy(); trenRangeChart = null; }
     return;
   }
@@ -1004,7 +1072,10 @@ function renderTrenRangeCompare(){
     <div class="range-stat"><div class="lbl"><span class="range-dot range-dot-b"></span>Total ${labelB}</div><div class="val">Rp ${fmt(totalB)}</div></div>
     <div class="range-stat diff"><div class="lbl">Selisih B vs A</div><div class="val ${diffClass}">${diffText}</div></div>
   `;
-  if(detailTable) detailTable.innerHTML = buildRangeDetailTableHtml_(labels, labelA, dataA, labelB, dataB);
+  if(captionA) captionA.innerHTML = `<span class="range-dot range-dot-a"></span>${labelA}`;
+  if(tableA) tableA.innerHTML = buildAlignedRowTableHtml_(labels, dataA);
+  if(captionB) captionB.innerHTML = `<span class="range-dot range-dot-b"></span>${labelB}`;
+  if(tableB) tableB.innerHTML = buildAlignedRowTableHtml_(labels, dataB);
 
   const ctx = canvas.getContext('2d');
   if(trenRangeChart) trenRangeChart.destroy();
@@ -1030,7 +1101,7 @@ function renderTrenRangeCompare(){
         x:{grid:{display:false}}
       }
     },
-    plugins:[lineShadowPlugin, pctChangeRangeComparePlugin]
+    plugins:[lineShadowPlugin, pctChangeRangeComparePlugin, alignDetailTablePlugin_(wrapA, tableA, 0), alignDetailTablePlugin_(wrapB, tableB, 1)]
   });
 }
 
@@ -1131,7 +1202,7 @@ function renderTrenSameMonthCompare(){
         x:{grid:{display:false}}
       }
     },
-    plugins:[barShadowPlugin, pctChangeBarPlugin, alignDetailTablePlugin_(detailWrap)]
+    plugins:[barShadowPlugin, pctChangeBarPlugin, alignDetailTablePlugin_(detailWrap, detailTable)]
   });
 }
 
@@ -1215,10 +1286,11 @@ function renderTrenRangeCompareP(){
   const rowsA = periodeInRangeP_(fromA, toA);
   const rowsB = periodeInRangeP_(fromB, toB);
 
-  const detailTable = $('#trenRangeDetailTableP');
+  const wrapA = $('#trenRangeDetailWrapAP'), captionA = $('#trenRangeDetailCaptionAP'), tableA = $('#trenRangeDetailTableAP');
+  const wrapB = $('#trenRangeDetailWrapBP'), captionB = $('#trenRangeDetailCaptionBP'), tableB = $('#trenRangeDetailTableBP');
   if(!fromA || !toA || !fromB || !toB || fromA > toA || fromB > toB || (!rowsA.length && !rowsB.length)){
     summary.innerHTML = '<div class="filter-empty">Pilih rentang bulan yang valid untuk kedua sisi (A dan B).</div>';
-    if(detailTable) detailTable.innerHTML = '';
+    if(tableA) tableA.innerHTML = ''; if(tableB) tableB.innerHTML = '';
     if(trenRangeChartP){ trenRangeChartP.destroy(); trenRangeChartP = null; }
     return;
   }
@@ -1245,7 +1317,10 @@ function renderTrenRangeCompareP(){
     <div class="range-stat"><div class="lbl"><span class="range-dot range-dot-b"></span>Total ${labelB}</div><div class="val">Rp ${fmt(totalB)}</div></div>
     <div class="range-stat diff"><div class="lbl">Selisih B vs A</div><div class="val ${diffClass}">${diffText}</div></div>
   `;
-  if(detailTable) detailTable.innerHTML = buildRangeDetailTableHtml_(labels, labelA, dataA, labelB, dataB);
+  if(captionA) captionA.innerHTML = `<span class="range-dot range-dot-a"></span>${labelA}`;
+  if(tableA) tableA.innerHTML = buildAlignedRowTableHtml_(labels, dataA);
+  if(captionB) captionB.innerHTML = `<span class="range-dot range-dot-b"></span>${labelB}`;
+  if(tableB) tableB.innerHTML = buildAlignedRowTableHtml_(labels, dataB);
 
   const ctx = canvas.getContext('2d');
   if(trenRangeChartP) trenRangeChartP.destroy();
@@ -1271,7 +1346,7 @@ function renderTrenRangeCompareP(){
         x:{grid:{display:false}}
       }
     },
-    plugins:[lineShadowPlugin, pctChangeRangeComparePlugin]
+    plugins:[lineShadowPlugin, pctChangeRangeComparePlugin, alignDetailTablePlugin_(wrapA, tableA, 0), alignDetailTablePlugin_(wrapB, tableB, 1)]
   });
 }
 
@@ -1364,7 +1439,7 @@ function renderTrenSameMonthCompareP(){
         x:{grid:{display:false}}
       }
     },
-    plugins:[barShadowPlugin, pctChangeBarPlugin, alignDetailTablePlugin_(detailWrap)]
+    plugins:[barShadowPlugin, pctChangeBarPlugin, alignDetailTablePlugin_(detailWrap, detailTable)]
   });
 }
 
@@ -1923,10 +1998,11 @@ function renderFilterRangeCompare(){
   const rowsA = khususPeriodeInRange_(kode, fromA, toA);
   const rowsB = khususPeriodeInRange_(kode, fromB, toB);
 
-  const detailTable = $('#filterRangeDetailTable');
+  const wrapA = $('#filterRangeDetailWrapA'), captionA = $('#filterRangeDetailCaptionA'), tableA = $('#filterRangeDetailTableA');
+  const wrapB = $('#filterRangeDetailWrapB'), captionB = $('#filterRangeDetailCaptionB'), tableB = $('#filterRangeDetailTableB');
   if(!kode || !fromA || !toA || !fromB || !toB || fromA > toA || fromB > toB || (!rowsA.length && !rowsB.length)){
     summary.innerHTML = '<div class="filter-empty">Pilih rekening & rentang bulan yang valid untuk kedua sisi (A dan B).</div>';
-    if(detailTable) detailTable.innerHTML = '';
+    if(tableA) tableA.innerHTML = ''; if(tableB) tableB.innerHTML = '';
     if(filterRangeChart){ filterRangeChart.destroy(); filterRangeChart = null; }
     return;
   }
@@ -1953,7 +2029,10 @@ function renderFilterRangeCompare(){
     <div class="range-stat"><div class="lbl"><span class="range-dot range-dot-b"></span>Total ${labelB}</div><div class="val">Rp ${fmt(totalB)}</div></div>
     <div class="range-stat diff"><div class="lbl">Selisih B vs A</div><div class="val ${diffClass}">${diffText}</div></div>
   `;
-  if(detailTable) detailTable.innerHTML = buildRangeDetailTableHtml_(labels, labelA, dataA, labelB, dataB);
+  if(captionA) captionA.innerHTML = `<span class="range-dot range-dot-a"></span>${labelA}`;
+  if(tableA) tableA.innerHTML = buildAlignedRowTableHtml_(labels, dataA);
+  if(captionB) captionB.innerHTML = `<span class="range-dot range-dot-b"></span>${labelB}`;
+  if(tableB) tableB.innerHTML = buildAlignedRowTableHtml_(labels, dataB);
 
   const ctx = canvas.getContext('2d');
   if(filterRangeChart) filterRangeChart.destroy();
@@ -1979,7 +2058,7 @@ function renderFilterRangeCompare(){
         x:{grid:{display:false}}
       }
     },
-    plugins:[lineShadowPlugin, pctChangeRangeComparePlugin]
+    plugins:[lineShadowPlugin, pctChangeRangeComparePlugin, alignDetailTablePlugin_(wrapA, tableA, 0), alignDetailTablePlugin_(wrapB, tableB, 1)]
   });
 }
 
@@ -2287,10 +2366,11 @@ function renderFilterRangeCompareP(){
   const rowsA = khususPeriodeInRangeP_(kode, fromA, toA);
   const rowsB = khususPeriodeInRangeP_(kode, fromB, toB);
 
-  const detailTable = $('#filterRangeDetailTableP');
+  const wrapA = $('#filterRangeDetailWrapAP'), captionA = $('#filterRangeDetailCaptionAP'), tableA = $('#filterRangeDetailTableAP');
+  const wrapB = $('#filterRangeDetailWrapBP'), captionB = $('#filterRangeDetailCaptionBP'), tableB = $('#filterRangeDetailTableBP');
   if(!kode || !fromA || !toA || !fromB || !toB || fromA > toA || fromB > toB || (!rowsA.length && !rowsB.length)){
     summary.innerHTML = '<div class="filter-empty">Pilih rekening & rentang bulan yang valid untuk kedua sisi (A dan B).</div>';
-    if(detailTable) detailTable.innerHTML = '';
+    if(tableA) tableA.innerHTML = ''; if(tableB) tableB.innerHTML = '';
     if(filterRangeChartP){ filterRangeChartP.destroy(); filterRangeChartP = null; }
     return;
   }
@@ -2317,7 +2397,10 @@ function renderFilterRangeCompareP(){
     <div class="range-stat"><div class="lbl"><span class="range-dot range-dot-b"></span>Total ${labelB}</div><div class="val">Rp ${fmt(totalB)}</div></div>
     <div class="range-stat diff"><div class="lbl">Selisih B vs A</div><div class="val ${diffClass}">${diffText}</div></div>
   `;
-  if(detailTable) detailTable.innerHTML = buildRangeDetailTableHtml_(labels, labelA, dataA, labelB, dataB);
+  if(captionA) captionA.innerHTML = `<span class="range-dot range-dot-a"></span>${labelA}`;
+  if(tableA) tableA.innerHTML = buildAlignedRowTableHtml_(labels, dataA);
+  if(captionB) captionB.innerHTML = `<span class="range-dot range-dot-b"></span>${labelB}`;
+  if(tableB) tableB.innerHTML = buildAlignedRowTableHtml_(labels, dataB);
 
   const ctx = canvas.getContext('2d');
   if(filterRangeChartP) filterRangeChartP.destroy();
@@ -2343,7 +2426,7 @@ function renderFilterRangeCompareP(){
         x:{grid:{display:false}}
       }
     },
-    plugins:[lineShadowPlugin, pctChangeRangeComparePlugin]
+    plugins:[lineShadowPlugin, pctChangeRangeComparePlugin, alignDetailTablePlugin_(wrapA, tableA, 0), alignDetailTablePlugin_(wrapB, tableB, 1)]
   });
 }
 
@@ -3471,17 +3554,16 @@ function renderTrenYearlyG_(){
   const belanja = years.map(y => (STATE.ringkasan[y] && STATE.ringkasan[y].total) ? STATE.ringkasan[y].total.sd_bulan_ini : null);
   const pendapatan = years.map(y => STATE_P.ringkasan[y] ? STATE_P.ringkasan[y].sd_bulan_ini : null);
 
-  const detailTable = $('#trenYearlyDetailTableG');
-  if(detailTable){
-    detailTable.innerHTML = buildMultiRowDetailTableHtml_(
-      years,
-      [
-        {label:'Pendapatan', data:pendapatan, color:'#F4BA84'},
-        {label:'Belanja', data:belanja, color:'#84AAF3'},
-      ],
-      'Tahun'
-    );
-  }
+  const wrapPendapatan = $('#trenYearlyDetailWrapPendapatan');
+  const captionPendapatan = $('#trenYearlyDetailCaptionPendapatan');
+  const tablePendapatan = $('#trenYearlyDetailTablePendapatan');
+  const wrapBelanja = $('#trenYearlyDetailWrapBelanja');
+  const captionBelanja = $('#trenYearlyDetailCaptionBelanja');
+  const tableBelanja = $('#trenYearlyDetailTableBelanja');
+  if(captionPendapatan) captionPendapatan.innerHTML = '<span class="range-dot" style="background:#F4BA84"></span>Pendapatan';
+  if(tablePendapatan) tablePendapatan.innerHTML = buildAlignedRowTableHtml_(years, pendapatan);
+  if(captionBelanja) captionBelanja.innerHTML = '<span class="range-dot" style="background:#84AAF3"></span>Belanja';
+  if(tableBelanja) tableBelanja.innerHTML = buildAlignedRowTableHtml_(years, belanja);
 
   const ctx = canvas.getContext('2d');
   if(trenYearlyChartG) trenYearlyChartG.destroy();
@@ -3506,7 +3588,7 @@ function renderTrenYearlyG_(){
         x:{grid:{display:false}}
       }
     },
-    plugins: [barShadowPlugin, pctChangeGroupedBarPlugin]
+    plugins: [barShadowPlugin, pctChangeGroupedBarPlugin, alignDetailTablePlugin_(wrapPendapatan, tablePendapatan, 0), alignDetailTablePlugin_(wrapBelanja, tableBelanja, 1)]
   });
   const lbl = $('#execTrenYearlyLabel');
   if(lbl) lbl.textContent = '— total realisasi s.d bulan terakhir tiap tahun (2024 & 2025 satu tahun penuh, 2026 masih berjalan)';
