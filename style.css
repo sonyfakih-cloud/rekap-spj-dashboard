@@ -656,7 +656,11 @@ table.data.data-clickable tbody tr:hover td:nth-child(2){background:var(--accent
 .hub-logout:hover{background:linear-gradient(135deg, var(--accent2), var(--accent));color:#fff;transform:translateY(-1px);}
 
 .hub-menu-grid{
-  display:grid;grid-template-columns:repeat(3,1fr);gap:20px;
+  /* Dulu repeat(3,1fr) selagi cuma 3 modul (Belanja/Pendapatan/Gabungan).
+     Sekarang 4 modul (+ Perubahan Anggaran) -- repeat(2,1fr) dipilih supaya
+     jadi grid 2x2 yang rapi & seimbang, bukan 3 di baris pertama + 1 sendirian
+     di baris kedua. */
+  display:grid;grid-template-columns:repeat(2,1fr);gap:20px;
 }
 .hub-menu-card{
   background:linear-gradient(165deg, #ffffff 0%, #f6f9ff 100%);
@@ -668,6 +672,11 @@ table.data.data-clickable tbody tr:hover td:nth-child(2){background:var(--accent
   display:flex;flex-direction:column;align-items:flex-start;gap:10px;
   transition:transform .18s ease, box-shadow .18s ease;
   font-family:inherit;color:inherit;
+  /* .hub-menu-card sekarang juga dipakai di elemen <a> (kartu "Perubahan
+     Anggaran", link keluar) selain <button> (3 kartu modul internal) --
+     text-decoration:none supaya <a> tidak digarisbawahi otomatis. Tidak
+     berefek apa2 ke <button> yg memang tidak pernah digarisbawahi. */
+  text-decoration:none;
 }
 .hub-menu-card:hover{
   transform:translateY(-4px);

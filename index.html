@@ -28,7 +28,7 @@
      pengunjung yang sudah pernah buka situs ini masih bisa melihat versi lama (ini akar
      masalah "kok belum berubah" yang pernah dilaporkan). Setiap kali app.js/style.css
      diupdate, NAIKKAN angka v= di bawah supaya browser dipaksa ambil versi baru. -->
-<link rel="stylesheet" href="style.css?v=29">
+<link rel="stylesheet" href="style.css?v=30">
 <script src="chart.umd.min.js"></script>
 <script src="xlsx.full.min.js?v=8"></script>
 </head>
@@ -193,6 +193,24 @@
       <p>Ringkasan gabungan Pendapatan dan Belanja dalam satu tampilan.</p>
       <span class="hub-menu-status hub-status-ready">Tersedia</span>
     </button>
+
+    <!-- Modul ini BUKAN bagian dari dashboard SPJ ini -- link keluar ke situs
+         terpisah (repo lain, GitHub Pages sendiri, gerbang password sendiri).
+         Sengaja pakai tag <a> asli (bukan <button> + JS routing spt 3 modul
+         di atas) supaya perilakunya standar browser: buka tab baru, bisa
+         di-"buka di tab baru"/disalin link-nya lewat klik kanan, & tetap
+         jalan meski ada error di app.js. initHub() di app.js tetap boleh
+         memasang listener klik ke elemen ini (dipilih lewat class
+         .hub-menu-card, sama spt yg lain) -- tapi karena elemen ini sengaja
+         TIDAK diberi atribut data-hub, listener itu tidak menemukan cabang
+         yg cocok & tidak melakukan apa2, jadi tidak bentrok dgn navigasi
+         bawaan <a> ini. -->
+    <a href="https://sonyfakih-cloud.github.io/rba-dashboard-app/" target="_blank" rel="noopener noreferrer" class="hub-menu-card">
+      <div class="hub-menu-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></div>
+      <h3>Perubahan Anggaran</h3>
+      <p>Dashboard Usulan Rincian RBA Perubahan TA 2026 — situs terpisah, klik untuk membuka di tab baru.</p>
+      <span class="hub-menu-status hub-status-ready">Tersedia ↗</span>
+    </a>
   </div>
 
   <p class="footer-note">Copyright &copy; 2026, Sony Fakih</p>
