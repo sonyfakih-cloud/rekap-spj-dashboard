@@ -305,16 +305,47 @@ function buildAlignedRowTableHtml_(labels, data){
 // dgn begitu, sisa lebar tabel PERSIS sama dgn lebar chartArea, dan
 // table-layout:fixed (tanpa width eksplisit per kolom, lihat CSS
 // .range-detail-nolabel) otomatis membagi kolom itu RATA, sama seperti Chart.js
-// membagi rata bar kategori di area yg sama. Dipanggil ulang tiap chart
-// resize (lewat options.onResize) supaya tetap sejajar saat lebar layar
-// berubah (mis. buka/tutup sidebar, resize window).
+// membagi rata bar kategori di area yg sama. Dipanggil ulang otomatis tiap
+// chart selesai digambar (lewat plugin afterRender, lihat
+// alignDetailTablePlugin_ di bawah) supaya tetap sejajar saat lebar layar
+// berubah (mis. buka/tutup sidebar, resize window) maupun saat ukuran chart
+// dikoreksi sendiri oleh Chart.js setelah render pertama.
 function alignDetailTableToChartPlot_(chart, wrapEl){
   if(!chart || !wrapEl || !chart.chartArea || !chart.width) return;
   const w = chart.width;
+  if(!(w > 0)) return; // jaring pengaman: canvas belum benar-benar berukuran (lihat komentar plugin di bawah)
   const leftPct = (chart.chartArea.left / w) * 100;
   const rightPct = ((w - chart.chartArea.right) / w) * 100;
+  // jaring pengaman kedua: kalau hasil hitung tidak masuk akal (mis. baca ukuran
+  // canvas sementara/belum final -- lihat komentar alignDetailTablePlugin_),
+  // JANGAN diterapkan sama sekali drpd bikin tabel collapse/tumpang tindih --
+  // lebih aman tabel tetap rata penuh (tidak sejajar sempurna) drpd rusak total.
+  if(!(leftPct >= 0 && leftPct < 30) || !(rightPct >= 0 && rightPct < 30)) return;
   wrapEl.style.paddingLeft = leftPct.toFixed(2) + '%';
   wrapEl.style.paddingRight = rightPct.toFixed(2) + '%';
+}
+
+// PENTING (bug ditemukan live: tabel sejajar kadang cuma bergeser sedikit,
+// kadang malah COLLAPSE total/tulisan tumpang tindih -- beda-beda per chart).
+// Root cause: alignDetailTableToChartPlot_ sebelumnya dipanggil manual TEPAT
+// SETELAH `new Chart(...)` selesai -- padahal dgn `responsive:true`, Chart.js
+// baru menentukan ukuran CANVAS SEBENARNYA secara ASINKRON lewat
+// ResizeObserver (browser mengukur elemen induknya dulu di microtask/frame
+// berikutnya). Jadi chart.width/chartArea yg dibaca tepat setelah konstruksi
+// masih ukuran SEMENTARA/default (kadang sangat kecil, kadang beda-beda per
+// chart tergantung timing race-nya) -- itu sebabnya hasilnya tidak konsisten.
+// Perbaikan: pakai plugin dgn hook afterRender() bawaan Chart.js, yang selalu
+// dipanggil SETELAH chart selesai digambar dgn ukuran yg BENAR-BENAR final utk
+// render itu -- termasuk saat Chart.js mengoreksi ukurannya sendiri stlh
+// ResizeObserver pertama kali melapor (afterRender akan terpanggil lagi dgn
+// angka yg sudah benar). Ini otomatis menggantikan kombinasi lama
+// (onResize option + panggilan manual sekali di akhir), jadi kedua itu
+// dihapus dari pemanggilnya.
+function alignDetailTablePlugin_(wrapEl){
+  return {
+    id: 'alignDetailTable',
+    afterRender(chart){ alignDetailTableToChartPlot_(chart, wrapEl); }
+  };
 }
 
 function dedupTrenByPeriode_(rows, labelForLog){
@@ -1091,7 +1122,6 @@ function renderTrenSameMonthCompare(){
     options:{
       responsive:true, maintainAspectRatio:false,
       layout:{padding:{top:26}},
-      onResize: (chart)=> alignDetailTableToChartPlot_(chart, detailWrap),
       plugins:{
         legend:{display:false},
         tooltip:{callbacks:{label:c=> c.parsed.y===null ? 'Tidak ada data' : 'Rp ' + fmt(c.parsed.y)}}
@@ -1101,9 +1131,8 @@ function renderTrenSameMonthCompare(){
         x:{grid:{display:false}}
       }
     },
-    plugins:[barShadowPlugin, pctChangeBarPlugin]
+    plugins:[barShadowPlugin, pctChangeBarPlugin, alignDetailTablePlugin_(detailWrap)]
   });
-  alignDetailTableToChartPlot_(trenSameMonthChart, detailWrap);
 }
 
 // Dropdown/checkbox rentang & bulan-sama cukup dibangun sekali (biar pilihan
@@ -1326,7 +1355,6 @@ function renderTrenSameMonthCompareP(){
     options:{
       responsive:true, maintainAspectRatio:false,
       layout:{padding:{top:26}},
-      onResize: (chart)=> alignDetailTableToChartPlot_(chart, detailWrap),
       plugins:{
         legend:{display:false},
         tooltip:{callbacks:{label:c=> c.parsed.y===null ? 'Tidak ada data' : 'Rp ' + fmt(c.parsed.y)}}
@@ -1336,9 +1364,8 @@ function renderTrenSameMonthCompareP(){
         x:{grid:{display:false}}
       }
     },
-    plugins:[barShadowPlugin, pctChangeBarPlugin]
+    plugins:[barShadowPlugin, pctChangeBarPlugin, alignDetailTablePlugin_(detailWrap)]
   });
-  alignDetailTableToChartPlot_(trenSameMonthChartP, detailWrap);
 }
 
 let TREN_EXTRA_INITED_P_ = false;
