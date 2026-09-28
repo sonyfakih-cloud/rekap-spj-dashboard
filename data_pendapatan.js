@@ -60,217 +60,196 @@ const REKAP_DATA_PENDAPATAN = {
    "kode": "4",
    "nama": "PENDAPATAN DAERAH",
    "pagu": 67000000000,
-   "bulan_ini": 6839948078,
-   "sd_bulan_ini": 48258469737,
-   "persen": 72.03,
-   "sisa_pagu": 18741530263,
+   "bulan_ini": 6360346899,
+   "sd_bulan_ini": 60965427030,
+   "persen": 90.99,
+   "sisa_pagu": 6034572970,
    "breakdown": [
     {
      "kode": "4.1.02",
      "nama": "Retribusi Daerah",
      "pagu": 66830000000,
-     "bulan_ini": 6833656819,
-     "sd_bulan_ini": 47535111496,
-     "persen": 71.13
+     "bulan_ini": 6353855644,
+     "sd_bulan_ini": 60219447185,
+     "persen": 90.11
     },
     {
      "kode": "4.1.04",
      "nama": "Lain-lain PAD yang Sah",
      "pagu": 170000000,
-     "bulan_ini": 6291259,
-     "sd_bulan_ini": 723358241,
-     "persen": 425.5
+     "bulan_ini": 6491255,
+     "sd_bulan_ini": 745979845,
+     "persen": 438.81
     }
    ],
-   "label_bulan": "Jul"
+   "label_bulan": "Sep"
   }
  },
  "tren": [
   {
    "periode": "2024-01",
    "bulan_ini": 4749831349,
-   "sd_bulan_ini": 4749831349,
-   "pagu": 61500000000
+   "sd_bulan_ini": 4749831349
   },
   {
    "periode": "2024-02",
    "bulan_ini": 4443411967,
-   "sd_bulan_ini": 9193243316,
-   "pagu": 61500000000
+   "sd_bulan_ini": 9193243316
   },
   {
    "periode": "2024-03",
    "bulan_ini": 4712837284,
-   "sd_bulan_ini": 13906080600,
-   "pagu": 61500000000
+   "sd_bulan_ini": 13906080600
   },
   {
    "periode": "2024-04",
    "bulan_ini": 4851904558,
-   "sd_bulan_ini": 18757985158,
-   "pagu": 61500000000
+   "sd_bulan_ini": 18757985158
   },
   {
    "periode": "2024-05",
    "bulan_ini": 4384302886,
-   "sd_bulan_ini": 23142288044,
-   "pagu": 61500000000
+   "sd_bulan_ini": 23142288044
   },
   {
    "periode": "2024-06",
    "bulan_ini": 4956560016,
-   "sd_bulan_ini": 28098848060,
-   "pagu": 61500000000
+   "sd_bulan_ini": 28098848060
   },
   {
    "periode": "2024-07",
    "bulan_ini": 5653793630,
-   "sd_bulan_ini": 33752641690,
-   "pagu": 61500000000
+   "sd_bulan_ini": 33752641690
   },
   {
    "periode": "2024-08",
    "bulan_ini": 4619533962,
-   "sd_bulan_ini": 38372175652,
-   "pagu": 61500000000
+   "sd_bulan_ini": 38372175652
   },
   {
    "periode": "2024-09",
    "bulan_ini": 4744185231,
-   "sd_bulan_ini": 43116360883,
-   "pagu": 61500000000
+   "sd_bulan_ini": 43116360883
   },
   {
    "periode": "2024-10",
    "bulan_ini": 5919750536,
-   "sd_bulan_ini": 49036111419,
-   "pagu": 61500000000
+   "sd_bulan_ini": 49036111419
   },
   {
    "periode": "2024-11",
    "bulan_ini": 4996063336,
-   "sd_bulan_ini": 54032174755,
-   "pagu": 61500000000
+   "sd_bulan_ini": 54032174755
   },
   {
    "periode": "2024-12",
    "bulan_ini": 5663979206,
-   "sd_bulan_ini": 59696153961,
-   "pagu": 61500000000
+   "sd_bulan_ini": 59696153961
   },
   {
    "periode": "2025-01",
    "bulan_ini": 6088640507,
-   "sd_bulan_ini": 65784794468,
-   "pagu": 67000000000
+   "sd_bulan_ini": 6088640507
   },
   {
    "periode": "2025-02",
    "bulan_ini": 6416765901,
-   "sd_bulan_ini": 72201560369,
-   "pagu": 67000000000
+   "sd_bulan_ini": 12505406408
   },
   {
    "periode": "2025-03",
    "bulan_ini": 5798790510,
-   "sd_bulan_ini": 78000350879,
-   "pagu": 67000000000
+   "sd_bulan_ini": 18304196918
   },
   {
    "periode": "2025-04",
-   "bulan_ini": 24630068872,
-   "sd_bulan_ini": 102630419751,
-   "pagu": 67000000000
+   "bulan_ini": 6325871954,
+   "sd_bulan_ini": 24630068872
   },
   {
    "periode": "2025-05",
    "bulan_ini": 572424597,
-   "sd_bulan_ini": 103202844348,
-   "pagu": 67000000000
+   "sd_bulan_ini": 25202493469
   },
   {
    "periode": "2025-06",
    "bulan_ini": 5007946164,
-   "sd_bulan_ini": 108210790512,
-   "pagu": 67000000000
+   "sd_bulan_ini": 30210439633
   },
   {
    "periode": "2025-07",
    "bulan_ini": 5958186192,
-   "sd_bulan_ini": 114168976704,
-   "pagu": 67000000000
+   "sd_bulan_ini": 36168625825
   },
   {
    "periode": "2025-08",
    "bulan_ini": 6021637235,
-   "sd_bulan_ini": 120190613939,
-   "pagu": 67000000000
+   "sd_bulan_ini": 42190263060
   },
   {
    "periode": "2025-09",
    "bulan_ini": 10358111716,
-   "sd_bulan_ini": 130548725655,
-   "pagu": 67000000000
+   "sd_bulan_ini": 52548374776
   },
   {
    "periode": "2025-10",
    "bulan_ini": 7425445543,
-   "sd_bulan_ini": 137974171198,
-   "pagu": 67000000000
+   "sd_bulan_ini": 59973820319
   },
   {
    "periode": "2025-11",
    "bulan_ini": 6573977878,
-   "sd_bulan_ini": 144548149076,
-   "pagu": 67000000000
+   "sd_bulan_ini": 66547798197
   },
   {
    "periode": "2025-12",
    "bulan_ini": 6157244893,
-   "sd_bulan_ini": 150705393969,
-   "pagu": 67000000000
+   "sd_bulan_ini": 72705043090
   },
   {
    "periode": "2026-01",
-   "bulan_ini": 7258044816,
-   "sd_bulan_ini": 7258044816,
-   "pagu": 67000000000
+   "bulan_ini": 7307360382,
+   "sd_bulan_ini": 7307360382
   },
   {
    "periode": "2026-02",
    "bulan_ini": 6184128874,
-   "sd_bulan_ini": 13442173690,
-   "pagu": 67000000000
+   "sd_bulan_ini": 13491489256
   },
   {
    "periode": "2026-03",
    "bulan_ini": 6408590758,
-   "sd_bulan_ini": 19850764448,
-   "pagu": 67000000000
+   "sd_bulan_ini": 19900080014
   },
   {
    "periode": "2026-04",
    "bulan_ini": 5972120535,
-   "sd_bulan_ini": 25822884983,
-   "pagu": 67000000000
+   "sd_bulan_ini": 25872200549
   },
   {
    "periode": "2026-05",
    "bulan_ini": 8360684106,
-   "sd_bulan_ini": 34183569089,
-   "pagu": 67000000000
+   "sd_bulan_ini": 34232884655
   },
   {
    "periode": "2026-06",
    "bulan_ini": 7185637004,
-   "sd_bulan_ini": 41369206093,
-   "pagu": 67000000000
+   "sd_bulan_ini": 41418521659
   },
   {
    "periode": "2026-07",
    "bulan_ini": 6839948078,
-   "sd_bulan_ini": 48209154171,
-   "pagu": 67000000000
+   "sd_bulan_ini": 48258469737
+  },
+  {
+   "periode": "2026-08",
+   "bulan_ini": 6346610394,
+   "sd_bulan_ini": 54605080131
+  },
+  {
+   "periode": "2026-09",
+   "bulan_ini": 6360346899,
+   "sd_bulan_ini": 60965427030
   }
  ],
  "khusus": {
@@ -2300,6 +2279,6 @@ const REKAP_DATA_PENDAPATAN = {
   }
  },
  "meta": {
-  "generated": "10 Agustus 2026"
+  "generated": "28 September 2026"
  }
 };

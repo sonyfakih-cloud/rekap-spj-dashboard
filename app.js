@@ -589,6 +589,83 @@ function updateLiveBadge(){
 // jadi otomatis ikut maju ke Sep/Okt/.../Des 2026 begitu data live bertambah,
 // tanpa perlu ubah kode lagi.
 const MONTH_FULL_ = {Jan:'Januari',Feb:'Februari',Mar:'Maret',Apr:'April',Mei:'Mei',Jun:'Juni',Jul:'Juli',Ags:'Agustus',Sep:'September',Okt:'Oktober',Nov:'November',Des:'Desember'};
+
+// ================================================================
+// PEMOTONGAN KARTU RINGKASAN 2024/2025 KE BULAN ACUAN (apple-to-apple thd 2026)
+// ================================================================
+// Sebelumnya kartu "Ringkasan Bulan Ini & SD Bulan Ini" selalu menampilkan 2024
+// & 2025 SATU TAHUN PENUH (s.d Desember, krn memang sudah lewat), dibandingkan
+// bersebelahan dgn 2026 yang baru sebagian tahun (mis. s.d September) -- secara
+// visual mengesankan 2024/2025 "capaiannya lebih tinggi" padahal cuma krn
+// cakupan bulannya beda, bukan performa beda. Sekarang 2024 & 2025 dipotong ke
+// BULAN YANG SAMA dgn progres 2026 saat ini, supaya perbandingan adil.
+//
+// Bulan acuan diambil dari data bulanan (STATE.tren/STATE_P.tren) yang BENAR2
+// tersedia utk 2026 -- BUKAN dari tanggal kalender hari ini -- supaya kalau
+// sinkronisasi data sempat telat beberapa hari dari kalender, kartu tidak
+// "meleset" mengklaim ada data yang sebenarnya belum masuk. Begitu bulan baru
+// masuk ke 2026 (mis. sync menambah data Oktober), bulan acuan otomatis maju
+// tanpa perlu ubah kode lagi.
+//
+// CATATAN CAKUPAN (sengaja TIDAK diikutkan): rincian breakdown 2-3 kategori di
+// bawah ring % (mis. Belanja Pegawai/Barang&Jasa/Modal, atau Retribusi/Lain-lain
+// PAD) TIDAK ikut dipotong -- datanya cuma tersimpan sbg total SETAHUN PENUH per
+// kategori (tidak ada rincian bulanan per kategori), jadi memotongnya scr akurat
+// tidak mungkin dilakukan tanpa data tambahan. Cuma angka TOTAL (Pagu/Bulan Ini/
+// SD Bulan Ini/Sisa/ring %) yang dipotong presisi, krn itu satu2nya yg punya
+// deret bulanan lengkap (STATE.tren).
+const MONTH_ABBR_BY_NUM_ = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
+
+function findTrenRecord_(trenArr, year, monthNum){
+  const periode = `${year}-${String(monthNum).padStart(2,'0')}`;
+  return (trenArr||[]).find(r=>r.periode===periode) || null;
+}
+
+// Bulan acuan (angka 1-12) = bulan TERAKHIR yang datanya benar2 ada di tahun
+// 2026 pada deret STATE.tren/STATE_P.tren yang diberikan. null kalau 2026 belum
+// punya data sama sekali (jaring pengaman awal tahun).
+function refMonthFromTren_(trenArr){
+  const latest2026 = (trenArr||[])
+    .map(r=>r.periode)
+    .filter(p=>p && p.startsWith('2026-'))
+    .sort()
+    .pop();
+  if(!latest2026) return null;
+  return parseInt(latest2026.split('-')[1], 10);
+}
+
+// Hitung ulang {pagu,bulan_ini,sd_bulan_ini,sisa,persen,label_bulan} utk SATU
+// tahun, dipotong ke `refMonth`. `pagu` tidak berubah (plafon setahun penuh,
+// bukan prorata). Kalau data bulan acuan tidak ketemu di tahun itu (seharusnya
+// tidak pernah terjadi utk 2024/2025 krn sudah lengkap 12 bulan), balikin null
+// supaya pemanggil fallback ke total setahun penuh apa adanya (kartu tidak
+// pernah kosong/error).
+//
+// JARING PENGAMAN DATA (ditemukan saat verifikasi fitur ini, lihat catatan di
+// app.js/README/percakapan): `fullYearSd` = total kumulatif SETAHUN PENUH yang
+// resmi (dari ringkasan[year], BUKAN dari deret tren). Kumulatif s.d bulan
+// manapun TIDAK MUNGKIN secara matematis melebihi kumulatif setahun penuh --
+// kalau itu terjadi, berarti deret bulanan (tren) tahun itu korup/tidak sinkron
+// dgn ringkasan resminya (pernah ketemu kasus nyata: tren Pendapatan 2025
+// berakhir di ~Rp150,7 M padahal ringkasan resminya cuma ~Rp72,7 M). Daripada
+// menampilkan angka yang jelas mustahil, fallback ke null (kartu tampil total
+// setahun penuh spt sebelumnya) sampai data sumbernya diperbaiki.
+function cutoffRingkasanForYear_(trenArr, year, refMonth, pagu, fullYearSd){
+  if(!refMonth) return null;
+  const rec = findTrenRecord_(trenArr, year, refMonth);
+  if(!rec) return null;
+  const sd = rec.sd_bulan_ini;
+  if(typeof fullYearSd === 'number' && sd > fullYearSd){
+    console.warn(`cutoffRingkasanForYear_: data tren ${year} tidak konsisten (s.d bulan ${refMonth} = ${sd} > total setahun penuh ${fullYearSd}) -- fallback ke total setahun penuh.`);
+    return null;
+  }
+  const persen = pagu ? (sd/pagu*100) : 0;
+  return {
+    pagu, bulan_ini: rec.bulan_ini, sd_bulan_ini: sd,
+    sisa: pagu - sd, persen,
+    label_bulan: MONTH_ABBR_BY_NUM_[refMonth-1]
+  };
+}
 function updateRingkasanPeriodeLabel_(){
   const el = document.getElementById('ringkasanPeriodeLabel');
   if(!el) return;
@@ -605,15 +682,22 @@ function renderRingkasan(){
   updateRingkasanPeriodeLabel_();
   const wrap = $('#view-ringkasan .kpi-row');
   wrap.innerHTML = '';
+  const refMonth = refMonthFromTren_(STATE.tren);
   ['2024','2025','2026'].forEach(y=>{
     const d = STATE.ringkasan[y];
     if(!d || !d.total){ return; }
-    const t = d.total;
+    // 2024 & 2025 sudah tahun penuh -- potong ke bulan acuan yang sama dgn
+    // progres 2026 saat ini supaya adil (apple-to-apple). 2026 sendiri
+    // dibiarkan apa adanya. Fallback ke total setahun penuh kalau data bulan
+    // acuan somehow tidak ketemu (lihat cutoffRingkasanForYear_).
+    const cutoff = y === '2026' ? null : cutoffRingkasanForYear_(STATE.tren, y, refMonth, d.total.pagu, d.total.sd_bulan_ini);
+    const t = cutoff || d.total;
+    const labelBulan = cutoff ? cutoff.label_bulan : d.label_bulan;
     const pct = t.persen || 0;
     const card = document.createElement('div');
     card.className = 'kpi-card';
     card.innerHTML = `
-      <div class="kpi-year"><b>Tahun ${y}</b><small>s.d ${d.label_bulan||''}</small></div>
+      <div class="kpi-year"><b>Tahun ${y}</b><small>s.d ${labelBulan||''}</small></div>
       <div class="kpi-ring" style="--pct:${Math.min(pct,100)}"><span>${pct.toFixed(1)}%</span></div>
       <div class="kpi-stats">
         <div><span>Pagu Anggaran</span><b>Rp ${fmt(t.pagu)}</b></div>
@@ -3055,10 +3139,20 @@ function renderRingkasanPendapatan(){
   const wrap = $('#kpiRowP');
   if(!wrap) return;
   wrap.innerHTML = '';
+  const refMonth = refMonthFromTren_(STATE_P.tren);
   ['2024','2025','2026'].forEach(y=>{
     const d = STATE_P.ringkasan[y];
     if(!d || d.pagu === undefined){ return; }
-    const pct = d.persen || 0;
+    // Sama seperti renderRingkasan() (modul Belanja): 2024 & 2025 dipotong ke
+    // bulan acuan yang sama dgn progres 2026 saat ini, supaya kartu total
+    // (Pagu/Bulan Ini/SD Bulan Ini/Sisa/ring %) adil dibandingkan. Rincian
+    // breakdown Retribusi/Lain-lain PAD di bawah TETAP setahun penuh (lihat
+    // catatan cakupan di cutoffRingkasanForYear_) -- datanya tidak tersedia
+    // per bulan per kategori.
+    const cutoff = y === '2026' ? null : cutoffRingkasanForYear_(STATE_P.tren, y, refMonth, d.pagu, d.sd_bulan_ini);
+    const t = cutoff || { pagu: d.pagu, bulan_ini: d.bulan_ini, sd_bulan_ini: d.sd_bulan_ini, sisa: d.sisa_pagu, persen: d.persen };
+    const labelBulan = cutoff ? cutoff.label_bulan : d.label_bulan;
+    const pct = t.persen || 0;
     const breakdown = d.breakdown || [];
     const segments = breakdown.map(b=>{
       const key = /4\.1\.02/.test(b.kode) ? 'retribusi' : 'blud';
@@ -3082,13 +3176,13 @@ function renderRingkasanPendapatan(){
     const card = document.createElement('div');
     card.className = 'kpi-card';
     card.innerHTML = `
-      <div class="kpi-year"><b>Tahun ${y}</b><small>s.d ${d.label_bulan||''}</small></div>
+      <div class="kpi-year"><b>Tahun ${y}</b><small>s.d ${labelBulan||''}</small></div>
       <div class="kpi-ring" style="--pct:${Math.min(pct,100)}"><span>${pct.toFixed(1)}%</span></div>
       <div class="kpi-stats">
-        <div><span>Target Pendapatan</span><b>Rp ${fmt(d.pagu)}</b></div>
-        <div><span>Pendapatan Bulan Ini</span><b>Rp ${fmt(d.bulan_ini)}</b></div>
-        <div><span>Pendapatan s.d Bulan Ini</span><b>Rp ${fmt(d.sd_bulan_ini)}</b></div>
-        <div><span>Sisa Target</span><b>Rp ${fmt(d.sisa_pagu)}</b></div>
+        <div><span>Target Pendapatan</span><b>Rp ${fmt(t.pagu)}</b></div>
+        <div><span>Pendapatan Bulan Ini</span><b>Rp ${fmt(t.bulan_ini)}</b></div>
+        <div><span>Pendapatan s.d Bulan Ini</span><b>Rp ${fmt(t.sd_bulan_ini)}</b></div>
+        <div><span>Sisa Target</span><b>Rp ${fmt(t.sisa)}</b></div>
       </div>
       ${donutHtml}
     `;
