@@ -3239,7 +3239,6 @@ function showPendapatanApp(){
   $('#appRoot').style.display = 'none';
   $('#appRootPendapatan').style.display = 'flex';
   const rootG_ = $('#appRootGabungan'); if(rootG_) rootG_.style.display = 'none';
-  const rootPA_ = $('#appRootPerubahan'); if(rootPA_) rootPA_.style.display = 'none';
 }
 
 /* ---------------- Nav ---------------- */
@@ -3318,7 +3317,6 @@ function showHub(){
   $('#appRoot').style.display = 'none';
   $('#appRootPendapatan').style.display = 'none';
   const rootG_ = $('#appRootGabungan'); if(rootG_) rootG_.style.display = 'none';
-  const rootPA_ = $('#appRootPerubahan'); if(rootPA_) rootPA_.style.display = 'none';
 }
 
 function showComingSoon(title, desc){
@@ -3329,7 +3327,6 @@ function showComingSoon(title, desc){
   $('#appRoot').style.display = 'none';
   $('#appRootPendapatan').style.display = 'none';
   const rootG_ = $('#appRootGabungan'); if(rootG_) rootG_.style.display = 'none';
-  const rootPA_ = $('#appRootPerubahan'); if(rootPA_) rootPA_.style.display = 'none';
 }
 
 function showBelanjaApp(){
@@ -3338,7 +3335,6 @@ function showBelanjaApp(){
   $('#appRoot').style.display = 'flex';
   $('#appRootPendapatan').style.display = 'none';
   const rootG_ = $('#appRootGabungan'); if(rootG_) rootG_.style.display = 'none';
-  const rootPA_ = $('#appRootPerubahan'); if(rootPA_) rootPA_.style.display = 'none';
 }
 
 // Modul Gabungan tidak punya sumber data sendiri -- cuma menggabungkan STATE.tren
@@ -3375,7 +3371,6 @@ function showGabunganApp(){
   $('#appRoot').style.display = 'none';
   $('#appRootPendapatan').style.display = 'none';
   $('#appRootGabungan').style.display = 'flex';
-  const rootPA_ = $('#appRootPerubahan'); if(rootPA_) rootPA_.style.display = 'none';
   showViewG(GABUNGAN_LAST_VIEW_);
 }
 
@@ -3439,8 +3434,6 @@ function initHub(){
         showPendapatanApp();
       } else if(target === 'gabungan'){
         showGabunganApp();
-      } else if(target === 'perubahan-anggaran'){
-        showPerubahanApp();
       }
     });
   });
@@ -3452,8 +3445,6 @@ function initHub(){
   if(homeP) homeP.addEventListener('click', showHub);
   const homeG = $('#btnHomeMenuG');
   if(homeG) homeG.addEventListener('click', showHub);
-  const homePA = $('#btnHomeMenuPA');
-  if(homePA) homePA.addEventListener('click', showHub);
 }
 
 /* ================================================================
@@ -4222,466 +4213,6 @@ function refreshGabunganIfVisible_(){
   renderActiveGabunganView_();
 }
 
-/* ================================================================
-   MODUL PERUBAHAN ANGGARAN (Usulan Rincian RBA Perubahan TA 2026)
-   ================================================================
-   Diambil & digabungkan dari repo terpisah rba-dashboard-app atas
-   permintaan user, supaya modul ini MENYATU dgn dashboard (tanpa
-   gerbang password sendiri -- cukup satu gerbang password situs ini,
-   lihat auth.js -- dan ada tombol Menu Utama utk kembali).
-
-   POLA RENDER SENGAJA DIBUAT LAZY (sama persis dgn alasan modul
-   Gabungan di atas, lihat komentar panjang di showGabunganApp()):
-   #appRootPerubahan defaultnya display:flex secara CSS (.app{display:
-   flex}), tapi auth.js MENYEMBUNYIKANNYA (display:none) di listener
-   DOMContentLoaded miliknya sendiri -- yg terdaftar & jalan LEBIH DULU
-   drpd listener DOMContentLoaded milik main() di app.js (lihat urutan
-   <script> di index.html: auth.js dimuat sblm app.js). Jadi kalau
-   render (termasuk Chart.js) dipanggil dari main() scr langsung,
-   canvas-nya akan dibuat saat container MASIH display:none -> ukuran
-   0x0 -> grafik kosong/gepeng (persis bug yg sudah pernah terjadi &
-   didokumentasikan di modul Gabungan). Solusinya sama: data dimuat
-   (murah, bukan canvas) boleh kapan saja, tapi renderChartsPA() /
-   renderAllPA() BARU dipanggil pertama kali saat showPerubahanApp()
-   benar2 menampilkan container-nya (display:flex dulu, baru render).
-   ================================================================ */
-let STATE_PA = {
-  items: [], rekening: [],
-  activeBidang: 'ALL', search: '', filterRekening: 'ALL',
-  sortCol: 'total', sortDir: 'desc',
-  page: 1, pageSize: 25,
-  dataSource: 'seed', lastSyncAt: null, sheetUrls: {}
-};
-let chartRekeningPA = null;
-let chartBidangPA = null;
-let PA_INITED_ = false;
-
-const BIDANG_ORDER_PA = ['P3A', 'SARPRAS', 'PELAYANAN KEPERAWATAN'];
-const BIDANG_LABELS_PA = {
-  'P3A': 'P3A (Program, Perencanaan, Pendapatan & Anggaran)',
-  'SARPRAS': 'Sarana & Prasarana',
-  'PELAYANAN KEPERAWATAN': 'Pelayanan Keperawatan'
-};
-const BIDANG_ICON_PA = { 'P3A':'🩺', 'SARPRAS':'🏗️', 'PELAYANAN KEPERAWATAN':'🩹' };
-
-function escHtmlPA_(s){
-  if(s===null || s===undefined) return '';
-  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-
-function loadSeedDataPA_(){
-  STATE_PA.items = RBA_ITEMS_SEED.slice();
-  STATE_PA.rekening = RBA_REKENING_SEED.slice();
-}
-
-function toastPA_(msg, isError){
-  const t = $('#toastPA');
-  if(!t) return;
-  t.textContent = msg;
-  t.className = 'pa-toast show' + (isError ? ' error' : '');
-  clearTimeout(t._timer);
-  t._timer = setTimeout(()=>{ t.className = 'pa-toast'; }, 3500);
-}
-
-function scopedItemsPA(bidang){
-  if(!bidang || bidang === 'ALL') return STATE_PA.items;
-  return STATE_PA.items.filter(it=>it.bidang===bidang);
-}
-
-function getFilteredSortedPA(){
-  let data = scopedItemsPA(STATE_PA.activeBidang);
-  if(STATE_PA.filterRekening !== 'ALL'){
-    data = data.filter(it=>it.kodeRekening === STATE_PA.filterRekening);
-  }
-  if(STATE_PA.search.trim()){
-    const q = STATE_PA.search.trim().toLowerCase();
-    data = data.filter(it=>
-      (it.rincianBelanja && it.rincianBelanja.toLowerCase().includes(q)) ||
-      (it.spesifikasi && it.spesifikasi.toLowerCase().includes(q)) ||
-      (it.kodeRekening && it.kodeRekening.toLowerCase().includes(q)) ||
-      (it.rekeningBelanja && it.rekeningBelanja.toLowerCase().includes(q)) ||
-      (it.keterangan && it.keterangan.toLowerCase().includes(q)) ||
-      (it.bidang && it.bidang.toLowerCase().includes(q))
-    );
-  }
-  const dir = STATE_PA.sortDir === 'asc' ? 1 : -1;
-  const col = STATE_PA.sortCol;
-  data = data.slice().sort((a,b)=>{
-    let va = a[col], vb = b[col];
-    if(typeof va === 'string' || typeof vb === 'string'){
-      va = (va||'').toString().toLowerCase();
-      vb = (vb||'').toString().toLowerCase();
-      if(va<vb) return -1*dir;
-      if(va>vb) return 1*dir;
-      return 0;
-    }
-    va = va||0; vb = vb||0;
-    return (va-vb)*dir;
-  });
-  return data;
-}
-
-function renderBidangCardsPA(){
-  const wrap = $('#bidangCardsPA');
-  if(!wrap) return;
-  wrap.innerHTML = '';
-  BIDANG_ORDER_PA.forEach(b=>{
-    const items = scopedItemsPA(b);
-    const total = items.reduce((s,it)=>s+(it.total||0),0);
-    const rekCount = new Set(items.map(it=>it.kodeRekening)).size;
-    const sheetUrl = STATE_PA.sheetUrls[b];
-    const card = document.createElement('div');
-    card.className = 'pa-bidang-card' + (STATE_PA.activeBidang===b ? ' active' : '');
-    card.innerHTML = `
-      <button type="button" class="pa-bidang-card-main">
-        <div class="pa-bidang-card-icon">${BIDANG_ICON_PA[b]||'📁'}</div>
-        <div class="pa-bidang-card-title">${escHtmlPA_(b)}</div>
-        <div class="pa-bidang-card-sub">${escHtmlPA_(BIDANG_LABELS_PA[b]||'')}</div>
-        <div class="pa-bidang-card-total">Rp ${fmt(total)}</div>
-        <div class="pa-bidang-card-meta">${rekCount} kode rekening &middot; ${items.length} item usulan</div>
-      </button>
-      ${sheetUrl ? `<button type="button" class="pa-btn pa-btn-sm pa-input-data-btn">✏️ Input Data ${escHtmlPA_(b)}</button>` : ''}
-    `;
-    card.querySelector('.pa-bidang-card-main').addEventListener('click', ()=>setActiveBidangPA(b));
-    const inputBtn = card.querySelector('.pa-input-data-btn');
-    if(inputBtn){
-      inputBtn.addEventListener('click', (e)=>{
-        e.stopPropagation();
-        window.open(sheetUrl, '_blank', 'noopener');
-      });
-    }
-    wrap.appendChild(card);
-  });
-}
-
-function setActiveBidangPA(b){
-  STATE_PA.activeBidang = b;
-  STATE_PA.filterRekening = 'ALL';
-  STATE_PA.page = 1;
-  $$('.pa-tab-btn').forEach(btn=>{
-    btn.classList.toggle('active', btn.dataset.bidang === b);
-  });
-  renderBidangCardsPA();
-  renderSummaryPA();
-  renderRekeningFilterOptionsPA();
-  renderChartsPA();
-  renderTablePA();
-}
-
-function renderSummaryPA(){
-  const items = scopedItemsPA(STATE_PA.activeBidang);
-  const total = items.reduce((s,it)=>s+(it.total||0),0);
-  const rekCount = new Set(items.map(it=>it.kodeRekening)).size;
-  const rata = items.length ? total/items.length : 0;
-  const scopeLabel = $('#summaryScopeLabelPA'); if(scopeLabel) scopeLabel.textContent = STATE_PA.activeBidang==='ALL' ? 'Semua Bidang' : STATE_PA.activeBidang;
-  const elTotal = $('#sumTotalPA'); if(elTotal) elTotal.textContent = 'Rp ' + fmt(total);
-  const elRek = $('#sumRekeningPA'); if(elRek) elRek.textContent = fmt(rekCount);
-  const elItem = $('#sumItemPA'); if(elItem) elItem.textContent = fmt(items.length);
-  const elRata = $('#sumRataPA'); if(elRata) elRata.textContent = 'Rp ' + fmt(rata);
-}
-
-function renderRekeningFilterOptionsPA(){
-  const sel = $('#filterRekeningPA');
-  if(!sel) return;
-  const items = scopedItemsPA(STATE_PA.activeBidang);
-  const map = new Map();
-  items.forEach(it=>{ if(it.kodeRekening) map.set(it.kodeRekening, it.rekeningBelanja||it.kodeRekening); });
-  const opts = Array.from(map.entries()).sort((a,b)=>a[1].localeCompare(b[1]));
-  sel.innerHTML = '<option value="ALL">Semua Kode Rekening</option>' +
-    opts.map(([kode,nama])=>`<option value="${escHtmlPA_(kode)}">${escHtmlPA_(nama)} (${escHtmlPA_(kode)})</option>`).join('');
-  sel.value = STATE_PA.filterRekening;
-}
-
-function chartColorsPA_(n){
-  const palette = ['#84AAF3','#63CAD3','#ABC6FF','#6FC28F','#E3B360','#8C99EB','#A9BAC7','#F4BA84','#7fa88e','#94a9be'];
-  const out=[]; for(let i=0;i<n;i++) out.push(palette[i%palette.length]); return out;
-}
-
-function renderChartsPA(){
-  if(typeof Chart === 'undefined') return;
-  const items = scopedItemsPA(STATE_PA.activeBidang);
-  const byRek = new Map();
-  items.forEach(it=>{
-    const key = it.rekeningBelanja || it.kodeRekening || '(tanpa nama)';
-    byRek.set(key, (byRek.get(key)||0) + (it.total||0));
-  });
-  const top10 = Array.from(byRek.entries()).sort((a,b)=>b[1]-a[1]).slice(0,10);
-
-  const canvas1 = $('#chartRekeningPA');
-  if(canvas1){
-    const ctx1 = canvas1.getContext('2d');
-    if(chartRekeningPA) chartRekeningPA.destroy();
-    chartRekeningPA = new Chart(ctx1, {
-      type:'bar',
-      data:{
-        labels: top10.map(([k])=> k.length>28 ? k.slice(0,26)+'…' : k),
-        datasets:[{ label:'Total Usulan (Rp)', data: top10.map(([,v])=>v), backgroundColor: chartColorsPA_(top10.length), borderRadius:8 }]
-      },
-      options:{
-        indexAxis:'y', responsive:true, maintainAspectRatio:false,
-        plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:c=>'Rp '+fmt(c.parsed.x) } } },
-        scales:{
-          x:{ grid:{color:CHART_GRID_()}, ticks:{ color:CHART_TEXT_(), callback:v=>(v>=1e9?(v/1e9)+'M':v>=1e6?(v/1e6)+'jt':v) } },
-          y:{ grid:{display:false}, ticks:{ color:CHART_TEXT_() } }
-        }
-      }
-    });
-  }
-
-  const canvas2 = $('#chartBidangPA');
-  if(canvas2){
-    const ctx2 = canvas2.getContext('2d');
-    if(chartBidangPA) chartBidangPA.destroy();
-    if(STATE_PA.activeBidang === 'ALL'){
-      const byB = BIDANG_ORDER_PA.map(b=>{
-        const t = scopedItemsPA(b).reduce((s,it)=>s+(it.total||0),0);
-        return [b,t];
-      });
-      const t2 = $('#chart2TitlePA'); if(t2) t2.textContent = 'Perbandingan Total Usulan per Bidang';
-      chartBidangPA = new Chart(ctx2, {
-        type:'doughnut',
-        data:{ labels: byB.map(([k])=>k), datasets:[{ data: byB.map(([,v])=>v), backgroundColor: chartColorsPA_(byB.length) }] },
-        options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{labels:{color:CHART_TEXT_()}}, tooltip:{ callbacks:{ label:c=>`${c.label}: Rp ${fmt(c.parsed)}` } } } }
-      });
-    } else {
-      const sorted = Array.from(byRek.entries()).sort((a,b)=>b[1]-a[1]);
-      const top8 = sorted.slice(0,8);
-      const lainnya = sorted.slice(8).reduce((s,[,v])=>s+v,0);
-      const labels = top8.map(([k])=> k.length>20 ? k.slice(0,18)+'…' : k);
-      const data = top8.map(([,v])=>v);
-      if(lainnya>0){ labels.push('Lainnya'); data.push(lainnya); }
-      const t2 = $('#chart2TitlePA'); if(t2) t2.textContent = 'Proporsi Anggaran per Kode Rekening';
-      chartBidangPA = new Chart(ctx2, {
-        type:'doughnut',
-        data:{ labels, datasets:[{ data, backgroundColor: chartColorsPA_(labels.length) }] },
-        options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{labels:{color:CHART_TEXT_()}}, tooltip:{ callbacks:{ label:c=>`${c.label}: Rp ${fmt(c.parsed)}` } } } }
-      });
-    }
-  }
-}
-
-function renderTablePA(){
-  const data = getFilteredSortedPA();
-  const total = data.length;
-  const totalPages = Math.max(1, Math.ceil(total/STATE_PA.pageSize));
-  if(STATE_PA.page > totalPages) STATE_PA.page = totalPages;
-  const start = (STATE_PA.page-1)*STATE_PA.pageSize;
-  const pageData = data.slice(start, start+STATE_PA.pageSize);
-
-  const showBidangCol = STATE_PA.activeBidang === 'ALL';
-  const tbl = $('#dataTablePA');
-  if(tbl) tbl.classList.toggle('pa-hide-bidang-col', !showBidangCol);
-
-  const tbody = $('#tableBodyPA');
-  if(!tbody) return;
-  if(!pageData.length){
-    tbody.innerHTML = `<tr><td colspan="12" class="pa-empty-state">Tidak ada data yang cocok dengan pencarian/filter.</td></tr>`;
-  } else {
-    tbody.innerHTML = pageData.map((it,i)=>`
-      <tr>
-        <td>${start+i+1}</td>
-        <td class="pa-col-bidang">${escHtmlPA_(it.bidang)}</td>
-        <td class="pa-mono">${escHtmlPA_(it.kodeRekening)}</td>
-        <td>${escHtmlPA_(it.rekeningBelanja)}</td>
-        <td>${escHtmlPA_(it.rincianBelanja) || '<span class="pa-muted">-</span>'}</td>
-        <td>${escHtmlPA_(it.spesifikasi) || '<span class="pa-muted">-</span>'}</td>
-        <td class="pa-num">${it.jumlah!==null && it.jumlah!==undefined ? fmt(it.jumlah) : '-'}</td>
-        <td>${escHtmlPA_(it.satuan) || '-'}</td>
-        <td class="pa-num">${it.hargaSatuan!==null && it.hargaSatuan!==undefined ? 'Rp '+fmt(it.hargaSatuan) : '-'}</td>
-        <td class="pa-num pa-total-cell">Rp ${fmt(it.total)}</td>
-        <td>${escHtmlPA_(it.prioritas) || '-'}</td>
-        <td>${escHtmlPA_(it.keterangan) || '-'}</td>
-      </tr>
-    `).join('');
-  }
-  const info = $('#tableInfoPA');
-  if(info) info.textContent = total ? `Menampilkan ${start+1}-${Math.min(start+STATE_PA.pageSize,total)} dari ${fmt(total)} baris` : 'Tidak ada baris';
-
-  renderPaginationPA(totalPages);
-}
-
-function renderPaginationPA(totalPages){
-  const wrap = $('#paginationPA');
-  if(!wrap) return;
-  wrap.innerHTML = '';
-  const mkBtn = (label, page, disabled, active)=>{
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.textContent = label;
-    b.className = 'pa-page-btn' + (active?' active':'');
-    b.disabled = disabled;
-    b.addEventListener('click', ()=>{ STATE_PA.page = page; renderTablePA(); });
-    return b;
-  };
-  wrap.appendChild(mkBtn('«', 1, STATE_PA.page===1, false));
-  wrap.appendChild(mkBtn('‹', Math.max(1,STATE_PA.page-1), STATE_PA.page===1, false));
-  const windowSize = 5;
-  let startP = Math.max(1, STATE_PA.page - Math.floor(windowSize/2));
-  let endP = Math.min(totalPages, startP+windowSize-1);
-  startP = Math.max(1, endP-windowSize+1);
-  for(let p=startP; p<=endP; p++){
-    wrap.appendChild(mkBtn(String(p), p, false, p===STATE_PA.page));
-  }
-  wrap.appendChild(mkBtn('›', Math.min(totalPages,STATE_PA.page+1), STATE_PA.page===totalPages, false));
-  wrap.appendChild(mkBtn('»', totalPages, STATE_PA.page===totalPages, false));
-}
-
-function bindSortHeadersPA(){
-  $$('#dataTablePA thead th[data-col]').forEach(th=>{
-    th.addEventListener('click', ()=>{
-      const col = th.dataset.col;
-      if(STATE_PA.sortCol === col){ STATE_PA.sortDir = STATE_PA.sortDir==='asc'?'desc':'asc'; }
-      else { STATE_PA.sortCol = col; STATE_PA.sortDir = 'desc'; }
-      $$('#dataTablePA thead th[data-col]').forEach(h=>h.classList.remove('pa-sort-asc','pa-sort-desc'));
-      th.classList.add(STATE_PA.sortDir==='asc' ? 'pa-sort-asc' : 'pa-sort-desc');
-      STATE_PA.page = 1;
-      renderTablePA();
-    });
-  });
-}
-
-function currentExportRowsPA_(){
-  return getFilteredSortedPA().map((it,i)=>({
-    'No': i+1, 'Bidang': it.bidang, 'Kode Rekening': it.kodeRekening,
-    'Rekening Belanja': it.rekeningBelanja, 'Rincian Belanja': it.rincianBelanja,
-    'Spesifikasi': it.spesifikasi, 'Jumlah': it.jumlah, 'Satuan': it.satuan,
-    'Harga Satuan': it.hargaSatuan, 'Total': it.total, 'TKDN %': it.tkdn,
-    'Prioritas': it.prioritas, 'Keterangan': it.keterangan
-  }));
-}
-
-function dateStampPA_(){
-  const d = new Date();
-  return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
-}
-
-function exportExcelPA(){
-  if(typeof XLSX === 'undefined'){ toastPA_('Pustaka Excel belum termuat.', true); return; }
-  const rows = currentExportRowsPA_();
-  if(!rows.length){ toastPA_('Tidak ada data untuk diekspor.', true); return; }
-  const ws = XLSX.utils.json_to_sheet(rows);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'RBA Rincian');
-  const label = STATE_PA.activeBidang==='ALL' ? 'SemuaBidang' : STATE_PA.activeBidang.replace(/\s+/g,'');
-  XLSX.writeFile(wb, `Usulan_Rincian_RBA_${label}_${dateStampPA_()}.xlsx`);
-  toastPA_('Excel berhasil diunduh.');
-}
-
-function exportCSVPA(){
-  if(typeof XLSX === 'undefined'){ toastPA_('Pustaka Excel belum termuat.', true); return; }
-  const rows = currentExportRowsPA_();
-  if(!rows.length){ toastPA_('Tidak ada data untuk diekspor.', true); return; }
-  const ws = XLSX.utils.json_to_sheet(rows);
-  const csv = XLSX.utils.sheet_to_csv(ws);
-  const blob = new Blob(['﻿'+csv], { type:'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  const label = STATE_PA.activeBidang==='ALL' ? 'SemuaBidang' : STATE_PA.activeBidang.replace(/\s+/g,'');
-  a.href = url; a.download = `Usulan_Rincian_RBA_${label}_${dateStampPA_()}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-  toastPA_('CSV berhasil diunduh.');
-}
-
-function printTablePA(){ window.print(); }
-
-function updateSourceBadgePA_(){
-  const el = $('#sourceBadgePA');
-  if(!el) return;
-  if(STATE_PA.dataSource === 'live'){
-    el.innerHTML = `<span class="live-dot"></span>Data live dari Google Sheets` + (STATE_PA.lastSyncAt ? ' · '+STATE_PA.lastSyncAt.toLocaleString('id-ID',{dateStyle:'medium',timeStyle:'short'}) : '');
-  } else {
-    el.innerHTML = `<span class="live-dot off"></span>Data bawaan (snapshot)`;
-  }
-}
-
-function renderAllPA(){
-  renderBidangCardsPA();
-  renderSummaryPA();
-  renderRekeningFilterOptionsPA();
-  renderChartsPA();
-  renderTablePA();
-}
-
-function fetchLiveDataPA_(silent){
-  return new Promise((resolve)=>{
-    const url = (typeof window.APPS_SCRIPT_URL_PA !== 'undefined') ? window.APPS_SCRIPT_URL_PA : '';
-    if(!url){ resolve(false); return; }
-    fetch(url, { method:'GET' })
-      .then(res=>{ if(!res.ok) throw new Error('HTTP '+res.status); return res.json(); })
-      .then(data=>{
-        if(!data || data.ok === false) throw new Error((data&&data.error)||'Respons tidak valid');
-        if(!Array.isArray(data.items) || !data.items.length) throw new Error('Tidak ada data item dari Sheets.');
-        STATE_PA.items = data.items;
-        STATE_PA.rekening = data.rekening || [];
-        STATE_PA.dataSource = 'live';
-        STATE_PA.lastSyncAt = new Date();
-        STATE_PA.page = 1;
-        if(Array.isArray(data.filesFound)){
-          data.filesFound.forEach(f=>{ if(f.bidang && f.url) STATE_PA.sheetUrls[f.bidang] = f.url; });
-        }
-        updateSourceBadgePA_();
-        renderAllPA();
-        if(!silent) toastPA_(`Sync berhasil: ${data.items.length} item dari Google Sheets.`);
-        resolve(true);
-      })
-      .catch(err=>{
-        updateSourceBadgePA_();
-        if(!silent) toastPA_('Gagal sync dari Google Sheets: '+err.message, true);
-        resolve(false);
-      });
-  });
-}
-
-async function syncPerubahan_(){
-  const btns = [$('#btnRefreshPA'), $('#btnSyncPA')].filter(Boolean);
-  btns.forEach(b=>{
-    b.disabled = true;
-    if(b.id === 'btnSyncPA'){ b.dataset.origText = b.dataset.origText || b.textContent; b.textContent = 'Menyinkron...'; }
-  });
-  try{
-    await fetchLiveDataPA_(false);
-  } finally {
-    btns.forEach(b=>{
-      b.disabled = false;
-      if(b.id === 'btnSyncPA') b.textContent = b.dataset.origText;
-    });
-  }
-}
-
-function showPerubahanApp(){
-  $('#hubScreen').style.display = 'none';
-  $('#comingSoonScreen').style.display = 'none';
-  $('#appRoot').style.display = 'none';
-  $('#appRootPendapatan').style.display = 'none';
-  const rootG_ = $('#appRootGabungan'); if(rootG_) rootG_.style.display = 'none';
-  $('#appRootPerubahan').style.display = 'flex';
-  if(!PA_INITED_){
-    PA_INITED_ = true;
-    loadSeedDataPA_();
-    const lu = $('#lastUpdatedPA'); if(lu) lu.textContent = new Date().toLocaleString('id-ID', {dateStyle:'long', timeStyle:'short'});
-    updateSourceBadgePA_();
-    bindSortHeadersPA();
-    $$('.pa-tab-btn').forEach(btn=>{
-      btn.addEventListener('click', ()=>setActiveBidangPA(btn.dataset.bidang));
-    });
-    $('#searchInputPA')?.addEventListener('input', (e)=>{
-      STATE_PA.search = e.target.value; STATE_PA.page = 1; renderTablePA();
-    });
-    $('#filterRekeningPA')?.addEventListener('change', (e)=>{
-      STATE_PA.filterRekening = e.target.value; STATE_PA.page = 1; renderTablePA();
-    });
-    $('#pageSizeSelectPA')?.addEventListener('change', (e)=>{
-      STATE_PA.pageSize = parseInt(e.target.value, 10); STATE_PA.page = 1; renderTablePA();
-    });
-    $('#btnExportExcelPA')?.addEventListener('click', exportExcelPA);
-    $('#btnExportCSVPA')?.addEventListener('click', exportCSVPA);
-    $('#btnPrintPA')?.addEventListener('click', printTablePA);
-    renderAllPA();
-    fetchLiveDataPA_(true);
-  }
-}
-
 // ---- Sinkronisasi manual (Belanja & Pendapatan) ----
 // Sebelumnya main() otomatis menembak Apps Script (tryLoadLive/tryLoadLivePendapatan
 // dkk) SETIAP kali halaman dibuka -- artinya "sync" jalan sendiri tanpa diminta.
@@ -4800,15 +4331,6 @@ async function main(){
   initNavG();
   $('#btnRefreshG')?.addEventListener('click', renderGabunganViews_);
   $('#btnSyncGabungan')?.addEventListener('click', syncGabungan_);
-
-  // ---- Modul Perubahan Anggaran -- tombol Reload/Sync di sidebar & topbar
-  // modul ini bisa langsung dihubungkan di sini spt modul lain (elemennya
-  // sudah ada di DOM sejak awal, cuma container-nya yg masih tersembunyi).
-  // TIDAK dipanggil sync/render otomatis di main() (beda dgn Belanja/
-  // Pendapatan di bawah) -- lihat komentar panjang di atas showPerubahanApp()
-  // soal kenapa render pertamanya HARUS ditunda sampai modul dibuka.
-  $('#btnRefreshPA')?.addEventListener('click', syncPerubahan_);
-  $('#btnSyncPA')?.addEventListener('click', syncPerubahan_);
 
   $('#searchPerbandingan').addEventListener('input', renderPerbandingan);
   $('#filterBulanPerbandingan').addEventListener('change', (e)=>{

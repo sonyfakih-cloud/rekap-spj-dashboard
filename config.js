@@ -9,13 +9,6 @@
 // walau nilainya sudah benar-benar diisi di sini. Ini akar masalah sebenarnya.
 window.APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw2EQouYVdSHVIiwwB3q0TJxtLaQsCIgHSVyHM-UjgorvVAIh9Sdza5eDmjTQuQCCcYew/exec";
 
-// Web App terpisah khusus modul "Perubahan Anggaran" (Usulan Rincian RBA
-// Perubahan TA 2026) -- endpoint Apps Script YANG SAMA dipakai oleh aplikasi
-// sumbernya (repo rba-dashboard-app) supaya tombol Sync di modul ini tetap
-// konsisten dgn Google Sheet aslinya. Sama seperti APPS_SCRIPT_URL di atas,
-// HARUS "window.X =" (bukan const) supaya terbaca app.js.
-window.APPS_SCRIPT_URL_PA = "https://script.google.com/macros/s/AKfycbwJSjH7ZZnUWjl5tskPorqOnfWJJ4k2W33QN4PSksF-WxyRSKFlI3viTkxrBF0bY-R7Fg/exec";
-
 // ============ PASSWORD LOGIN ============
 // Password default (dipakai selama GITHUB_* di bawah masih kosong):
 const LOCAL_FALLBACK_PASSWORD = "monevp3asf";
