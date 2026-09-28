@@ -28,7 +28,7 @@
      pengunjung yang sudah pernah buka situs ini masih bisa melihat versi lama (ini akar
      masalah "kok belum berubah" yang pernah dilaporkan). Setiap kali app.js/style.css
      diupdate, NAIKKAN angka v= di bawah supaya browser dipaksa ambil versi baru. -->
-<link rel="stylesheet" href="style.css?v=30">
+<link rel="stylesheet" href="style.css?v=31">
 <script src="chart.umd.min.js"></script>
 <script src="xlsx.full.min.js?v=8"></script>
 </head>
@@ -194,23 +194,18 @@
       <span class="hub-menu-status hub-status-ready">Tersedia</span>
     </button>
 
-    <!-- Modul ini BUKAN bagian dari dashboard SPJ ini -- link keluar ke situs
-         terpisah (repo lain, GitHub Pages sendiri, gerbang password sendiri).
-         Sengaja pakai tag <a> asli (bukan <button> + JS routing spt 3 modul
-         di atas) supaya perilakunya standar browser: buka tab baru, bisa
-         di-"buka di tab baru"/disalin link-nya lewat klik kanan, & tetap
-         jalan meski ada error di app.js. initHub() di app.js tetap boleh
-         memasang listener klik ke elemen ini (dipilih lewat class
-         .hub-menu-card, sama spt yg lain) -- tapi karena elemen ini sengaja
-         TIDAK diberi atribut data-hub, listener itu tidak menemukan cabang
-         yg cocok & tidak melakukan apa2, jadi tidak bentrok dgn navigasi
-         bawaan <a> ini. -->
-    <a href="https://sonyfakih-cloud.github.io/rba-dashboard-app/" target="_blank" rel="noopener noreferrer" class="hub-menu-card">
+    <!-- REVISI #2: modul ini SEKARANG BENAR-BENAR menyatu -- datanya (923 item
+         usulan, 3 bidang: P3A/SARPRAS/Pelayanan Keperawatan) diambil dari repo
+         rba-dashboard-app & digabungkan langsung ke sini (lihat
+         data_perubahan_anggaran.js + appRootPerubahan), BUKAN lagi placeholder
+         "Segera Hadir". Tanpa password terpisah, ada tombol home kembali ke
+         Menu Utama spt modul lain. -->
+    <button type="button" class="hub-menu-card" data-hub="perubahan-anggaran">
       <div class="hub-menu-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></div>
       <h3>Perubahan Anggaran</h3>
-      <p>Dashboard Usulan Rincian RBA Perubahan TA 2026 — situs terpisah, klik untuk membuka di tab baru.</p>
-      <span class="hub-menu-status hub-status-ready">Tersedia ↗</span>
-    </a>
+      <p>Usulan Rincian RBA Perubahan TA 2026 — 923 item usulan, P3A / SARPRAS / Pelayanan Keperawatan.</p>
+      <span class="hub-menu-status hub-status-ready">Tersedia</span>
+    </button>
   </div>
 
   <p class="footer-note">Copyright &copy; 2026, Sony Fakih</p>
@@ -816,6 +811,159 @@
   </main>
 </div>
 
+<!-- ===== MODUL PERUBAHAN ANGGARAN (Usulan Rincian RBA Perubahan TA 2026) =====
+     Sebelumnya situs terpisah (rba-dashboard-app, gerbang password sendiri) --
+     sekarang MENYATU di sini atas permintaan user: tanpa password terpisah,
+     pakai sidebar+home yg sama spt modul lain, ikut tema gelap/terang & Mode
+     HP yg sudah ada. Strukturnya beda dari 3 modul lain (tidak ada beberapa
+     "view" -- semua konten aslinya (kartu Bidang, tab, ringkasan, 2 grafik,
+     toolbar, tabel+paginasi) ada di SATU halaman/scroll, jadi cuma 1
+     section.view di sini, sidebar tidak perlu nav-item data-view tambahan.
+     Elemen & class CSS dari sumber aslinya (bidang-cards, stat-card,
+     chart-card, tab-bar, data-table, dst) dipertahankan APA ADANYA (lihat
+     komentar di style.css) supaya fungsi render di app.js (PA*) bisa
+     mengikuti pola sumber aslinya tanpa mapping ulang -- SEMUA elemen diberi
+     akhiran "PA" pada id-nya utk menghindari bentrok id dgn 3 modul lain. -->
+<div class="app" id="appRootPerubahan">
+
+  <aside class="sidebar">
+    <div class="logo"><svg class="logo-badge-icon" viewBox="0 0 400 400"><use href="#logoBadge"/></svg></div>
+
+    <div class="nav-item nav-home" id="btnHomeMenuPA" title="Menu Utama">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <span class="tip">Menu Utama</span>
+    </div>
+
+    <div class="nav-item theme-toggle-btn" id="btnThemeTogglePA">
+      <span class="nav-glyph theme-icon">🌙</span>
+      <span class="tip theme-label">Mode Gelap</span>
+    </div>
+    <div class="nav-item devicemode-toggle-btn" id="btnDeviceModeTogglePA">
+      <span class="nav-glyph devicemode-icon">📱</span>
+      <span class="tip devicemode-label">Mode HP</span>
+    </div>
+    <div class="nav-item" id="btnRefreshPA">
+      <span class="nav-glyph">⟳</span>
+      <span class="tip">Reload</span>
+    </div>
+    <div class="nav-item" id="btnLogoutPA">
+      <span class="nav-glyph">⏻</span>
+      <span class="tip">Keluar</span>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="marquee-bar"><span class="marquee-text">Copyright &copy; 2026, Sony Fakih&nbsp;&nbsp;&nbsp;—&nbsp;&nbsp;&nbsp;Data belum berubah? Klik tombol <span class="marquee-refresh-badge">⟳</span> Refresh di kiri, atau tekan Ctrl+F5&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></div>
+    <div class="topbar">
+      <div class="title-block">
+        <h1>Usulan Rincian RBA Perubahan <span style="color:var(--muted);font-weight:500;">TA 2026</span></h1>
+        <p>RSUD dr. R. Soeprapto Cepu — <span id="lastUpdatedPA"></span></p>
+      </div>
+      <div class="topbar-actions">
+        <button type="button" class="btn-sync" id="btnSyncPA" title="Ambil data terbaru dari Google Sheet">⟳ Sync Google Sheet</button>
+        <span class="badge-src" id="sourceBadgePA"><span class="live-dot off"></span>Data bawaan (snapshot)</span>
+      </div>
+    </div>
+
+    <section id="view-perubahan" class="view active">
+      <div class="pa-section-label">📂 Pilih Bidang</div>
+      <div class="pa-bidang-cards" id="bidangCardsPA"></div>
+
+      <div class="pa-tab-bar">
+        <button type="button" class="pa-tab-btn active" data-bidang="ALL">Semua Bidang</button>
+        <button type="button" class="pa-tab-btn" data-bidang="P3A">P3A</button>
+        <button type="button" class="pa-tab-btn" data-bidang="SARPRAS">SARPRAS</button>
+        <button type="button" class="pa-tab-btn" data-bidang="PELAYANAN KEPERAWATAN">Pelayanan Keperawatan</button>
+      </div>
+
+      <div class="pa-summary-grid">
+        <div class="pa-stat-card sage">
+          <div class="pa-stat-label">Total Usulan — <span id="summaryScopeLabelPA">Semua Bidang</span></div>
+          <div class="pa-stat-value" id="sumTotalPA">Rp 0</div>
+        </div>
+        <div class="pa-stat-card">
+          <div class="pa-stat-label">Jumlah Kode Rekening</div>
+          <div class="pa-stat-value" id="sumRekeningPA">0</div>
+        </div>
+        <div class="pa-stat-card">
+          <div class="pa-stat-label">Jumlah Baris Item</div>
+          <div class="pa-stat-value" id="sumItemPA">0</div>
+        </div>
+        <div class="pa-stat-card">
+          <div class="pa-stat-label">Rata-rata per Item</div>
+          <div class="pa-stat-value" id="sumRataPA">Rp 0</div>
+        </div>
+      </div>
+
+      <div class="pa-chart-grid">
+        <div class="pa-chart-card">
+          <h3>10 Kode Rekening / Kegiatan Terbesar</h3>
+          <div class="chart-wrap"><canvas id="chartRekeningPA"></canvas></div>
+        </div>
+        <div class="pa-chart-card">
+          <h3 id="chart2TitlePA">Perbandingan Total Usulan per Bidang</h3>
+          <div class="chart-wrap"><canvas id="chartBidangPA"></canvas></div>
+        </div>
+      </div>
+
+      <div class="pa-toolbar">
+        <div class="pa-grow">
+          <input type="text" class="pa-input" id="searchInputPA" placeholder="🔎 Cari rincian belanja, spesifikasi, kode rekening, keterangan...">
+        </div>
+        <div style="min-width:260px;">
+          <select class="pa-input" id="filterRekeningPA"></select>
+        </div>
+        <div class="pa-toolbar-right">
+          <button type="button" class="pa-btn pa-btn-sm" id="btnExportExcelPA">📊 Export Excel</button>
+          <button type="button" class="pa-btn pa-btn-sm" id="btnExportCSVPA">📄 Export CSV</button>
+          <button type="button" class="pa-btn pa-btn-sm" id="btnPrintPA">🖨️ Print</button>
+        </div>
+      </div>
+
+      <div class="pa-table-card">
+        <div class="pa-table-scroll">
+          <table class="pa-data-table" id="dataTablePA">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th class="pa-col-bidang" data-col="bidang">Bidang</th>
+                <th data-col="kodeRekening">Kode Rekening</th>
+                <th data-col="rekeningBelanja">Rekening Belanja</th>
+                <th data-col="rincianBelanja">Rincian Belanja</th>
+                <th data-col="spesifikasi">Spesifikasi</th>
+                <th data-col="jumlah">Jumlah</th>
+                <th data-col="satuan">Satuan</th>
+                <th data-col="hargaSatuan">Harga Satuan</th>
+                <th data-col="total" class="pa-sort-desc">Total</th>
+                <th data-col="prioritas">Prioritas</th>
+                <th data-col="keterangan">Keterangan</th>
+              </tr>
+            </thead>
+            <tbody id="tableBodyPA"></tbody>
+          </table>
+        </div>
+        <div class="pa-table-footer">
+          <div class="pa-table-info" id="tableInfoPA"></div>
+          <div class="pa-page-size-wrap">
+            Baris per halaman:
+            <select id="pageSizeSelectPA">
+              <option value="25" selected>25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+              <option value="9999">Semua</option>
+            </select>
+          </div>
+          <div class="pa-pagination" id="paginationPA"></div>
+        </div>
+      </div>
+    </section>
+
+    <p class="footer-note">Sumber: Usulan Rincian RBA Perubahan TA 2026 (P3A, SARPRAS, Pelayanan Keperawatan) — data digabungkan dari dashboard RBA Perubahan terpisah.</p>
+  </main>
+</div>
+
+<div class="pa-toast" id="toastPA"></div>
+
 <!-- ===== MODAL DETAIL TRANSAKSI BKU ===== -->
 <div id="bkuModal" class="bku-modal-overlay">
   <div class="bku-modal">
@@ -846,10 +994,11 @@
   </div>
 </div>
 
-<script src="config.js?v=8"></script>
-<script src="auth.js?v=10"></script>
+<script src="config.js?v=9"></script>
+<script src="auth.js?v=11"></script>
 <script src="data.js?v=8"></script>
 <script src="data_pendapatan.js?v=1"></script>
-<script src="app.js?v=52"></script>
+<script src="data_perubahan_anggaran.js?v=1"></script>
+<script src="app.js?v=55"></script>
 </body>
 </html>

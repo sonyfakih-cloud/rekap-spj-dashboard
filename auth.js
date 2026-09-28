@@ -43,6 +43,8 @@
     if(rootP) rootP.style.display = 'none';
     const rootG = document.getElementById('appRootGabungan');
     if(rootG) rootG.style.display = 'none';
+    const rootPA = document.getElementById('appRootPerubahan');
+    if(rootPA) rootPA.style.display = 'none';
     // Jaga-jaga: kalau logout terjadi di tengah animasi intro sedang main,
     // pastikan ikut disembunyikan & di-reset supaya bisa muter lagi dari awal
     // kalau login ulang di sesi tab yang sama (tanpa reload halaman).
@@ -141,6 +143,8 @@
     if(rootP0) rootP0.style.display = 'none';
     const rootG0 = document.getElementById('appRootGabungan');
     if(rootG0) rootG0.style.display = 'none';
+    const rootPA0 = document.getElementById('appRootPerubahan');
+    if(rootPA0) rootPA0.style.display = 'none';
     document.getElementById('hubScreen').style.display = 'none';
     document.getElementById('comingSoonScreen').style.display = 'none';
     if(isAuthed()){
@@ -151,7 +155,7 @@
     document.getElementById('authForm').addEventListener('submit', handleSubmit);
     // Dua tombol keluar: satu di dalam modul Belanja (fab #btnLogout), satu lagi
     // di Menu Utama (#hubLogout) -- keduanya pakai logika logout yang sama.
-    ['btnLogout', 'btnLogoutP', 'btnLogoutG', 'hubLogout'].forEach(function(id){
+    ['btnLogout', 'btnLogoutP', 'btnLogoutG', 'btnLogoutPA', 'hubLogout'].forEach(function(id){
       const btn = document.getElementById(id);
       if(btn) btn.addEventListener('click', function(){ clearAuthed(); showGate(); });
     });
