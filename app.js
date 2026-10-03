@@ -3374,6 +3374,7 @@ function initYearMenuP(){
 }
 
 function showPendapatanApp(){
+  if(typeof hideKlaimApp_==='function') hideKlaimApp_();
   $('#hubScreen').style.display = 'none';
   $('#comingSoonScreen').style.display = 'none';
   $('#appRoot').style.display = 'none';
@@ -3452,6 +3453,7 @@ function initYearMenu(){
 // keduanya mengarah ke comingSoonScreen ("Segera Hadir") yang sama, teksnya
 // tinggal diganti sesuai modul yang diklik.
 function showHub(){
+  if(typeof hideKlaimApp_==='function') hideKlaimApp_();
   $('#hubScreen').style.display = 'flex';
   $('#comingSoonScreen').style.display = 'none';
   $('#appRoot').style.display = 'none';
@@ -3460,6 +3462,7 @@ function showHub(){
 }
 
 function showComingSoon(title, desc){
+  if(typeof hideKlaimApp_==='function') hideKlaimApp_();
   $('#comingSoonTitle').textContent = title;
   $('#comingSoonDesc').textContent = desc;
   $('#hubScreen').style.display = 'none';
@@ -3470,6 +3473,7 @@ function showComingSoon(title, desc){
 }
 
 function showBelanjaApp(){
+  if(typeof hideKlaimApp_==='function') hideKlaimApp_();
   $('#hubScreen').style.display = 'none';
   $('#comingSoonScreen').style.display = 'none';
   $('#appRoot').style.display = 'flex';
@@ -3506,6 +3510,7 @@ function showBelanjaApp(){
 let GABUNGAN_LAST_VIEW_ = 'ringkasan-g';
 
 function showGabunganApp(){
+  if(typeof hideKlaimApp_==='function') hideKlaimApp_();
   $('#hubScreen').style.display = 'none';
   $('#comingSoonScreen').style.display = 'none';
   $('#appRoot').style.display = 'none';

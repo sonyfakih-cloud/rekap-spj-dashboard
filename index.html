@@ -29,6 +29,7 @@
      masalah "kok belum berubah" yang pernah dilaporkan). Setiap kali app.js/style.css
      diupdate, NAIKKAN angka v= di bawah supaya browser dipaksa ambil versi baru. -->
 <link rel="stylesheet" href="style.css?v=35">
+<link rel="stylesheet" href="klaim.css?v=1">
 <script src="chart.umd.min.js"></script>
 <script src="xlsx.full.min.js?v=8"></script>
 </head>
@@ -191,6 +192,13 @@
       <div class="hub-menu-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></div>
       <h3>Pendapatan &amp; Belanja</h3>
       <p>Ringkasan gabungan Pendapatan dan Belanja dalam satu tampilan.</p>
+      <span class="hub-menu-status hub-status-ready">Tersedia</span>
+    </button>
+
+    <button type="button" class="hub-menu-card" data-hub="klaim">
+      <div class="hub-menu-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><polyline points="9 14 11 16 15 12"/></svg></div>
+      <h3>Klaim BPJS</h3>
+      <p>Perbandingan klaim BPJS Agustus vs September 2026 &mdash; volume, pendapatan INA-CBG, defisit tarif, case-mix, DPJP &amp; kualitas data.</p>
       <span class="hub-menu-status hub-status-ready">Tersedia</span>
     </button>
   </div>
@@ -798,6 +806,76 @@
   </main>
 </div>
 
+<!-- ===== MODUL KLAIM BPJS: perbandingan klaim bulanan (Agustus vs September 2026).
+     Sumber data: klaim_data.js (agregat, tanpa data pasien). Logika & grafik: klaim.js.
+     Gaya: klaim.css (semua di-scope ke #appRootKlaim). Semua class/id milik modul ini
+     diawali "k"/"k-" dan section pakai class .kview (BUKAN .view) supaya tidak terkena
+     showView() global milik modul Belanja. ===== -->
+<div class="app" id="appRootKlaim" style="display:none">
+
+  <aside class="sidebar">
+    <div class="logo"><svg class="logo-badge-icon" viewBox="0 0 400 400"><use href="#logoBadge"/></svg></div>
+
+    <div class="nav-item nav-home" id="btnHomeMenuK" title="Menu Utama">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <span class="tip">Menu Utama</span>
+    </div>
+
+    <div class="nav-item active" id="btnKlaimNav">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><polyline points="9 14 11 16 15 12"/></svg>
+      <span class="tip">Klaim BPJS</span>
+    </div>
+
+    <div class="nav-item theme-toggle-btn" id="btnThemeToggleK">
+      <span class="nav-glyph theme-icon">🌙</span>
+      <span class="tip theme-label">Mode Gelap</span>
+    </div>
+    <div class="nav-item devicemode-toggle-btn" id="btnDeviceModeToggleK">
+      <span class="nav-glyph devicemode-icon">📱</span>
+      <span class="tip devicemode-label">Mode HP</span>
+    </div>
+    <div class="nav-item" id="btnRefreshK">
+      <span class="nav-glyph">⟳</span>
+      <span class="tip">Reload</span>
+    </div>
+    <div class="nav-item" id="btnLogoutK">
+      <span class="nav-glyph">⏻</span>
+      <span class="tip">Keluar</span>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="kcopy" aria-label="Hak cipta"><span>Copyright &copy; 2026, Sony Fakih</span></div>
+
+    <div class="marquee-bar"><span class="marquee-text">Copyright &copy; 2026, Sony Fakih&nbsp;&nbsp;&nbsp;&mdash;&nbsp;&nbsp;&nbsp;Modul Klaim BPJS: nilai klaim adalah nilai yang DIAJUKAN (belum tentu sudah diverifikasi/dibayar BPJS).</span></div>
+    <div class="topbar">
+      <div class="title-block">
+        <h1>Klaim BPJS &mdash; Agustus vs September 2026</h1>
+        <p>RSUD dr. R. Soeprapto Cepu &mdash; BLUD, klaim INA-CBG rawat inap &amp; rawat jalan (Kode RS 3316025, Tarif RS Kelas C Pemerintah)</p>
+      </div>
+      <div class="topbar-actions">
+        <span class="k-legend"><span><i class="i-agu"></i>Agustus 2026</span><span><i class="i-sep"></i>September 2026</span></span>
+        <span class="badge-src"><span class="live-dot off"></span>Sumber: <b>e-klaim TXT + Rekap XLSX</b> &middot; periode tanggal pulang</span>
+      </div>
+    </div>
+
+    <nav class="k-tabs" id="k-tabs" role="tablist" aria-label="Tampilan modul Klaim BPJS"></nav>
+
+    <section class="kview active" id="kview-ringkasan"></section>
+    <section class="kview" id="kview-tren"></section>
+    <section class="kview" id="kview-ri"></section>
+    <section class="kview" id="kview-rj"></section>
+    <section class="kview" id="kview-defisit"></section>
+    <section class="kview" id="kview-casemix"></section>
+    <section class="kview" id="kview-dpjp"></section>
+    <section class="kview" id="kview-biaya"></section>
+    <section class="kview" id="kview-proses"></section>
+    <section class="kview" id="kview-data"></section>
+
+    <p class="footer-note">Sumber: 4 berkas ekspor e-klaim (TXT, 16.593 klaim) dan 4 berkas Rekap Klaim (XLSX), direkonsiliasi per nomor SEP. &ldquo;Pendapatan klaim&rdquo; adalah Total Tarif INA-CBG yang diajukan, bukan kas yang sudah diterima atau klaim yang sudah diverifikasi BPJS. &ldquo;Tarif RS&rdquo; adalah tarif rumah sakit atas layanan yang sama, bukan biaya produksi (unit cost).<br>Copyright &copy; 2026, Sony Fakih</p>
+  </main>
+</div>
+
 <!-- ===== MODAL DETAIL TRANSAKSI BKU ===== -->
 <div id="bkuModal" class="bku-modal-overlay">
   <div class="bku-modal">
@@ -829,10 +907,12 @@
 </div>
 
 <script src="config.js?v=10"></script>
-<script src="auth.js?v=12"></script>
+<script src="auth.js?v=13"></script>
 <script src="data.js?v=8"></script>
 <script src="data_pendapatan.js?v=2"></script>
-<script src="app.js?v=62"></script>
+<script src="app.js?v=63"></script>
+<script src="klaim_data.js?v=1"></script>
+<script src="klaim.js?v=1"></script>
 <script src="odometer.js?v=1"></script>
 </body>
 </html>
