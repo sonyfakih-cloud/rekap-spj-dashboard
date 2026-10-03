@@ -62,21 +62,45 @@ function combo(el,o){
 }
 
 /* ---------- table ---------- */
+window.KPG=window.KPG||{size:10};
 function table(el,cols,rows,o={}){
-  let sk=o.sort||cols[0].k,asc=!!o.asc,q='',only=null;
-  const draw=()=>{
+  let sk=o.sort||cols[0].k,asc=!!o.asc,q='',only=null,page=1;
+  let pg=el.nextElementSibling;
+  if(!(pg&&pg.classList&&pg.classList.contains('kpager'))){pg=document.createElement('div');pg.className='kpager';el.insertAdjacentElement('afterend',pg)}
+  const SIZES=[10,100,500];
+  const draw=(scroll)=>{
     let rs=rows.filter(r=>(!q||matchAll(r._s||'',q))&&(!only||only(r)));
     const c=cols.find(c=>c.k===sk);
     rs=rs.slice().sort((x,y)=>{const a=c.v(x),b=c.v(y);const d=(typeof a==='string')?a.localeCompare(b,'id'):(a-b);return asc?d:-d});
-    const lim=o.limit||rs.length;
-    el.querySelector('tbody').innerHTML=rs.slice(0,lim).map(r=>'<tr>'+cols.map(c=>`<td class="${c.cls||'num'}">${c.f(r)}</td>`).join('')+'</tr>').join('')+(rs.length>lim?`<tr><td class="l" colspan="${cols.length}">… ${rs.length-lim} baris lain, gunakan pencarian atau urutkan kolom</td></tr>`:'')+(rs.length?'':`<tr><td class="l" colspan="${cols.length}">Tidak ada baris yang cocok.</td></tr>`);
+    const size=window.KPG.size,pages=Math.max(1,Math.ceil(rs.length/size));
+    if(page>pages)page=pages;
+    const st=(page-1)*size,sl=rs.slice(st,st+size);
+    el.querySelector('tbody').innerHTML=sl.map(r=>'<tr>'+cols.map(c=>`<td class="${c.cls||'num'}">${c.f(r)}</td>`).join('')+'</tr>').join('')+(rs.length?'':`<tr><td class="l" colspan="${cols.length}">Tidak ada baris yang cocok.</td></tr>`);
     el.querySelectorAll('th').forEach(th=>{const on=th.dataset.k===sk;th.classList.toggle('sorted',on);th.classList.toggle('asc',on&&asc)});
     if(o.count) o.count.textContent=nf.format(rs.length)+' baris';
+    /* pager: pilihan jumlah baris per halaman + nomor halaman */
+    if(rs.length<=SIZES[0]){pg.innerHTML='';pg.hidden=true}
+    else{
+      pg.hidden=false;
+      const nums=[];const add=n=>{if(n>=1&&n<=pages&&!nums.includes(n))nums.push(n)};
+      add(1);for(let i=page-2;i<=page+2;i++)add(i);add(pages);nums.sort((a,b)=>a-b);
+      let btns='',prev=0;
+      nums.forEach(n=>{if(prev&&n-prev>1)btns+='<span class="kpg-gap" aria-hidden="true">…</span>';btns+=`<button type="button" class="kpg-btn${n===page?' on':''}" data-pg="${n}" aria-label="Halaman ${n}"${n===page?' aria-current="page"':''}>${n}</button>`;prev=n});
+      pg.innerHTML=`<div class="kpg-top"><span class="kpg-lbl">Tampilkan</span><span class="kseg kpg-sz" role="group" aria-label="Jumlah baris per halaman">${SIZES.map(s=>`<button type="button" aria-pressed="${s===size}" data-sz="${s}">${s}</button>`).join('')}</span><span class="kpg-lbl">baris &middot; menampilkan ${nf.format(st+1)}&ndash;${nf.format(Math.min(st+size,rs.length))} dari ${nf.format(rs.length)}</span></div>`+
+        (pages>1?`<div class="kpg-nav" role="navigation" aria-label="Halaman tabel"><button type="button" class="kpg-btn" data-pg="${page-1}" aria-label="Halaman sebelumnya"${page===1?' disabled':''}>&lsaquo;</button>${btns}<button type="button" class="kpg-btn" data-pg="${page+1}" aria-label="Halaman berikutnya"${page===pages?' disabled':''}>&rsaquo;</button></div>`:'');
+    }
+    if(scroll&&el.getBoundingClientRect().top<70)el.scrollIntoView({block:'start'});
+  };
+  pg.onclick=e=>{
+    const s=e.target.closest('[data-sz]');
+    if(s){window.KPG.size=+s.dataset.sz;page=1;draw(true);return}
+    const b=e.target.closest('[data-pg]');
+    if(b&&!b.disabled){page=+b.dataset.pg;draw(true)}
   };
   el.innerHTML=`<table><thead><tr>${cols.map(c=>`<th tabindex="0" data-k="${c.k}" class="${c.cls==='l'?'l':'num'}">${c.h}</th>`).join('')}</tr></thead><tbody></tbody></table>`;
-  el.querySelectorAll('th').forEach(th=>{const f=()=>{const k=th.dataset.k;if(sk===k)asc=!asc;else{sk=k;asc=cols.find(c=>c.k===k).cls==='l'}draw()};th.onclick=f;th.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();f()}}});
+  el.querySelectorAll('th').forEach(th=>{const f=()=>{const k=th.dataset.k;if(sk===k)asc=!asc;else{sk=k;asc=cols.find(c=>c.k===k).cls==='l'}page=1;draw()};th.onclick=f;th.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();f()}}});
   draw();
-  return {search:v=>{q=v;draw()},only:f=>{only=f;draw()}};
+  return {search:v=>{q=v;page=1;draw()},only:f=>{only=f;page=1;draw()}};
 }
 
 function seg(id,opts,cur,cb){
@@ -1188,21 +1212,45 @@ function combo(el,o){
 }
 
 /* ---------- table ---------- */
+window.KPG=window.KPG||{size:10};
 function table(el,cols,rows,o={}){
-  let sk=o.sort||cols[0].k,asc=!!o.asc,q='',only=null;
-  const draw=()=>{
+  let sk=o.sort||cols[0].k,asc=!!o.asc,q='',only=null,page=1;
+  let pg=el.nextElementSibling;
+  if(!(pg&&pg.classList&&pg.classList.contains('kpager'))){pg=document.createElement('div');pg.className='kpager';el.insertAdjacentElement('afterend',pg)}
+  const SIZES=[10,100,500];
+  const draw=(scroll)=>{
     let rs=rows.filter(r=>(!q||matchAll(r._s||'',q))&&(!only||only(r)));
     const c=cols.find(c=>c.k===sk);
     rs=rs.slice().sort((x,y)=>{const a=c.v(x),b=c.v(y);const d=(typeof a==='string')?a.localeCompare(b,'id'):(a-b);return asc?d:-d});
-    const lim=o.limit||rs.length;
-    el.querySelector('tbody').innerHTML=rs.slice(0,lim).map(r=>'<tr>'+cols.map(c=>`<td class="${c.cls||'num'}">${c.f(r)}</td>`).join('')+'</tr>').join('')+(rs.length>lim?`<tr><td class="l" colspan="${cols.length}">… ${rs.length-lim} baris lain, gunakan pencarian atau urutkan kolom</td></tr>`:'')+(rs.length?'':`<tr><td class="l" colspan="${cols.length}">Tidak ada baris yang cocok.</td></tr>`);
+    const size=window.KPG.size,pages=Math.max(1,Math.ceil(rs.length/size));
+    if(page>pages)page=pages;
+    const st=(page-1)*size,sl=rs.slice(st,st+size);
+    el.querySelector('tbody').innerHTML=sl.map(r=>'<tr>'+cols.map(c=>`<td class="${c.cls||'num'}">${c.f(r)}</td>`).join('')+'</tr>').join('')+(rs.length?'':`<tr><td class="l" colspan="${cols.length}">Tidak ada baris yang cocok.</td></tr>`);
     el.querySelectorAll('th').forEach(th=>{const on=th.dataset.k===sk;th.classList.toggle('sorted',on);th.classList.toggle('asc',on&&asc)});
     if(o.count) o.count.textContent=nf.format(rs.length)+' baris';
+    /* pager: pilihan jumlah baris per halaman + nomor halaman */
+    if(rs.length<=SIZES[0]){pg.innerHTML='';pg.hidden=true}
+    else{
+      pg.hidden=false;
+      const nums=[];const add=n=>{if(n>=1&&n<=pages&&!nums.includes(n))nums.push(n)};
+      add(1);for(let i=page-2;i<=page+2;i++)add(i);add(pages);nums.sort((a,b)=>a-b);
+      let btns='',prev=0;
+      nums.forEach(n=>{if(prev&&n-prev>1)btns+='<span class="kpg-gap" aria-hidden="true">…</span>';btns+=`<button type="button" class="kpg-btn${n===page?' on':''}" data-pg="${n}" aria-label="Halaman ${n}"${n===page?' aria-current="page"':''}>${n}</button>`;prev=n});
+      pg.innerHTML=`<div class="kpg-top"><span class="kpg-lbl">Tampilkan</span><span class="kseg kpg-sz" role="group" aria-label="Jumlah baris per halaman">${SIZES.map(s=>`<button type="button" aria-pressed="${s===size}" data-sz="${s}">${s}</button>`).join('')}</span><span class="kpg-lbl">baris &middot; menampilkan ${nf.format(st+1)}&ndash;${nf.format(Math.min(st+size,rs.length))} dari ${nf.format(rs.length)}</span></div>`+
+        (pages>1?`<div class="kpg-nav" role="navigation" aria-label="Halaman tabel"><button type="button" class="kpg-btn" data-pg="${page-1}" aria-label="Halaman sebelumnya"${page===1?' disabled':''}>&lsaquo;</button>${btns}<button type="button" class="kpg-btn" data-pg="${page+1}" aria-label="Halaman berikutnya"${page===pages?' disabled':''}>&rsaquo;</button></div>`:'');
+    }
+    if(scroll&&el.getBoundingClientRect().top<70)el.scrollIntoView({block:'start'});
+  };
+  pg.onclick=e=>{
+    const s=e.target.closest('[data-sz]');
+    if(s){window.KPG.size=+s.dataset.sz;page=1;draw(true);return}
+    const b=e.target.closest('[data-pg]');
+    if(b&&!b.disabled){page=+b.dataset.pg;draw(true)}
   };
   el.innerHTML=`<table><thead><tr>${cols.map(c=>`<th tabindex="0" data-k="${c.k}" class="${c.cls==='l'?'l':'num'}">${c.h}</th>`).join('')}</tr></thead><tbody></tbody></table>`;
-  el.querySelectorAll('th').forEach(th=>{const f=()=>{const k=th.dataset.k;if(sk===k)asc=!asc;else{sk=k;asc=cols.find(c=>c.k===k).cls==='l'}draw()};th.onclick=f;th.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();f()}}});
+  el.querySelectorAll('th').forEach(th=>{const f=()=>{const k=th.dataset.k;if(sk===k)asc=!asc;else{sk=k;asc=cols.find(c=>c.k===k).cls==='l'}page=1;draw()};th.onclick=f;th.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();f()}}});
   draw();
-  return {search:v=>{q=v;draw()},only:f=>{only=f;draw()}};
+  return {search:v=>{q=v;page=1;draw()},only:f=>{only=f;page=1;draw()}};
 }
 
 function seg(id,opts,cur,cb){

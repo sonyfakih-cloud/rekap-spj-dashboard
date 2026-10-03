@@ -278,3 +278,15 @@ html.mode-hp #appRootKlaim .pk-y{padding-top:12px;width:34px;}
 #appRootKlaim .duo-sw button{border:0;background:transparent;padding:6px 14px;font:inherit;font-size:12.5px;font-weight:600;color:var(--muted);cursor:pointer}
 #appRootKlaim .duo-sw button[aria-pressed="true"]{background:var(--sb-act-bg);color:var(--sb-act-ink)}
 #appRootKlaim .duobar{flex-wrap:wrap;gap:10px}
+
+/* ---- pager tabel: pilihan 10/100/500 baris + nomor halaman ---- */
+#appRootKlaim .kpager{display:flex;flex-direction:column;align-items:center;gap:10px;margin-top:12px}
+#appRootKlaim .kpager[hidden]{display:none!important}
+#appRootKlaim .kpg-top{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px 10px;font-size:12.5px;color:var(--muted)}
+#appRootKlaim .kpg-nav{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px}
+#appRootKlaim .kpg-btn{min-width:34px;height:34px;padding:0 10px;border-radius:10px;border:1px solid var(--k-line);background:var(--k-soft);color:var(--text);font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+#appRootKlaim .kpg-btn:hover:not(:disabled):not(.on){background:var(--sb-act-bg);color:var(--sb-act-ink)}
+#appRootKlaim .kpg-btn.on{background:var(--sb-act-bg);color:var(--sb-act-ink);border-color:var(--accent);cursor:default}
+#appRootKlaim .kpg-btn:disabled{opacity:.4;cursor:not-allowed}
+#appRootKlaim .kpg-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#appRootKlaim .kpg-gap{color:var(--muted);padding:0 2px}
