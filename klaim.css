@@ -200,3 +200,81 @@ html.mode-hp #appRootKlaim .kcombo{flex:1 1 100%;max-width:none;}
 #appRootKlaim .go .odc{transform:translateY(calc(var(--end) * -1.25em));transition:transform 1.7s cubic-bezier(.16,.84,.24,1) var(--dl,0s);}
 #appRootKlaim .oc{display:inline-block;height:1.25em;line-height:1.25em;white-space:pre;vertical-align:bottom;}
 @media(prefers-reduced-motion:reduce){#appRootKlaim .go .odc{transition:none;}}
+
+/* ---- tambahan modul BPJS 2025-2026 ---- */
+html.mode-hp #appRootKlaim .kg2{grid-template-columns:minmax(0,1fr)}
+html.mode-hp #appRootKlaim .kkpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+html.mode-hp #appRootKlaim .kval{font-size:18px}
+html.mode-hp #appRootKlaim input[type=search]{min-width:0;flex:1 1 100%}
+#appRootKlaim .pref{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center}
+#appRootKlaim .pref .badge-src{display:block;white-space:normal;max-width:100%;line-height:1.5}
+
+/* ================= Tambahan untuk dashboard multi-bulan ================= */
+#appRootKlaim .klgd{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:11.5px;color:var(--k-ink2);margin:0 0 8px;}
+#appRootKlaim .klgd span{display:inline-flex;align-items:center;gap:6px;}
+#appRootKlaim .klgd i{display:inline-block;width:10px;height:10px;border-radius:3px;}
+#appRootKlaim svg .selband{fill:var(--accent);opacity:.14;}
+#appRootKlaim svg .sk{transition:opacity .2s ease;}
+#appRootKlaim svg g[data-ktip]:hover .sk{opacity:.82;}
+#appRootKlaim svg .lmain{fill:none;}
+#appRootKlaim .kchip.good,#appRootKlaim .kchip.bad,#appRootKlaim .kchip.flat,#appRootKlaim .kchip.warn{margin-right:6px;}
+
+/* ---- Pemilih bulan ---- */
+#appRootKlaim .pk{background:var(--card);backdrop-filter:blur(14px);border:1px solid var(--card-border);border-radius:var(--radius-lg);padding:18px 20px;box-shadow:var(--shadow);}
+#appRootKlaim .pk-head h2{margin:0 0 2px;font-size:15px;font-weight:700;color:var(--navy);}
+#appRootKlaim .pk .knote{margin:0 0 12px;}
+#appRootKlaim .pdot,#appRootKlaim .pk-dots i{display:inline-block;width:7px;height:7px;border-radius:50%;background:transparent;}
+#appRootKlaim .pdot.p,#appRootKlaim .pk-dots i.p{background:#84AAF3;}
+#appRootKlaim .pdot.k,#appRootKlaim .pk-dots i.k{background:#F4BA84;}
+#appRootKlaim .pdot{vertical-align:0;margin:0 2px;}
+#appRootKlaim .pk-row{display:flex;align-items:center;gap:10px;margin:7px 0;}
+#appRootKlaim .pk-y{width:40px;flex:none;font-weight:700;font-size:13px;color:var(--navy);}
+#appRootKlaim .pk-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:6px;flex:1;min-width:0;}
+#appRootKlaim .pk-chip{font:inherit;font-size:12.5px;font-weight:600;min-height:44px;border:1px solid var(--k-line);border-radius:12px;background:var(--card-solid);color:var(--k-ink2);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:4px 2px;transition:transform .12s ease,background .12s ease,box-shadow .12s ease;}
+#appRootKlaim .pk-chip:hover{transform:translateY(-1px);background:var(--accent-soft);}
+#appRootKlaim .pk-chip .pk-dots{display:flex;gap:4px;height:7px;}
+#appRootKlaim .pk-chip.on{background:var(--accent);color:#1b1f3b;border-color:transparent;box-shadow:inset 0 -4px 0 var(--c),var(--shadow-sm);}
+#appRootKlaim .pk-chip.on .pk-dots i.p,#appRootKlaim .pk-chip.on .pk-dots i.k{box-shadow:0 0 0 1.5px #fff;}
+#appRootKlaim .pk-chip.off{opacity:.45;border-style:dashed;background:transparent;}
+#appRootKlaim .pk-chip.warn{opacity:.9;border-color:var(--amber);color:var(--k-warn);}
+#appRootKlaim .pk-pre{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px;}
+#appRootKlaim .pk-pre .pl{font-size:11.5px;color:var(--muted);font-weight:600;}
+#appRootKlaim .pk-pre button{font:inherit;font-size:12px;font-weight:600;border:none;border-radius:99px;padding:7px 13px;background:var(--accent-soft);color:var(--k-ink2);cursor:pointer;min-height:34px;}
+#appRootKlaim .pk-pre button:hover{background:var(--accent);color:#1b1f3b;}
+#appRootKlaim .pk-pre button.ghost{background:transparent;box-shadow:inset 0 0 0 1px var(--k-line);}
+#appRootKlaim .pk-sum{margin-top:12px;font-size:12.5px;color:var(--k-ink2);display:flex;flex-wrap:wrap;gap:6px 6px;align-items:center;}
+#appRootKlaim .pk-sum b{color:var(--navy);}
+#appRootKlaim .pk-legs{display:inline-flex;flex-wrap:wrap;gap:4px 10px;margin-left:8px;}
+#appRootKlaim .pk-l{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;}
+#appRootKlaim .pk-l i{width:10px;height:10px;border-radius:3px;display:inline-block;}
+#appRootKlaim .pk-warn{margin-top:8px;font-size:12px;color:var(--k-warn);}
+#appRootKlaim .kcaveat{max-width:none;}
+#pk-toast{position:fixed;left:50%;bottom:92px;transform:translate(-50%,16px);z-index:300;max-width:min(92vw,440px);background:var(--k-tip-bg,#1b1f3b);color:var(--k-tip-fg,#f4f6ff);font-size:13px;line-height:1.45;padding:11px 16px;border-radius:14px;box-shadow:0 12px 30px rgba(0,0,0,.28);opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease;}
+#pk-toast.on{opacity:1;transform:translate(-50%,0);}
+@media(max-width:700px){
+  #appRootKlaim .pk-grid{grid-template-columns:repeat(6,minmax(0,1fr));}
+  #appRootKlaim .pk-row{align-items:flex-start;}
+  #appRootKlaim .pk-y{padding-top:12px;width:34px;}
+}
+html.mode-hp #appRootKlaim .pk-grid{grid-template-columns:repeat(4,minmax(0,1fr));}
+html.mode-hp #appRootKlaim .pk{padding:14px;}
+html.mode-hp #appRootKlaim .pk-y{padding-top:12px;width:34px;}
+@media(prefers-reduced-motion:reduce){#appRootKlaim .pk-chip,#pk-toast{transition:none;}}
+#appRootKlaim svg .lsh{fill:none;}
+
+/* ---- Mode 2 bulan (A vs B) ---- */
+#appRootKlaim [hidden]{display:none!important;}
+#appRootKlaim .dkview,#appRootKlaim .dpview{display:none;}
+#appRootKlaim .dkview.active,#appRootKlaim .dpview.active{display:block;animation:kfadeUp .4s ease both;}
+#appRootKlaim .dkview > * + *,#appRootKlaim .dpview > * + *{margin-top:16px;}
+#appRootKlaim .duobar{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;background:var(--card);backdrop-filter:blur(10px);border-radius:var(--radius-md);padding:10px 16px;box-shadow:var(--shadow-sm);}
+#appRootKlaim .pk-mode{margin-top:8px;font-size:12px;color:var(--k-good);font-weight:600;}
+#appRootKlaim .pk-hint{margin-top:8px;font-size:12px;color:var(--muted);}
+#appRootKlaim .k-tabs[hidden]{display:none!important;}
+@media(prefers-reduced-motion:reduce){#appRootKlaim .dkview.active,#appRootKlaim .dpview.active{animation:none!important;}}
+
+/* pilihan jenis data pada mode 2 bulan */
+#appRootKlaim .duo-sw{display:inline-flex;border:1px solid var(--k-line);border-radius:999px;overflow:hidden;background:var(--k-soft)}
+#appRootKlaim .duo-sw button{border:0;background:transparent;padding:6px 14px;font:inherit;font-size:12.5px;font-weight:600;color:var(--muted);cursor:pointer}
+#appRootKlaim .duo-sw button[aria-pressed="true"]{background:var(--sb-act-bg);color:var(--sb-act-ink)}
+#appRootKlaim .duobar{flex-wrap:wrap;gap:10px}
