@@ -1629,12 +1629,22 @@ function populatePerbandinganBulan(){
 
 // Indeks bulan (0-11) terakhir yang sudah punya data di 2026 -- diambil dari
 // data tabel ini sendiri (STATE.khusus['2026'].bulan_label), fallback ke tren.
+// UPDATE: bulan acuan = yang PALING AKHIR antara data tabel ini (pohon akun BKU) dan
+// deret tren (yang dipakai kartu Ringkasan). Dulu hanya dari pohon akun, sehingga saat
+// tren sudah masuk Oktober tapi BKU Belanja belum ada transaksi Oktober, tabel ini
+// tertahan di "s.d. Sep" sementara Ringkasan sudah "s.d. Okt" -- tidak konsisten.
+function refIdxGabung_(khususTahunIni, trenArr){
+  let kh = -1;
+  const d = khususTahunIni;
+  if(d && d.bulan_label && d.bulan_label.length) kh = d.bulan_label.length - 1;
+  else if(d && d.rows && d.rows.length && d.rows[0].bulanan) kh = d.rows[0].bulanan.length - 1;
+  const m = refMonthFromTren_(trenArr);
+  const tr = m ? m - 1 : -1;
+  const idx = Math.max(kh, tr);
+  return idx >= 0 ? idx : 11;
+}
 function perbandinganRefMonthIdx_(){
-  const d = STATE.khusus && STATE.khusus['2026'];
-  if(d && d.bulan_label && d.bulan_label.length) return d.bulan_label.length - 1;
-  if(d && d.rows && d.rows.length && d.rows[0].bulanan) return d.rows[0].bulanan.length - 1;
-  const m = refMonthFromTren_(STATE.tren);
-  return m ? m - 1 : 11;
+  return refIdxGabung_(STATE.khusus && STATE.khusus['2026'], STATE.tren);
 }
 
 // Realisasi kumulatif akun `kode` tahun `year`, Januari s.d. bulan `uptoIdx` (0-11).
@@ -1654,7 +1664,10 @@ function getPerbandinganKumulatif_(kode, year, uptoIdx){
   }
   const row = data.rows.find(x=>x.kode===kode);
   const nBulan = (data.bulan_label && data.bulan_label.length) || (row && row.bulanan ? row.bulanan.length : 12);
-  if(uptoIdx >= nBulan) return null;
+  // Bulan acuan sudah berjalan (mis. Oktober) tapi pohon akun tahun ini belum punya
+  // transaksi bulan itu -> realisasi s.d. bulan itu = seluruh realisasi s.d. saat ini
+  // (belum ada tambahan). Bulan yang BELUM tiba (setelah bulan acuan) tetap '-'.
+  if(uptoIdx >= nBulan) return (row && uptoIdx <= perbandinganRefMonthIdx_()) ? row.total : null;
   if(!row) return null; // akun tsb tidak punya transaksi di tahun itu
   if(uptoIdx === nBulan - 1) return (row.total !== undefined && row.total !== null) ? row.total : (r0 ? r0[year] : null);
   let s = 0;
@@ -1719,11 +1732,7 @@ function populatePerbandinganBulanP(){
 }
 
 function perbandinganRefMonthIdxP_(){
-  const d = STATE_P.khusus && STATE_P.khusus['2026'];
-  if(d && d.bulan_label && d.bulan_label.length) return d.bulan_label.length - 1;
-  if(d && d.rows && d.rows.length && d.rows[0].bulanan) return d.rows[0].bulanan.length - 1;
-  const m = refMonthFromTren_(STATE_P.tren);
-  return m ? m - 1 : 11;
+  return refIdxGabung_(STATE_P.khusus && STATE_P.khusus['2026'], STATE_P.tren);
 }
 
 // Realisasi kumulatif Jan s.d. `uptoIdx` utk baris perbandingan `r`, tahun `year`.
@@ -1739,7 +1748,7 @@ function getPerbandinganKumulatifP_(r, year, uptoIdx){
   const kode = (r.kodeByYear && r.kodeByYear[year]) || r.kode;
   const row = data.rows.find(x=>x.kode===kode);
   const nBulan = (data.bulan_label && data.bulan_label.length) || (row && row.bulanan ? row.bulanan.length : 12);
-  if(uptoIdx >= nBulan) return null;
+  if(uptoIdx >= nBulan) return (row && uptoIdx <= perbandinganRefMonthIdxP_()) ? row.total : null;
   if(!row) return null; // akun tsb tidak punya transaksi di tahun itu
   if(uptoIdx === nBulan - 1) return (row.total !== undefined && row.total !== null) ? row.total : r[year];
   let s = 0;
@@ -3699,44 +3708,100 @@ function statusWarnaKategoriG_(persen, yearFraction, isPendapatan){
   return 'green';
 }
 
+// Kategori Belanja yang ditampilkan (urut): Belanja Operasi, lalu 2 rinciannya
+// (Belanja Pegawai, Belanja Barang dan Jasa), lalu Belanja Modal. Kode ini sama
+// di 2024/2025/2026 pada pohon akun live (sudah dicek langsung dari ?view=khusus).
+const STATUS_KATEGORI_BELANJA_G_ = ['5.1','5.1.1','5.1.2','5.2'];
+
+// Realisasi kumulatif Jan s.d. bulan `uptoIdx` utk 1 baris akun di 1 tahun pohon
+// khusus -- aturan sama dgn tabel Perbandingan: bulan belum ada -> null; s.d. bulan
+// terakhir yg ada -> field total apa adanya; selain itu -> jumlah kolom bulanan.
+function kumulatifRowG_(kh, row, uptoIdx){
+  if(!kh || !row) return null;
+  const nBulan = (kh.bulan_label && kh.bulan_label.length) || (row.bulanan ? row.bulanan.length : 12);
+  if(uptoIdx >= nBulan) return null;
+  if(uptoIdx === nBulan - 1) return row.total;
+  let s = 0;
+  for(let i=0;i<=uptoIdx && i<row.bulanan.length;i++) s += (row.bulanan[i] || 0);
+  return s;
+}
+
+// Status tiap kategori untuk tahun aktif + PEMBANDING 2 tahun lain pada BULAN
+// YANG SAMA (kumulatif Jan s.d. bulan terakhir tahun aktif, mis. s.d. Sep).
+// % pembanding = realisasi s.d. bulan itu / pagu setahun tahun tsb, warnanya
+// dinilai dgn target proporsional yang sama (bulan/12), jadi sebanding langsung.
 function renderExecStatusGridG_(){
   const wrap = $('#execStatusGrid');
   if(!wrap) return;
   const year = execTahunAktifG_();
   const kb = STATE.khusus[year], kp = STATE_P.khusus[year];
+  const otherYears = ['2026','2025','2024'].filter(y=>y!==year);
   const items = [];
+
+  const buildCmp = (khususAll, findRow, uptoIdx, isPendapatan, yf) => otherYears.map(y=>{
+    const kh = khususAll[y];
+    const row = kh && kh.rows ? findRow(kh.rows) : null;
+    const pagu = row ? row['pagu'+y] : null;
+    const real = kumulatifRowG_(kh, row, uptoIdx);
+    if(real === null || !pagu) return { year:y, real:null, persen:null, status:null };
+    const persen = real/pagu*100;
+    return { year:y, real, persen, status: statusWarnaKategoriG_(persen, yf, isPendapatan) };
+  });
+
   if(kb && kb.rows && kb.rows.length){
-    const yf = yearFractionDariBulanLabel_(kb.bulan_label);
-    kb.rows.filter(r=>r.depth===1).forEach(r=>{
+    // bulan acuan sama dgn Ringkasan & tabel Perbandingan (lihat refIdxGabung_)
+    const uptoIdx = year === '2026' ? perbandinganRefMonthIdx_()
+      : (kb.bulan_label && kb.bulan_label.length ? kb.bulan_label.length : 12) - 1;
+    const yf = (uptoIdx + 1) / 12;
+    STATUS_KATEGORI_BELANJA_G_.forEach(kode=>{
+      const r = kb.rows.find(x=>x.kode===kode);
+      if(!r) return;
       const pagu = r['pagu'+year];
       if(!pagu) return;
       const persen = r.total/pagu*100;
-      items.push({ jenis:'Belanja', nama:r.nama, persen, sisa: pagu-r.total, status: statusWarnaKategoriG_(persen, yf, false) });
+      items.push({ jenis:'Belanja', nama:r.nama, persen, sisa: pagu-r.total, status: statusWarnaKategoriG_(persen, yf, false),
+        sub: r.depth >= 2, bulan: MONTH_NAMES[uptoIdx],
+        cmp: buildCmp(STATE.khusus, rows=>rows.find(x=>x.kode===kode), uptoIdx, false, yf) });
     });
   }
   if(kp && kp.rows && kp.rows.length){
-    const yf = yearFractionDariBulanLabel_(kp.bulan_label);
+    const uptoIdx = year === '2026' ? perbandinganRefMonthIdxP_()
+      : (kp.bulan_label && kp.bulan_label.length ? kp.bulan_label.length : 12) - 1;
+    const yf = (uptoIdx + 1) / 12;
     kp.rows.filter(r=>r.depth===1).forEach(r=>{
       const pagu = r['pagu'+year];
       if(!pagu) return;
       const persen = r.total/pagu*100;
-      items.push({ jenis:'Pendapatan', nama:r.nama, persen, sisa: pagu-r.total, status: statusWarnaKategoriG_(persen, yf, true) });
+      const nk = normalizeKodeP_(r.kode);
+      items.push({ jenis:'Pendapatan', nama:r.nama, persen, sisa: pagu-r.total, status: statusWarnaKategoriG_(persen, yf, true),
+        sub: false, bulan: MONTH_NAMES[uptoIdx],
+        cmp: buildCmp(STATE_P.khusus, rows=>rows.find(x=>normalizeKodeP_(x.kode)===nk), uptoIdx, true, yf) });
     });
   }
   if(!items.length){
     wrap.innerHTML = '<div class="anomaly-empty">Data kategori per tahun (Khusus Tahun) belum tersedia.</div>';
     return;
   }
+  const fmtPct1 = p => p.toFixed(1).replace('.',',') + '%';
   wrap.innerHTML = items.map(it=>`
-    <div class="status-card st-${it.status}">
+    <div class="status-card st-${it.status}${it.sub ? ' status-card-subkat' : ''}">
       <div class="status-card-head">
         <span class="status-dot dot-${it.status}"></span>
         <span class="status-card-title">${it.nama}</span>
       </div>
-      <div class="status-card-jenis">${it.jenis}</div>
-      <div class="status-card-pct">${it.persen.toFixed(1)}% terealisasi</div>
+      <div class="status-card-jenis">${it.jenis}${it.sub ? ' · rincian Belanja Operasi' : ''} · ${year} s.d. ${it.bulan}</div>
+      <div class="status-card-pct">${fmtPct1(it.persen)} terealisasi</div>
       <div class="status-card-sub">${it.jenis==='Belanja' ? 'Sisa pagu' : 'Sisa target'} Rp ${fmt(it.sisa)}</div>
       <div class="status-card-bar"><div class="status-card-bar-fill" style="width:${Math.min(Math.max(it.persen,0),100)}%"></div></div>
+      <div class="status-cmp">
+        <div class="status-cmp-head">Bulan yang sama (s.d. ${it.bulan})</div>
+        ${it.cmp.map(c=>`
+          <div class="status-cmp-row">
+            <span class="status-cmp-year">${c.year}</span>
+            <span class="status-cmp-pct ${c.status ? 'txt-'+c.status : ''}">${c.persen===null ? '-' : fmtPct1(c.persen)}</span>
+            <span class="status-cmp-rp">${c.real===null ? 'belum ada data' : 'Rp ' + fmt(c.real)}</span>
+          </div>`).join('')}
+      </div>
     </div>
   `).join('');
 }

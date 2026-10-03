@@ -1001,6 +1001,17 @@ table.range-detail-nolabel tbody td:first-child{
 .status-card.st-green .status-card-bar-fill{background:var(--green);}
 .status-card.st-yellow .status-card-bar-fill{background:var(--amber);}
 .status-card.st-red .status-card-bar-fill{background:var(--red);}
+/* Pembanding tahun lain pada bulan yang sama (kumulatif s.d. bulan berjalan) */
+.status-cmp{margin-top:6px;padding-top:6px;border-top:1px dashed rgba(120,130,160,.28);display:flex;flex-direction:column;gap:2px;}
+.status-cmp-head{font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.03em;margin-bottom:1px;}
+.status-cmp-row{display:grid;grid-template-columns:38px 52px 1fr;align-items:baseline;gap:6px;font-size:11.5px;}
+.status-cmp-year{color:var(--muted);font-weight:600;}
+.status-cmp-pct{font-weight:700;color:var(--navy);}
+.status-cmp-pct.txt-green{color:var(--green);}
+.status-cmp-pct.txt-yellow{color:var(--amber);}
+.status-cmp-pct.txt-red{color:var(--red);}
+.status-cmp-rp{color:var(--muted);text-align:right;white-space:nowrap;}
+.status-card-subkat .status-card-title{font-weight:600;}
 
 .anomaly-summary-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
 .anomaly-summary-pill{
@@ -1312,3 +1323,18 @@ html.mode-hp .range-group{ min-width:0; flex:1 1 100%; flex-wrap:wrap; row-gap:6
 html.mode-hp .range-summary .range-stat{ min-width:0; flex:1 1 100%; }
 html.mode-hp .toolbar select, html.mode-hp .toolbar input[type=text]{ min-width:0; }
 html.mode-hp #filterRekening, html.mode-hp #filterRekeningP{ min-width:0!important; flex:1 1 100%!important; }
+
+
+/* ===== ODOMETER — angka bergulir dari bawah ke atas (efek mesin pompa bensin) =====
+   Dibuat oleh odometer.js. Strip digit = 40 baris (0-9 x4) lewat ::before supaya
+   tidak ada teks sampah di DOM. Tinggi tiap digit 1.25em (sinkron dgn LH di JS). */
+.odo{display:inline;white-space:nowrap;font-variant-numeric:tabular-nums;position:relative;}
+.odo-t{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
+.odo-d{display:inline-block;overflow:hidden;height:1.25em;line-height:1.25em;vertical-align:-0.29em;user-select:none;-webkit-user-select:none;}
+.odo-s::before{content:attr(data-c);}
+.odo-s{display:inline-block;height:1.25em;line-height:1.25em;vertical-align:-0.29em;user-select:none;-webkit-user-select:none;}
+.odo-c{display:block;transform:translateY(var(--to,0));will-change:transform;}
+.odo-c::before{content:"0\A 1\A 2\A 3\A 4\A 5\A 6\A 7\A 8\A 9\A 0\A 1\A 2\A 3\A 4\A 5\A 6\A 7\A 8\A 9\A 0\A 1\A 2\A 3\A 4\A 5\A 6\A 7\A 8\A 9\A 0\A 1\A 2\A 3\A 4\A 5\A 6\A 7\A 8\A 9";display:block;white-space:pre;line-height:1.25em;}
+.odo-c.go{animation:odoRoll var(--dur,1000ms) cubic-bezier(.2,.85,.25,1) both;}
+@keyframes odoRoll{from{transform:translateY(var(--from,0));}to{transform:translateY(var(--to,0));}}
+@media (prefers-reduced-motion:reduce){ .odo-c.go{animation:none;} }
