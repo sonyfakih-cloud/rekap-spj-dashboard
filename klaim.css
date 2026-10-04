@@ -274,9 +274,10 @@ html.mode-hp #appRootKlaim .pk-y{padding-top:12px;width:34px;}
 @media(prefers-reduced-motion:reduce){#appRootKlaim .dkview.active,#appRootKlaim .dpview.active{animation:none!important;}}
 
 /* pilihan jenis data pada mode 2 bulan */
-#appRootKlaim .duo-sw{display:inline-flex;border:1px solid var(--k-line);border-radius:999px;overflow:hidden;background:var(--k-soft)}
-#appRootKlaim .duo-sw button{border:0;background:transparent;padding:6px 14px;font:inherit;font-size:12.5px;font-weight:600;color:var(--muted);cursor:pointer}
-#appRootKlaim .duo-sw button[aria-pressed="true"]{background:var(--sb-act-bg);color:var(--sb-act-ink)}
+#appRootKlaim .duo-sw{display:inline-flex;gap:6px;padding:0;border:0;background:transparent}
+#appRootKlaim .duo-sw button{font:inherit;font-size:12.5px;font-weight:600;white-space:nowrap;cursor:pointer;border:none;border-radius:var(--radius-sm,10px);padding:8px 14px;background:var(--card-solid,var(--card));color:var(--k-ink2,var(--muted));box-shadow:var(--shadow-sm);transition:transform .12s ease,background .12s ease}
+#appRootKlaim .duo-sw button:hover{transform:translateY(-1px)}
+#appRootKlaim .duo-sw button[aria-pressed="true"]{background:var(--accent);color:#1b1f3b;box-shadow:var(--shadow-sm),inset 0 0 0 1px rgba(0,0,0,.08)}
 #appRootKlaim .duobar{flex-wrap:wrap;gap:10px}
 
 /* ---- pager tabel: pilihan 10/100/500 baris + nomor halaman ---- */
