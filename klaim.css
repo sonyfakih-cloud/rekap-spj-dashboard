@@ -302,3 +302,6 @@ html.mode-hp #appRootKlaim .pk-y{padding-top:12px;width:34px;}
 #appRootKlaim details.kdet{margin-top:12px;border:1px solid var(--k-line);border-radius:12px;padding:10px 14px;background:var(--k-soft)}
 #appRootKlaim details.kdet summary{cursor:pointer;font-size:12.5px;font-weight:600;color:var(--k-ink2)}
 #appRootKlaim details.kdet ul.kfind li{font-size:12px}
+
+#appRootKlaim .ksegw{max-width:100%;overflow-x:auto;scrollbar-width:thin}
+#appRootKlaim .ksegw button{white-space:nowrap;flex:none}

@@ -479,7 +479,7 @@ R.ringkasan=()=>{
     const cat={};ps.forEach(k=>{Object.entries(PM(k).cat).forEach(([c,v])=>{const o=cat[c]=cat[c]||{n:0,amt:0};o.n+=v.n;o.amt+=v.amt})});
     const top=Object.entries(cat).sort((a,b)=>b[1].amt-a[1].amt)[0];
     if(top) L.push(`<li><b>Kategori penyebab terbesar menurut nilai:</b> ${esc(top[0])} (${pct(top[1].amt/amt)} dari nilai, ${nf.format(top[1].n)} SEP). Kategori ini hasil klasifikasi kata kunci pada teks alasan verifikator (heuristik), jadi dipakai sebagai petunjuk arah, bukan angka baku.</li>`);
-    if(cat['Lainnya']&&cat['Lainnya'].n/n>0.25) L.push(`<li class="w"><b>Kategori “Lainnya” besar (${pct(cat['Lainnya'].n/n)} SEP):</b> aturan kata kunci belum menangkap sebagian alasan. Untuk analisis penyebab yang lebih tajam, kamus kata kunci perlu disempurnakan; lihat teks alasan asli di tab Penyebab pending.</li>`);
+    if(cat['Lainnya']&&cat['Lainnya'].n/n>0.25) L.push(`<li class="w"><b>Kategori “Lainnya” besar (${pct(cat['Lainnya'].n/n)} SEP):</b> aturan kata kunci belum menangkap sebagian alasan. Uraiannya menurut keputusan pengelola RS (klinis DPJP, dokumen medis, koding, administrasi, kebijakan BPJS) ada di tab Penyebab pending, bagian “Uraian kategori Lainnya”.</li>`);
     /* sikap RS */
     const sv=ps.filter(k=>PM(k).fmt!=='ekspor');
     if(sv.length){
@@ -715,9 +715,11 @@ PR.sebab=()=>{
   <div class="card"><h2>Kategori penyebab: ${esc(DS[0])} vs ${esc(DS[1])}</h2><p class="knote">Diurutkan dari yang terbesar. Pill merah = bertambah, hijau = berkurang.</p><div id="pd-sc"></div></div>
   <div class="kgrid kg2"><div class="card"><h2>Perubahan terbesar per kategori</h2><p class="knote">Selisih ${esc(DS[1])} dikurangi ${esc(DS[0])}; hijau = pending berkurang.</p><div id="pd-sd"></div></div>
   <div class="card"><h2>Status jawaban RS (100%)</h2><p class="knote">${ok?'Belum dijawab, menerima/menyesuaikan, atau menyanggah/melampirkan bukti (heuristik atas kolom jawaban).':'Tidak dapat ditampilkan: salah satu bulan berformat ekspor tanpa kolom jawaban RS.'}</p><div id="pd-ss"></div></div></div>
+  ${lainSection('pln')}
   <h3 class="ksect">Teks alasan dari verifikator</h3><div class="card"><div class="ktoolbar"><span class="kl">Sumber</span><div class="kseg" id="k-pdt"></div><input type="search" id="pd-q" placeholder="Cari kata dalam alasan…" aria-label="Cari alasan"><span class="kl" id="pd-cnt"></span></div><div class="ktbl" id="pd-tbl"></div><p class="knote" style="margin:10px 0 0" id="pd-note"></p></div>`;
   seg('pdm',[['n','Jumlah SEP'],['amt','Nilai (Rp)']],met,v=>{pdMet=v;pRendered.sebab=0;KC.length=0;PR.sebab();pRendered.sebab=1});
   hbars2($('pd-sc'),rows,{fmt:mf,tone:'bad',lw:190,title:'Kategori penyebab'});
+  lainDraw([A,B].filter(k=>PM(k)),met,'pln');
   diverge2($('pd-sd'),dl,{fmt:mf,goodUp:false,lw:150,title:'Perubahan per kategori'});
   if(ok){const ks=Object.keys(SK_COL);stack100($('pd-ss'),[A,B].map(k=>({label:mlab(k),vals:ks.map(s=>((PM(k).sikap[s]||{})[met])||0)})),ks.map(s=>({name:s,color:SK_COL[s]})),{title:'Status jawaban RS'})}
   else $('pd-ss').innerHTML='<p class="knote">Tidak ada data.</p>';
@@ -1039,6 +1041,51 @@ LJ.pvk=()=>{
   combo($('ljp-combo'),{ph:'Cari kode atau nama diagnosis…',items:byAmt.map(r=>({s:r._s,text:r.code+(r.desc?' · '+r.desc:''),sub:nf.format(r.pn)+' SEP pending · '+nf.format(r.kn)+' klaim',code:r.code})),onPick:it=>tb.only(it?(r=>r.code===it.code):null),onType:v=>tb.search(v)});
 };
 
+/* ================= Uraian kategori “Lainnya” menurut keputusan pengelola RS =================
+   Data: D.meta.lain (218 teks alasan beserta kelompok keputusan) dan D.months[k].lain (agregat per bulan x kelompok).
+   Tanpa nomor SEP atau data pasien. Kelompok = keputusan analis RS, bukan klasifikasi BPJS. */
+const LNC=['#84AAF3','#F4BA84','#6FC28F','#B79BE8','#9AA3B8'];
+const LNS=['Klinis DPJP','Dokumen medis (dokter & koder)','Koding (koder)','Administrasi / kepesertaan','Kebijakan BPJS'];
+const lainSection=pfx=>(D.meta&&D.meta.lain)?`<h3 class="ksect">Uraian kategori “Lainnya” menurut keputusan pengelola RS</h3><div id="${pfx}-box"></div>`:'';
+function lainDraw(ps,met,pfx){
+  const box=$(pfx+'-box'),LN=D.meta&&D.meta.lain;if(!box||!LN)return;
+  const mf=met==='n'?nf.format:rp;
+  const withL=ps.filter(k=>PM(k).lain);
+  if(!withL.length){box.innerHTML=empty('Bulan terpilih tidak memiliki SEP berkategori “Lainnya”, sehingga tidak ada yang perlu diuraikan.');return}
+  const G=LN.groups,tot=G.map((g,i)=>({n:sum(ps.map(k=>(((PM(k).lain||{})[i])||{n:0}).n)),amt:sum(ps.map(k=>(((PM(k).lain||{})[i])||{amt:0}).amt)),ri:sum(ps.map(k=>(((PM(k).lain||{})[i])||{ri:0}).ri)),rj:sum(ps.map(k=>(((PM(k).lain||{})[i])||{rj:0}).rj))}));
+  const lainN=sum(ps.map(k=>PM(k).lain_uniq||0)),allN=sum(ps.map(k=>PM(k).n)),lainA=sum(ps.map(k=>((PM(k).cat['Lainnya']||{}).amt)||0)),allA=sum(ps.map(k=>PM(k).amt));
+  const gsum=sum(tot.map(t=>t[met]))||1;
+  box.innerHTML=`${caveat(`<b>Cara membaca.</b> Kelompok di bawah adalah <b>keputusan pengelola RS</b> atas teks alasan verifikator yang masuk kategori “Lainnya” (bukan klasifikasi resmi BPJS). Artinya “siapa yang paling mungkin memegang perbaikan”, bukan penilaian kinerja dokter atau petugas. Cakupannya hanya SEP kategori “Lainnya”: <b>${nf.format(lainN)} dari ${nf.format(allN)} SEP pending</b> (${pct(lainN/allN)}) senilai <b>${rp(lainA)}</b> (${pct(lainA/allA)} dari nilai) pada bulan terpilih. Kategori lain (kodefikasi, fisioterapi, dan seterusnya) belum dikelompokkan dengan cara ini. Satu SEP yang punya dua alasan berbeda dapat terhitung di dua kelompok (selisih paling banyak 1 SEP per bulan).`)}
+  <div class="kgrid kg2"><div class="card"><h2>Kelompok penanggung jawab: antarbulan</h2><p class="knote">${met==='n'?'Jumlah SEP':'Nilai ajuan'} per kelompok keputusan, bulan-bulan terpilih berdampingan.</p><div id="${pfx}-c1"></div></div>
+  <div class="card"><h2>Komposisi kelompok per bulan (100%)</h2><p class="knote">Porsi tiap kelompok terhadap total “Lainnya” bulan itu.</p><div id="${pfx}-c2"></div></div></div>
+  <div class="card"><h3 class="ksect" style="margin-top:0">Temuan otomatis</h3><ul class="kfind" id="${pfx}-find"></ul></div>
+  <h3 class="ksect">Daftar alasan dan keputusan</h3><div class="card"><div class="ktoolbar"><span class="kl">Kelompok</span><div class="kseg ksegw" id="k-${pfx}g"></div><input type="search" id="${pfx}-q" placeholder="Cari kata dalam alasan atau catatan…" aria-label="Cari alasan"><span class="kl" id="${pfx}-cnt"></span></div><div class="ktbl" id="${pfx}-tbl"></div><p class="knote" style="margin:10px 0 0">Satu baris satu teks alasan (nomor SEP dan tanggal di dalam teks sudah disamarkan). Angka mengikuti bulan terpilih. Kolom Catatan berisi catatan yang tertulis di berkas keputusan; isinya belum diverifikasi ulang oleh analisis ini.</p></div>`;
+  hbarsN($(pfx+'-c1'),G.map((g,i)=>({label:LNS[i],vals:ps.map(k=>((((PM(k).lain||{})[i])||{})[met])||0)})),serOf(ps,k=>null),{fmt:mf,lw:170,title:'Kelompok penanggung jawab antarbulan'});
+  stack100($(pfx+'-c2'),withL.map(k=>({label:mlab(k),vals:G.map((g,i)=>((((PM(k).lain||{})[i])||{})[met])||0)})),LNS.map((s,i)=>({name:s,color:LNC[i]})),{title:'Komposisi kelompok'});
+  /* temuan */
+  const F=[],ord=tot.map((t,i)=>({i,...t})).sort((a,b)=>b[met]-a[met]),top=ord[0];
+  F.push(`<li><b>Terbesar menurut ${met==='n'?'jumlah SEP':'nilai'}:</b> ${esc(G[top.i])} (${nf.format(top.n)} SEP, ${rp(top.amt)}; ${pct(top[met]/gsum)} dari “Lainnya”).</li>`);
+  const byA=tot.map((t,i)=>({i,...t})).sort((a,b)=>b.amt-a.amt)[0],byN=tot.map((t,i)=>({i,...t})).sort((a,b)=>b.n-a.n)[0];
+  if(byA.i!==byN.i) F.push(`<li class="w"><b>Jumlah dan nilai tidak sejalan:</b> paling banyak SEP ada di <b>${esc(G[byN.i])}</b> (${nf.format(byN.n)} SEP, rata-rata ${rp(byN.amt/(byN.n||1))} per SEP), tetapi paling besar nilainya di <b>${esc(G[byA.i])}</b> (${rp(byA.amt)}, rata-rata ${rp(byA.amt/(byA.n||1))} per SEP). Prioritas perbaikan sebaiknya mempertimbangkan keduanya.</li>`);
+  const own=tot[1].amt+tot[2].amt+tot[0].amt,out=tot[4].amt,adm=tot[3].amt;
+  F.push(`<li class="${tot[4].n/(lainN||1)>0.15?'w':''}"><b>Di luar kendali RS:</b> kelompok “Kebijakan BPJS” hanya ${nf.format(tot[4].n)} SEP (${rp(out)}). Sisanya ${rp(own+adm)} berada pada kelompok yang berpeluang diperbaiki lewat proses internal (dokumen, koding, keputusan klinis, administrasi).</li>`);
+  const ri=sum(tot.map(t=>t.ri)),rj=sum(tot.map(t=>t.rj));
+  if(ri&&rj) F.push(`<li><b>Jenis pelayanan:</b> ${nf.format(ri)} SEP rawat inap dan ${nf.format(rj)} SEP rawat jalan pada kelompok-kelompok ini. Porsi rawat inap per kelompok (menurut jumlah SEP): ${tot.map((t,i)=>t.n?esc(LNS[i])+' '+pct(t.ri/t.n,0):'').filter(Boolean).join('; ')}.</li>`);
+  const rs=(LN.reasons||[]).map(r=>({r,n:sum(ps.map(k=>(r.pm[k]||[0,0])[0])),a:sum(ps.map(k=>(r.pm[k]||[0,0])[1]))})).filter(x=>x.n>0).sort((x,y)=>y.n-x.n);
+  if(rs.length){const t=rs[0];F.push(`<li><b>Alasan tunggal terbanyak:</b> “${esc(trunc(t.r.t,90))}” (${nf.format(t.n)} SEP, ${rp(t.a)}), keputusan: ${esc(G[t.r.g])}. ${rs.length} alasan berbeda terdapat pada bulan terpilih; ${rs.filter(x=>x.n===1).length} di antaranya hanya muncul pada satu SEP.</li>`)}
+  $(pfx+'-find').innerHTML=F.join('');
+  /* tabel */
+  const rows=rs.map(x=>({g:x.r.g,t:x.r.t,n:x.n,a:x.a,m:ps.filter(k=>x.r.pm[k]).length,nt:x.r.nt,_s:(x.r.t+' '+LNS[x.r.g]+' '+x.r.nt).toLowerCase()}));
+  const cols=[{k:'g',h:'Kelompok',cls:'l',v:r=>r.g,f:r=>`<span class="kchip" style="background:${LNC[r.g]};color:#1b1f3b">${esc(LNS[r.g])}</span>`},
+    {k:'t',h:'Alasan',cls:'l',v:r=>r.t,f:r=>esc(r.t)},
+    {k:'n',h:'SEP',v:r=>r.n,f:r=>nf.format(r.n)},{k:'a',h:'Nilai ajuan',v:r=>r.a,f:r=>rp(r.a)},
+    {k:'m',h:'Bulan',v:r=>r.m,f:r=>r.m+' dari '+ps.length},
+    {k:'nt',h:'Catatan',cls:'l',v:r=>r.nt,f:r=>r.nt?`<details class="kdet" style="margin:0;padding:4px 8px"><summary>Lihat</summary><div class="knote" style="margin:6px 0 0;white-space:normal;min-width:220px">${esc(r.nt)}</div></details>`:'<span class="ksmall">–</span>'}];
+  const tb=table($(pfx+'-tbl'),cols,rows,{sort:'n',asc:false,count:$(pfx+'-cnt')});
+  $(pfx+'-q').oninput=e=>tb.search(e.target.value);
+  seg(pfx+'g',[['all','Semua']].concat(LNS.map((s,i)=>[String(i),s])),'all',v=>tb.only(v==='all'?null:(r=>String(r.g)===v)));
+}
+
 /* ================= Penyebab pending ================= */
 const SK_COL={'Belum ada jawaban RS':'#E3B360','RS menerima / menyesuaikan':'#6FC28F','RS menyanggah / melampirkan bukti':'#84AAF3'};
 let sebabMet='n',sebabSrc='topik';
@@ -1055,6 +1102,7 @@ R.sebab=()=>{
   <div class="card"><h2>Status jawaban RS atas pending (100%)</h2><p class="knote">${sv.length?'Klasifikasi isi kolom jawaban RS (heuristik): belum dijawab, menerima/menyesuaikan, atau menyanggah/melampirkan bukti.':'Tidak ada bulan berformat verifikasi pada pilihan ini.'}${ev.length?' <b>'+ev.map(mlab).join(', ')+'</b> tidak ditampilkan karena formatnya tidak memuat kolom jawaban.':''}</p><div id="s-c2"></div></div></div>
   <div class="card"><h2>Kategori penyebab: perbandingan antarbulan</h2><p class="knote">Setiap kelompok batang memperlihatkan bulan-bulan terpilih untuk satu kategori, diurutkan dari yang terbesar.</p><div id="s-c3"></div></div>
   <h3 class="ksect">Matriks kategori × bulan</h3><div class="card"><div class="ktoolbar"><span class="kl" id="s-cnt"></span></div><div class="ktbl" id="s-tbl"></div></div>
+  ${lainSection('sln')}
   <h3 class="ksect">Teks alasan dari verifikator</h3><div class="card"><div class="ktoolbar"><span class="kl">Sumber</span><div class="kseg" id="k-sSrc"></div><input type="search" id="s-q" placeholder="Cari kata dalam alasan…" aria-label="Cari alasan"><span class="kl" id="s-cnt2"></span></div><div class="ktbl" id="s-tbl2"></div><p class="knote" style="margin:10px 0 0" id="s-note2"></p></div>`;
   seg('sMet',[['n','Jumlah SEP'],['amt','Nilai (Rp)']],met,v=>{sebabMet=v;rendered.sebab=0;KC.length=0;R.sebab();rendered.sebab=1});
   seg('sSrc',[['topik','Topik filtrasi (per SEP)'],['alasan','Teks alasan (per baris)']],sebabSrc,v=>{sebabSrc=v;drawText()});
@@ -1063,6 +1111,7 @@ R.sebab=()=>{
   else $('s-c2').innerHTML='<p class="knote">Tidak ada data.</p>';
   const top=cats.slice(0,Math.min(cats.length,ps.length<=3?11:ps.length<=6?8:6));
   hbarsN($('s-c3'),top.map(c=>({label:c,vals:ps.map(k=>((PM(k).cat[c]||{})[met])||0)})),serOf(ps,k=>null),{fmt:mf,title:'Kategori penyebab antarbulan'});
+  lainDraw(ps,met,'sln');
   /* tabel matriks */
   const trows=cats.map(c=>({c,v:Object.fromEntries(ps.map(k=>[k,(PM(k).cat[c]||{})[met]||0])),_s:c}));
   trows.forEach(r=>{r.t=sum(ps.map(k=>r.v[k]))});
