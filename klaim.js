@@ -289,7 +289,7 @@ function renderPicker(){
   $('pk').innerHTML=`<div class="pk-head"><h2>Pilih bulan yang dibandingkan</h2><p class="knote">Ketuk bulan untuk menambah atau melepas (maksimal ${MAXSEL}). Titik <i class="pdot p"></i> = ada data pending, titik <i class="pdot k"></i> = ada data klaim. Bulan yang tidak punya titik tidak dapat dipilih.</p></div>`+h+
    `<div class="pk-pre"><span class="pl">Pilihan cepat</span><button type="button" data-p="y2025">Semua 2025</button><button type="button" data-p="y2026">Semua 2026</button><button type="button" data-p="last6">6 bulan data terakhir</button><button type="button" data-p="augsep">Agu–Sep 2026</button><button type="button" data-p="agu2">Agu 2025 vs Agu 2026</button><button type="button" data-p="yoy">Jan–Mar 2025 vs 2026</button><button type="button" data-p="clear" class="ghost">Kosongkan</button></div>`+
    `<div class="pk-sum"><b>${SEL.length}</b> bulan dipilih · pending <b>${ps.length}</b> bulan · klaim <b>${ks.length}</b> bulan${leg?'<span class="pk-legs">'+leg+'</span>':''}</div>`+
-   (SEL.length===2?(modeOf()==='multi'?'<div class="pk-warn">Mode 2 bulan (A vs B) butuh dua bulan yang sama-sama punya data pending atau sama-sama punya data klaim. Saat ini ditampilkan mode multi-bulan.</div>':'<div class="pk-mode">Mode 2 bulan aktif: tampilan perbandingan A vs B untuk '+(modeOf()==='duoK'?'klaim':'pending')+'.</div>'):'<div class="pk-hint">Pilih tepat 2 bulan untuk tampilan perbandingan A vs B (seperti Agustus vs September). Pilih lebih dari 2 untuk perbandingan multi-bulan.</div>')+(SEL.length&&(noP.length||noK.length)?`<div class="pk-warn">${noP.length?'Tanpa data pending: '+noP.map(mlab).join(', ')+'. ':''}${noK.length?'Tanpa data klaim: '+noK.map(mlab).join(', ')+' (data klaim tidak tersedia).':''}</div>`:'');
+   (LV==='lanjut'?'':SEL.length===2?(modeOf()==='multi'?'<div class="pk-warn">Mode 2 bulan (A vs B) butuh dua bulan yang sama-sama punya data pending atau sama-sama punya data klaim. Saat ini ditampilkan mode multi-bulan.</div>':'<div class="pk-mode">Mode 2 bulan aktif: tampilan perbandingan A vs B untuk '+(modeOf()==='duoK'?'klaim':'pending')+'.</div>'):'<div class="pk-hint">Pilih tepat 2 bulan untuk tampilan perbandingan A vs B (seperti Agustus vs September). Pilih lebih dari 2 untuk perbandingan multi-bulan.</div>')+(SEL.length&&(noP.length||noK.length)?`<div class="pk-warn">${noP.length?'Tanpa data pending: '+noP.map(mlab).join(', ')+'. ':''}${noK.length?'Tanpa data klaim: '+noK.map(mlab).join(', ')+' (data klaim tidak tersedia).':''}</div>`:'');
 }
 function setSel(a){SEL=[...new Set(a)].filter(k=>hasP(k)||hasK(k)).sort().slice(0,MAXSEL);store.set('pk_sel',JSON.stringify(SEL));renderPicker();rerender()}
 $('pk').addEventListener('click',e=>{
@@ -343,6 +343,9 @@ function show(id){
 }
 nav.onclick=e=>{const b=e.target.closest('button');if(b)show(b.dataset.t)};
 let DUO=store.get('pk_duo')||'K';
+let LV=store.get('pk_lv')==='lanjut'?'lanjut':'main';
+function renderLV(){const b=$('lvBar');if(!b)return;
+  b.innerHTML=`<span class="duo-sw" role="group" aria-label="Pilih tampilan"><button type="button" data-lv="main" aria-pressed="${LV==='main'}">Perbandingan bulan</button><button type="button" data-lv="lanjut" aria-pressed="${LV==='lanjut'}">Analisis lanjutan</button></span><span class="ksmall">${LV==='lanjut'?'LOS per kode, DPJP &amp; case-mix, SLA finalisasi, dan pending vs klaim per kode — memakai bulan yang dipilih di atas.':''}</span>`}
 function duoAvail(){
   if(SEL.length!==2)return [];
   const [a,b]=SEL,r=[];
@@ -356,10 +359,15 @@ function modeOf(){
   return (av.includes(DUO)?DUO:av[0])==='K'?'duoK':'duoP';
 }
 function applyMode(){
-  const m=modeOf();
-  ['multi','duoK','duoP'].forEach(id=>{$(id).hidden=id!==m});
+  const m=modeOf(),L=LV==='lanjut';
+  ['multi','duoK','duoP'].forEach(id=>{$(id).hidden=L||id!==m});
+  $('lanjut').hidden=!L;
   const h=$('ttl'),bar=$('duoBar'),sub=$('sub');
-  if(m==='multi'){
+  if(L){
+    h.textContent='BPJS 2025-2026 — Analisis lanjutan';
+    sub.textContent='RSUD dr. R. Soeprapto Cepu — LOS per kode, DPJP disesuaikan case-mix, SLA finalisasi klaim, dan pending vs klaim per kode.';
+    bar.hidden=true;
+  } else if(m==='multi'){
     h.textContent='BPJS 2025-2026 — Pending & Klaim';
     sub.textContent='RSUD dr. R. Soeprapto Cepu — pending verifikasi 2025–2026 dan klaim INA-CBG. Pilih bulan mana saja untuk dibandingkan.';
     bar.hidden=true;
@@ -377,10 +385,13 @@ function applyMode(){
 }
 function rerender(){
   const m=applyMode();
+  renderLV();
+  if(LV==='lanjut'){renderLanjut();return}
   if(m==='multi'){Object.keys(rendered).forEach(k=>delete rendered[k]);show(curTab)}
   else if(m==='duoK'){if(window.DUOK)window.DUOK.show(SEL[0],SEL[1]);else window.addEventListener('load',()=>{if(window.DUOK&&modeOf()==='duoK')window.DUOK.show(SEL[0],SEL[1])},{once:true})}
   else pRerender();
 }
+$('lvBar').addEventListener('click',e=>{const b=e.target.closest('[data-lv]');if(!b||b.dataset.lv===LV)return;LV=b.dataset.lv;store.set('pk_lv',LV);renderPicker();rerender();if(LV==='lanjut'){const t=$('lvBar');if(t&&t.getBoundingClientRect().top<0)t.scrollIntoView({block:'start'})}});
 $('duoBar').addEventListener('click',e=>{const b=e.target.closest('[data-duo]');if(!b)return;DUO=b.dataset.duo;store.set('pk_duo',DUO);renderPicker();rerender()});
 const visible=()=>{const r=$('appRootKlaim');return r&&r.style.display!=='none'};
 let rz,lastW=window.innerWidth;window.addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{if(!visible()||window.innerWidth===lastW)return;lastW=window.innerWidth;rerender()},180)});
@@ -779,6 +790,253 @@ PR.data=()=>{
    <li><b>Satu bulan melawan satu bulan.</b> Selisih dua bulan bukan tren; musim penyakit, hari kerja, dan kelengkapan berkas memengaruhi angka.</li>
    <li><b>Data pasien tidak ditampilkan.</b> Hanya agregat; nama, nomor kartu, NIK, nomor RM, dan nomor SEP tidak dimasukkan.</li>
   </ul></div>`;
+};
+
+/* ================= Analisis lanjutan =================
+   1) LOS per kode INA-CBG   2) DPJP disesuaikan case-mix (O/E)   3) SLA finalisasi klaim   4) Pending vs klaim per kode
+   Data: KLAIM_AGG (per bulan), DPX_DATA (DPJP x kode, acuan 21 bulan), PK_DATA (pending). Semua agregat, tanpa data pasien. */
+const KAm=(window.KLAIM_AGG||{}).months||{}, DX=window.DPX_DATA||null;
+const clean=s=>String(s).replace(/^"+|"+$/g,'').trim();
+const LJ={};
+const LTABS=[['los','LOS per kode'],['dpjp','DPJP & case-mix'],['sla','SLA finalisasi'],['pvk','Pending vs klaim per kode']];
+let ljTab=store.get('pk_ljt')||'los',ljR={},dpJ='RI',slaD=+store.get('pk_sla_d')||7,slaP=+store.get('pk_sla_p')||80;
+const MINN=30;
+const devChip=(ratio,ok,badUp)=>{
+  if(!ok||!isFinite(ratio))return '<span class="ksmall">n kecil</span>';
+  const d=ratio-1,up=d>0.15,dn=d<-0.15;let c='flat';
+  if(up)c=badUp===false?'good':'bad';if(dn)c=badUp===false?'bad':'good';
+  return `<span class="kchip ${c}">${d>=0?'+':'−'}${dec(Math.abs(d)*100,0)}%</span>`;
+};
+function ljBuild(){
+  const el=$('lanjut');if(el.dataset.built)return;el.dataset.built='1';
+  el.innerHTML=`<nav class="k-tabs" id="lj-tabs" role="tablist" aria-label="Analisis lanjutan">${LTABS.map(t=>`<button type="button" role="tab" data-t="${t[0]}" aria-selected="false">${t[1]}</button>`).join('')}</nav>`+
+    LTABS.map(t=>`<section class="ljview" id="lj-${t[0]}"></section>`).join('');
+  $('lj-tabs').onclick=e=>{const b=e.target.closest('button');if(b)ljShow(b.dataset.t)};
+}
+function ljShow(id){
+  if(!LTABS.some(t=>t[0]===id))id='los';
+  ljTab=id;store.set('pk_ljt',id);
+  $('lj-tabs').querySelectorAll('button').forEach(b=>b.setAttribute('aria-selected',b.dataset.t===id));
+  document.querySelectorAll('#lanjut .ljview').forEach(s=>s.classList.toggle('active',s.id==='lj-'+id));
+  if(!ljR[id]){KC.length=0;LJ[id]();ljR[id]=1}
+}
+function renderLanjut(){ljBuild();ljR={};ljShow(ljTab)}
+const noKlaim=()=>{const av=TL.filter(hasK);return empty(`Tidak ada data klaim pada bulan terpilih. Data klaim tersedia untuk <b>${av.length} bulan</b> (${mfull(av[0])} sampai ${mfull(av[av.length-1])}).`)};
+
+/* ---------- 1. LOS per kode ---------- */
+LJ.los=()=>{
+  const el=$('lj-los'),ks=selK();
+  if(!ks.length){el.innerHTML=noKlaim();return}
+  const mk=()=>({n:0,los:0,tot:0,rs:0,per:{}});
+  const ag={},rf={};
+  const add=(M,c,v,k)=>{const o=M[c]=M[c]||Object.assign(mk(),{code:c});o.n+=v[0];o.los+=v[0]*v[3];o.tot+=v[1];o.rs+=v[2];if(k)o.per[k]={n:v[0],a:v[3]}};
+  ks.forEach(k=>Object.entries(KAm[k].inacbg.RI).forEach(([c,v])=>add(ag,c,v,k)));
+  Object.keys(KAm).forEach(k=>Object.entries(KAm[k].inacbg.RI).forEach(([c,v])=>add(rf,c,v)));
+  const sK=fn=>sum(ks.map(k=>fn(KAm[k].kpi.RI)));
+  const n=sK(x=>x.n),los=sK(x=>x.los),tot=sK(x=>x.tot);
+  const allK=Object.keys(KAm),nA=sum(allK.map(k=>KAm[k].kpi.RI.n)),lA=sum(allK.map(k=>KAm[k].kpi.RI.los));
+  const alos=los/n,alosA=lA/nA;
+  const rows=Object.values(ag).map(o=>{const r=rf[o.code];return {code:o.code,desc:D.desc[o.code]||'',n:o.n,los:o.los,alos:o.los/o.n,rn:r.n,ralos:r.los/r.n,tpk:o.tot/o.n,tph:o.los?o.tot/o.los:0,per:o.per,_s:(o.code+' '+(D.desc[o.code]||'')).toLowerCase()}});
+  const showM=ks.length>=2&&ks.length<=4;
+  el.innerHTML=`<div class="card"><h2>Lama rawat (LOS) per kode INA-CBG — rawat inap</h2><p class="knote">ALOS = rata-rata hari rawat per klaim. Dihitung untuk <b>rawat inap saja</b> (rawat jalan tidak punya lama rawat bermakna). Pembanding "ALOS acuan" = rata-rata kode yang sama pada seluruh 21 bulan data klaim. Selisih hanya ditandai bila klaim ≥ 10 pada bulan terpilih dan acuan ≥ 20.</p><div id="ljl-k"></div></div>
+  <div class="kgrid kg2"><div class="card"><h2>ALOS rawat inap per bulan</h2><p class="knote">Seluruh bulan yang punya data klaim; bulan terpilih diberi sorotan.</p><div id="ljl-c1"></div></div>
+  <div class="card"><h2>Kode dengan total hari rawat terbanyak</h2><p class="knote">Hari rawat = klaim × ALOS. Kode di sini paling banyak memakai tempat tidur pada bulan terpilih.</p><div id="ljl-c2"></div></div></div>
+  <h3 class="ksect">Semua kode rawat inap</h3><div class="card"><div class="ktoolbar"><div id="ljl-combo"></div><span class="kl" id="ljl-cnt"></span></div><div class="ktbl" id="ljl-tbl"></div>
+  <p class="knote" style="margin:10px 0 0">LOS per kode tersimpan sebagai rata-rata yang dibulatkan 2 desimal, sehingga total hari rawat per kode bisa berbeda ±0,5% dari total berkas. ALOS tinggi belum berarti pelayanan tidak efisien: tingkat keparahan, komplikasi, dan rujukan memengaruhi lama rawat.</p></div>`;
+  $('ljl-k').innerHTML='<div class="kgrid kkpis">'+
+    kcard('ALOS rawat inap',alos,x=>dec(x,2)+' hari','Acuan 21 bulan: '+dec(alosA,2)+' hari',chg(alosA,alos,null))+
+    kcard('Total hari rawat',los,nf.format,'Pada bulan terpilih')+
+    kcard('Klaim rawat inap',n,nf.format,'Pada bulan terpilih')+
+    kcard('Tarif INA-CBG per hari rawat',los?tot/los:0,rp,'Total tarif RI ÷ total hari rawat')+'</div>';
+  countUp($('ljl-k'));
+  const cats=allK.sort().map(k=>({label:mlab(k),sel:ks.includes(k)}));
+  trendN($('ljl-c1'),cats,[{name:'ALOS RI (hari)',color:COL[0],vals:allK.map(k=>KAm[k].kpi.RI.los/KAm[k].kpi.RI.n)}],{fmt:x=>dec(x,2),ax:x=>dec(x,1),title:'ALOS rawat inap per bulan'});
+  hbarsN($('ljl-c2'),rows.slice().sort((a,b)=>b.los-a.los).slice(0,10).map(r=>({label:r.code+(r.desc?' · '+r.desc:''),vals:[Math.round(r.los)]})),[{name:'Hari rawat',color:COL[0],vals:null}],{fmt:nf.format,lw:Math.min(Math.floor(W($('ljl-c2'))*.5),260),title:'Hari rawat terbanyak'});
+  const cols=[
+    {k:'code',h:'Kode',cls:'l',v:r=>r.code,f:r=>`<b>${esc(r.code)}</b>`},
+    {k:'desc',h:'Deskripsi',cls:'l',v:r=>r.desc,f:r=>r.desc?esc(r.desc):'<span class="ksmall">belum ada deskripsi</span>'},
+    {k:'n',h:'Klaim',v:r=>r.n,f:r=>nf.format(r.n)},
+    {k:'los',h:'Hari rawat',v:r=>r.los,f:r=>nf.format(Math.round(r.los))},
+    {k:'alos',h:'ALOS',v:r=>r.alos,f:r=>`<b>${dec(r.alos,2)}</b>`}]
+    .concat(showM?ks.map(k=>({k:'a'+k,h:'ALOS '+mlab(k),v:r=>r.per[k]?r.per[k].a:-1,f:r=>r.per[k]?dec(r.per[k].a,2):'–'})):[],[
+    {k:'ralos',h:'ALOS acuan',v:r=>r.ralos,f:r=>dec(r.ralos,2)},
+    {k:'dev',h:'Selisih thd acuan',v:r=>r.alos/r.ralos,f:r=>devChip(r.alos/r.ralos,r.n>=10&&r.rn>=20,true)},
+    {k:'tpk',h:'Tarif / klaim',v:r=>r.tpk,f:r=>rp(r.tpk)},
+    {k:'tph',h:'Tarif / hari rawat',v:r=>r.tph,f:r=>rp(r.tph)}]);
+  const tb=table($('ljl-tbl'),cols,rows,{sort:'los',asc:false,count:$('ljl-cnt')});
+  combo($('ljl-combo'),{ph:'Cari kode atau nama diagnosis…',items:rows.slice().sort((a,b)=>b.los-a.los).map(r=>({s:r._s,text:r.code+(r.desc?' · '+r.desc:''),sub:nf.format(r.n)+' klaim · ALOS '+dec(r.alos,2),code:r.code})),onPick:it=>tb.only(it?(r=>r.code===it.code):null),onType:v=>tb.search(v)});
+};
+
+/* ---------- 2. DPJP disesuaikan case-mix ---------- */
+LJ.dpjp=()=>{
+  const el=$('lj-dpjp'),ks=selK().filter(k=>DX&&DX.months[k]);
+  if(!DX||!ks.length){el.innerHTML=!DX?empty('Data DPJP × kode belum tersedia pada paket data ini.'):noKlaim();return}
+  const j=dpJ,RIm=j==='RI';
+  const ag={};
+  ks.forEach(k=>Object.entries(DX.months[k][j]||{}).forEach(([i,v])=>{const o=ag[i]=ag[i]||[0,0,0,0,0,0,0];for(let t=0;t<7;t++)o[t]+=v[t]}));
+  const T=Object.values(ag).reduce((a,v)=>({n:a.n+v[0],tot:a.tot+v[5],los:a.los+v[1],rs:a.rs+v[3]}),{n:0,tot:0,los:0,rs:0});
+  const hAvg=T.tot/T.n;
+  const rows=Object.entries(ag).map(([i,v])=>({name:clean(DX.names[i]),n:v[0],cmi:(v[5]/v[0])/hAvg,alos:v[1]/v[0],elos:v[2]/v[0],oeL:v[2]>0?v[1]/v[2]:NaN,rsC:v[3]/v[0],eRs:v[4]/v[0],oeR:v[4]>0?v[3]/v[4]:NaN,ratio:v[3]?v[5]/v[3]:0,fb:v[6]/v[0],_s:clean(DX.names[i]).toLowerCase()}));
+  const big=rows.filter(r=>r.n>=MINN);
+  const cov=DX.meta.cov[j];
+  el.innerHTML=`<div class="ktoolbar"><span class="kl">Jenis pelayanan</span><div class="kseg" id="k-ljJ"></div></div>
+  <div class="card"><h2>DPJP disesuaikan case-mix</h2><p class="knote">Membandingkan <b>hasil nyata</b> tiap DPJP dengan <b>nilai yang diharapkan</b> bila kasusnya (kode INA-CBG${RIm?' dan kelas rawat':''}) dirawat dengan rata-rata RS. O/E = observed ÷ expected: 1,00 sama dengan rata-rata RS untuk kasus yang sama; 1,20 berarti 20% di atas. Acuan: rata-rata RS seluruh 21 bulan (Jan 2025–Sep 2026), per kode${RIm?' dan kelas':''}; bila kode punya &lt; 10 klaim, acuan jatuh ke kelompok dasar lalu rata-rata jenis layanan. ${nf.format(Math.round((cov.rs_level['0']+cov.rs_level['1'])*100))}% klaim ${RIm?'rawat inap':'rawat jalan'} memakai acuan tingkat kode. DPJP dengan klaim &lt; ${MINN} pada bulan terpilih tidak dinilai (n kecil).</p><div id="ljd-dk"></div></div>
+  <div class="kgrid ${RIm?'kg2':''}">${RIm?`<div class="card"><h2>LOS: selisih terhadap harapan</h2><p class="knote">O/E LOS − 1. Kanan (merah) = rawat lebih lama dari yang diharapkan untuk kasus yang sama; kiri = lebih singkat. Bukan penilaian mutu: lebih singkat tidak otomatis lebih baik.</p><div id="ljd-c1"></div></div>`:''}
+  <div class="card"><h2>Tarif RS (intensitas layanan): selisih terhadap harapan</h2><p class="knote">O/E Tarif RS − 1. Tarif RS = tarif rumah sakit atas layanan yang dipakai pasien (obat, penunjang, tindakan, kamar). Dipakai sebagai <b>indikator intensitas layanan</b>, bukan biaya produksi (unit cost).</p><div id="ljd-c2"></div></div></div>
+  <div class="card"><h3 class="ksect" style="margin-top:0">Temuan otomatis</h3><ul class="kfind" id="ljd-find"></ul></div>
+  <h3 class="ksect">Semua DPJP (${j==='RI'?'rawat inap':'rawat jalan'})</h3><div class="card"><div class="ktoolbar"><div id="ljd-combo"></div><span class="kl" id="ljd-cnt"></span></div><div class="ktbl" id="ljd-tbl"></div><span id="lj-dtbl" hidden></span>
+  <p class="knote" style="margin:10px 0 0">CMI = rata-rata tarif INA-CBG per klaim DPJP ÷ rata-rata RS pada bulan terpilih (&gt; 1,00 = kasus lebih berat/mahal dari rata-rata). "Tanpa acuan kode" = porsi klaim yang acuannya bukan tingkat kode. Hanya kasus yang tercatat DPJP-nya (${nf.format(T.n)} klaim). Perbedaan DPJP bisa berasal dari komorbid, usia, rujukan, dan faktor lain yang tidak tertangkap kode INA-CBG; gunakan sebagai bahan diskusi, bukan penilaian individu.</p></div>`;
+  {const G=((window.KLAIM_AGG||{}).meta_x||{}).dpjp_groups||[];
+    if(G.length){const dt=document.createElement('details');dt.className='kdet';dt.innerHTML=`<summary>Penyatuan nama DPJP: ${G.length} kelompok penulisan digabung. Mohon dikonfirmasi.</summary><p class="knote" style="margin-top:8px">Penulisan yang jelas merujuk orang yang sama (huruf besar/kecil, titik, nama belakang disingkat, gelar tidak lengkap) disatukan agar tiap DPJP tampil sebagai satu baris pada semua bulan. Nama di kiri adalah nama yang dipakai; di kanan penulisan lain yang digabung.</p><ul class="kfind">`+G.map(g=>`<li><b>${esc(g[0])}</b> ← ${g[1].map(esc).join('; ')}</li>`).join('')+'</ul>';
+      $('lj-dtbl').parentElement.appendChild(dt)}}
+  seg('ljJ',[['RI','Rawat inap'],['RJ','Rawat jalan']],j,v=>{dpJ=v;ljR.dpjp=0;KC.length=0;LJ.dpjp();ljR.dpjp=1});
+  const kpis=[kcard('DPJP dinilai',big.length,nf.format,'Klaim ≥ '+MINN+' pada bulan terpilih (dari '+rows.length+' DPJP)'),
+    kcard('Klaim tercakup',T.n,nf.format,RIm?'Rawat inap':'Rawat jalan')];
+  if(RIm)kpis.push(kcard('ALOS RS',T.los/T.n,x=>dec(x,2)+' hari','Rata-rata semua DPJP pada bulan terpilih'));
+  kpis.push(kcard('Rata-rata tarif INA-CBG',hAvg,rp,'Per klaim, semua DPJP'));
+  $('ljd-dk').innerHTML='<div class="kgrid kkpis">'+kpis.join('')+'</div>';countUp($('ljd-dk'));
+  const dv=(arr,key)=>{const s=arr.filter(r=>isFinite(r[key])).sort((a,b)=>b[key]-a[key]);const sel=s.length>16?s.slice(0,8).concat(s.slice(-8)):s;return sel.map(r=>({label:r.name+' ('+nf.format(r.n)+')',v:(r[key]-1)*100,tip:`<b>${esc(r.name)}</b><br><span class="m">${nf.format(r.n)} klaim</span><br><span class="m">O/E ${dec(r[key],2)}</span>`}))};
+  const fmtP=x=>dec(x,0)+'%',lw=Math.min(Math.floor(W($('ljd-c2'))*.5),250);
+  if(!big.length){['ljd-c1','ljd-c2'].forEach(id=>{const e=$(id);if(e)e.innerHTML='<p class="knote">Belum ada DPJP dengan klaim ≥ '+MINN+' pada bulan terpilih. Pilih lebih banyak bulan.</p>'})}
+  else{
+    if(RIm)diverge2($('ljd-c1'),dv(big,'oeL'),{fmt:fmtP,goodUp:false,lw,title:'LOS terhadap harapan'});
+    diverge2($('ljd-c2'),dv(big,'oeR'),{fmt:fmtP,goodUp:false,lw,title:'Tarif RS terhadap harapan'});
+  }
+  const F=[];
+  if(big.length>=2){
+    const bl=big.filter(r=>isFinite(r.oeR)).sort((a,b)=>b.oeR-a.oeR);
+    if(RIm){const bo=big.filter(r=>isFinite(r.oeL)).sort((a,b)=>b.oeL-a.oeL),hi=bo[0],lo=bo[bo.length-1];
+      F.push(`<li><b>LOS:</b> paling jauh di atas harapan <b>${esc(hi.name)}</b> (O/E ${dec(hi.oeL,2)}; ALOS ${dec(hi.alos,2)} vs harapan ${dec(hi.elos,2)} hari, ${nf.format(hi.n)} klaim); paling di bawah <b>${esc(lo.name)}</b> (O/E ${dec(lo.oeL,2)}).</li>`);
+      const nHi=bo.filter(r=>r.oeL>1.15).length,nLo=bo.filter(r=>r.oeL<0.85).length;
+      F.push(`<li class="${nHi?'w':''}">${nHi} dari ${bo.length} DPJP dinilai berada lebih dari 15% di atas harapan LOS, dan ${nLo} lebih dari 15% di bawahnya. Selisih ±15% dipakai sebagai batas awal untuk ditelaah, bukan batas mutu.</li>`)}
+    const hi=bl[0],lo=bl[bl.length-1];
+    F.push(`<li><b>Intensitas layanan (Tarif RS):</b> tertinggi <b>${esc(hi.name)}</b> (O/E ${dec(hi.oeR,2)}, ${rp(hi.rsC)} per klaim vs harapan ${rp(hi.eRs)}); terendah <b>${esc(lo.name)}</b> (O/E ${dec(lo.oeR,2)}).</li>`);
+    const hc=big.slice().sort((a,b)=>b.cmi-a.cmi)[0],lc=big.slice().sort((a,b)=>a.cmi-b.cmi)[0];
+    F.push(`<li><b>Case-mix:</b> kasus terberat/termahal ada pada <b>${esc(hc.name)}</b> (CMI ${dec(hc.cmi,2)}), teringan pada <b>${esc(lc.name)}</b> (CMI ${dec(lc.cmi,2)}). Perbandingan antar-DPJP tanpa penyesuaian akan menyesatkan karena rentang CMI ini.</li>`);
+    const fbHi=big.filter(r=>r.fb>0.2);
+    if(fbHi.length)F.push(`<li class="w">${fbHi.length} DPJP punya &gt; 20% klaim dengan acuan di luar tingkat kode (kode jarang); O/E mereka kurang andal.</li>`);
+  } else F.push('<li>Bulan terpilih belum cukup untuk membandingkan DPJP. Pilih lebih banyak bulan (disarankan ≥ 3).</li>');
+  $('ljd-find').innerHTML=F.join('');
+  const cols=[
+    {k:'name',h:'DPJP',cls:'l',v:r=>r.name,f:r=>esc(r.name)},
+    {k:'n',h:'Klaim',v:r=>r.n,f:r=>nf.format(r.n)},
+    {k:'cmi',h:'CMI',v:r=>r.cmi,f:r=>dec(r.cmi,2)}]
+    .concat(RIm?[
+    {k:'alos',h:'ALOS',v:r=>r.alos,f:r=>dec(r.alos,2)},
+    {k:'elos',h:'ALOS harapan',v:r=>r.elos,f:r=>dec(r.elos,2)},
+    {k:'oeL',h:'O/E LOS',v:r=>isFinite(r.oeL)?r.oeL:0,f:r=>(isFinite(r.oeL)?'<b>'+dec(r.oeL,2)+'</b> ':'')+devChip(r.oeL,r.n>=MINN,true)}]:[],[
+    {k:'rsC',h:'Tarif RS / klaim',v:r=>r.rsC,f:r=>rp(r.rsC)},
+    {k:'eRs',h:'Tarif RS harapan',v:r=>r.eRs,f:r=>rp(r.eRs)},
+    {k:'oeR',h:'O/E Tarif RS',v:r=>isFinite(r.oeR)?r.oeR:0,f:r=>(isFinite(r.oeR)?'<b>'+dec(r.oeR,2)+'</b> ':'')+devChip(r.oeR,r.n>=MINN,true)},
+    {k:'ratio',h:'Klaim ÷ Tarif RS',v:r=>r.ratio,f:r=>pct(r.ratio)},
+    {k:'fb',h:'Tanpa acuan kode',v:r=>r.fb,f:r=>pct(r.fb,0)}]);
+  const tb=table($('ljd-tbl'),cols,rows,{sort:'n',asc:false,count:$('ljd-cnt')});
+  combo($('ljd-combo'),{ph:'Cari nama DPJP…',items:rows.slice().sort((a,b)=>b.n-a.n).map(r=>({s:r._s,text:r.name,sub:nf.format(r.n)+' klaim',name:r.name})),onPick:it=>tb.only(it?(r=>r.name===it.name):null),onType:v=>tb.search(v)});
+};
+
+/* ---------- 3. SLA finalisasi ---------- */
+const BIN=['≤ 3 hari','4–7 hari','8–14 hari','> 14 hari'];
+const pullOf=k=>{const p=((KAm[k].checks||{}).pull||[])[0];return p?new Date(+p.slice(0,4),+p.slice(4,6)-1,+p.slice(6,8)):null};
+const dmy=d=>d?String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear():'–';
+LJ.sla=()=>{
+  const el=$('lj-sla'),ks=selK();
+  if(!ks.length){el.innerHTML=noKlaim();return}
+  const cum=(b,days)=>{const N=sum(b);if(!N)return NaN;const c=days===3?b[0]:days===7?b[0]+b[1]:b[0]+b[1]+b[2];return c/N};
+  const rows=[];
+  ks.forEach(k=>['RI','RJ'].forEach(j=>{const b=KAm[k].lag[j],N=sum(b),pl=pullOf(k),y=+k.slice(0,4),m=+k.slice(5),end=new Date(y,m,0);
+    rows.push({k,j,N,n:KAm[k].kpi[j].n,mean:KAm[k].lag_mean[j],med:KAm[k].lag_med[j],b,p3:cum(b,3),p7:cum(b,7),p14:cum(b,14),o14:N?b[3]/N:NaN,pull:pl,gap:pl?Math.round((pl-end)/864e5):null,_s:(k+' '+j).toLowerCase()});}));
+  const pT=r=>slaD===3?r.p3:slaD===7?r.p7:r.p14;
+  const agg=j=>{const rs=rows.filter(r=>r.j===j&&r.N);const N=sum(rs.map(r=>r.N)),b=[0,1,2,3].map(i=>sum(rs.map(r=>r.b[i])));return {N,p:N?cum(b,slaD):NaN,mean:N?sum(rs.map(r=>r.mean*r.N))/N:NaN,ok:rs.filter(r=>pT(r)>=slaP/100).length,m:rs.length}};
+  const aRI=agg('RI'),aRJ=agg('RJ');
+  el.innerHTML=`<div class="card"><h2>Kecepatan finalisasi klaim (tanggal pulang → finalisasi)</h2><p class="knote">Jarak hari antara <b>tanggal pulang</b> pasien dan <b>waktu finalisasi klaim</b> di e-klaim. Semakin cepat klaim difinalisasi, semakin cepat bisa diajukan dan semakin cepat kas masuk. <b>Target di bawah adalah contoh simulasi</b>; tetapkan sesuai kebijakan manajemen. Pilihan batas hari mengikuti kelompok hari yang tersimpan di data (3, 7, 14 hari).</p>
+  <div class="ktoolbar"><span class="kl">Target selesai dalam</span><div class="kseg" id="k-slaD"></div><span class="kl">Target kepatuhan</span><div class="kseg" id="k-slaP"></div></div><div id="ljs-k"></div></div>
+  <div class="kgrid kg2"><div class="card"><h2>% klaim selesai dalam ≤ ${slaD} hari</h2><p class="knote">Batang per bulan terpilih; target kepatuhan contoh ${slaP}% (lihat kartu di atas).</p><div id="ljs-c1"></div></div>
+  <div class="card"><h2>Sebaran hari finalisasi</h2><p class="knote">Jumlah klaim per kelompok hari, seluruh bulan terpilih.</p><div id="ljs-c2"></div></div></div>
+  <div class="card"><h3 class="ksect" style="margin-top:0">Temuan otomatis</h3><ul class="kfind" id="ljs-find"></ul></div>
+  <h3 class="ksect">Rincian per bulan dan jenis pelayanan</h3><div class="card"><div class="ktbl" id="ljs-tbl"></div>
+  ${caveat('<b>Batas data SLA.</b> Hanya klaim yang <b>sudah difinalisasi saat berkas ditarik</b> yang tercatat, dan berkas ditarik beberapa hari setelah akhir bulan. Klaim yang difinalisasi lebih lambat dari tanggal tarik tidak ikut terhitung, sehingga kelompok "&gt; 14 hari" dan rata-rata hari <b>cenderung terlihat lebih pendek dari yang sebenarnya</b>, terutama untuk pasien yang pulang di akhir bulan. Bandingkan bulan dengan selisih tanggal tarik yang mirip (kolom "Tarik berkas"). Waktu finalisasi diambil dari cap waktu pada berkas e-klaim; ini bukan waktu pembayaran BPJS.')}</div>`;
+  seg('slaD',[['3','≤ 3 hari'],['7','≤ 7 hari'],['14','≤ 14 hari']],String(slaD),v=>{slaD=+v;store.set('pk_sla_d',v);ljR.sla=0;KC.length=0;LJ.sla();ljR.sla=1});
+  seg('slaP',[['70','70%'],['80','80%'],['90','90%']],String(slaP),v=>{slaP=+v;store.set('pk_sla_p',v);ljR.sla=0;KC.length=0;LJ.sla();ljR.sla=1});
+  const okc=a=>a.m?`${a.ok} dari ${a.m} bulan memenuhi`:'';
+  $('ljs-k').innerHTML='<div class="kgrid kkpis">'+
+    kcard('Rawat inap ≤ '+slaD+' hari',aRI.p*100,x=>dec(x,1)+'%',okc(aRI)+' (target '+slaP+'%)')+
+    kcard('Rawat jalan ≤ '+slaD+' hari',aRJ.p*100,x=>dec(x,1)+'%',okc(aRJ)+' (target '+slaP+'%)')+
+    kcard('Rata-rata hari RI',aRI.mean,x=>dec(x,1)+' hari','Tertimbang jumlah klaim')+
+    kcard('Rata-rata hari RJ',aRJ.mean,x=>dec(x,1)+' hari','Tertimbang jumlah klaim')+'</div>';
+  countUp($('ljs-k'));
+  const lab=ks.map(mlab);
+  vbarsN($('ljs-c1'),lab,[{name:'Rawat inap',color:COL[0],vals:ks.map(k=>{const r=rows.find(x=>x.k===k&&x.j==='RI');return isFinite(pT(r))?pT(r)*100:null})},{name:'Rawat jalan',color:COL[1],vals:ks.map(k=>{const r=rows.find(x=>x.k===k&&x.j==='RJ');return isFinite(pT(r))?pT(r)*100:null})}],{fmt:x=>dec(x,1)+'%',ax:x=>dec(x,0)+'%',title:'Persen klaim selesai dalam target'});
+  const sb=j=>[0,1,2,3].map(i=>sum(rows.filter(r=>r.j===j).map(r=>r.b[i])));
+  vbarsN($('ljs-c2'),BIN,[{name:'Rawat inap',color:COL[0],vals:sb('RI')},{name:'Rawat jalan',color:COL[1],vals:sb('RJ')}],{title:'Sebaran hari finalisasi'});
+  const F=[],worst=rows.filter(r=>r.N&&isFinite(pT(r))).sort((a,b)=>pT(a)-pT(b))[0],best=rows.filter(r=>r.N&&isFinite(pT(r))).sort((a,b)=>pT(b)-pT(a))[0];
+  if(worst)F.push(`<li><b>Terlambat:</b> ${worst.j==='RI'?'rawat inap':'rawat jalan'} ${mfull(worst.k)} hanya ${pct(pT(worst))} selesai ≤ ${slaD} hari (rata-rata ${dec(worst.mean,1)} hari, median ${dec(worst.med,0)}). <b>Tercepat:</b> ${best.j==='RI'?'rawat inap':'rawat jalan'} ${mfull(best.k)} ${pct(pT(best))}.</li>`);
+  F.push(`<li class="${aRI.p<slaP/100?'w':''}">Rawat inap: ${pct(aRI.p)} klaim selesai ≤ ${slaD} hari (${okc(aRI)}). Rawat jalan: ${pct(aRJ.p)} (${okc(aRJ)}). Target ${slaP}% adalah contoh simulasi.</li>`);
+  const ri14=aRI.N?sum(rows.filter(r=>r.j==='RI').map(r=>r.b[3]))/aRI.N:NaN,rj14=aRJ.N?sum(rows.filter(r=>r.j==='RJ').map(r=>r.b[3]))/aRJ.N:NaN;
+  F.push(`<li>Klaim yang butuh &gt; 14 hari: ${pct(ri14)} untuk rawat inap, ${pct(rj14)} untuk rawat jalan (batas bawah, lihat catatan batas data).</li>`);
+  $('ljs-find').innerHTML=F.join('');
+  const cols=[
+    {k:'k',h:'Bulan',cls:'l',v:r=>r.k,f:r=>`<b>${mfull(r.k)}</b>`},
+    {k:'j',h:'Jenis',cls:'l',v:r=>r.j,f:r=>r.j==='RI'?'Rawat inap':'Rawat jalan'},
+    {k:'N',h:'Klaim dengan waktu finalisasi',v:r=>r.N,f:r=>nf.format(r.N)+(r.N<r.n?` <span class="ksmall">dari ${nf.format(r.n)}</span>`:'')},
+    {k:'mean',h:'Rata-rata (hari)',v:r=>r.mean||0,f:r=>r.mean==null?'–':dec(r.mean,1)},
+    {k:'med',h:'Median (hari)',v:r=>r.med||0,f:r=>r.med==null?'–':dec(r.med,0)},
+    {k:'p3',h:'≤ 3 hari',v:r=>r.p3,f:r=>pct(r.p3)},{k:'p7',h:'≤ 7 hari',v:r=>r.p7,f:r=>pct(r.p7)},{k:'p14',h:'≤ 14 hari',v:r=>r.p14,f:r=>pct(r.p14)},{k:'o14',h:'> 14 hari',v:r=>r.o14,f:r=>pct(r.o14)},
+    {k:'st',h:'Target ≤ '+slaD+' hari / '+slaP+'%',v:r=>pT(r),f:r=>isFinite(pT(r))?`<span class="kchip ${pT(r)>=slaP/100?'good':'bad'}">${pT(r)>=slaP/100?'memenuhi':'belum'} · ${pct(pT(r))}</span>`:'–'},
+    {k:'pull',h:'Tarik berkas',v:r=>r.pull?+r.pull:0,f:r=>dmy(r.pull)+(r.gap!=null?` <span class="ksmall">(+${r.gap} hari)</span>`:'')}];
+  table($('ljs-tbl'),cols,rows,{sort:'k',asc:true});
+};
+
+/* ---------- 4. Pending vs klaim per kode ---------- */
+LJ.pvk=()=>{
+  const el=$('lj-pvk'),both=SEL.filter(k=>hasP(k)&&hasK(k)),skip=SEL.filter(k=>!(hasP(k)&&hasK(k)));
+  if(!both.length){el.innerHTML=empty(`Perbandingan ini butuh bulan yang punya <b>data pending dan data klaim sekaligus</b>. Bulan terpilih belum memenuhi${skip.length?' (' +skip.map(mlab).join(', ')+')':''}. Bulan dengan keduanya: ${TL.filter(k=>hasP(k)&&hasK(k)).map(mlab).join(', ')}.`);return}
+  const ag={};let over=0;
+  both.forEach(k=>{
+    const kc={};Object.entries(D.klaim[k].inacbg).forEach(([c,v])=>{kc[c]={n:(v.ri?v.ri.n:0)+(v.rj?v.rj.n:0),tot:(v.ri?v.ri.tot:0)+(v.rj?v.rj.tot:0)}});
+    Object.entries(kc).forEach(([c,v])=>{const o=ag[c]=ag[c]||{code:c,kn:0,kt:0,pn:0,pa:0,pm:0,pri:0};o.kn+=v.n;o.kt+=v.tot});
+    Object.entries(PM(k).inacbg).forEach(([c,v])=>{const o=ag[c]=ag[c]||{code:c,kn:0,kt:0,pn:0,pa:0,pm:0,pri:0};o.pn+=v.n;o.pa+=v.amt;o.pm++;o.pri+=v.ri;if(v.n>((kc[c]||{n:0}).n))over+=v.n-((kc[c]||{n:0}).n)});
+  });
+  const all=Object.values(ag),rows=all.filter(r=>r.pn>0).map(r=>({...r,desc:D.desc[r.code]||'',rate:r.kn?r.pn/r.kn:NaN,vrate:r.kt?r.pa/r.kt:NaN,avg:r.pa/r.pn,_s:(r.code+' '+(D.desc[r.code]||'')).toLowerCase()}));
+  const PN=sum(all.map(r=>r.pn)),PA=sum(all.map(r=>r.pa)),KN=sum(all.map(r=>r.kn)),KT=sum(all.map(r=>r.kt));
+  const byAmt=rows.slice().sort((a,b)=>b.pa-a.pa),top10=sum(byAmt.slice(0,10).map(r=>r.pa));
+  const rate0=PN/KN;
+  const flagged=rows.filter(r=>r.kn>=30&&r.pn>=3&&r.rate>=Math.max(2*rate0,0.05));
+  el.innerHTML=`<div class="card"><h2>Pending dibanding klaim per kode INA-CBG</h2><p class="knote">Menggabungkan jumlah dan nilai <b>SEP pending</b> dengan <b>klaim yang diajukan</b> pada kode yang sama, untuk bulan yang punya kedua data (${both.map(mlab).join(', ')}).${skip.length?` Bulan terpilih tanpa pasangan data tidak ikut: ${skip.map(mlab).join(', ')}.`:''} Rasio = pending ÷ klaim kode tersebut. Kode dengan rasio tinggi adalah kode yang paling sering tersangkut di verifikasi: sasaran utama perbaikan kelengkapan berkas dan kodefikasi.</p><div id="ljp-k"></div></div>
+  <div class="kgrid kg2"><div class="card"><h2>Kode dengan rasio pending tertinggi</h2><p class="knote">Hanya kode dengan klaim ≥ 30 dan pending ≥ 3 SEP (agar tidak menyesatkan karena angka kecil). Rata-rata RS: ${pct(rate0)}.</p><div id="ljp-c1"></div></div>
+  <div class="card"><h2>Kode dengan nilai pending terbesar</h2><p class="knote">Nilai ajuan SEP pending per kode; sumber risiko arus kas terbesar.</p><div id="ljp-c2"></div></div></div>
+  <div class="card"><h3 class="ksect" style="margin-top:0">Temuan otomatis</h3><ul class="kfind" id="ljp-find"></ul></div>
+  <h3 class="ksect">Semua kode yang punya pending</h3><div class="card"><div class="ktoolbar"><div id="ljp-combo"></div><span class="kl" id="ljp-cnt"></span></div><div class="ktbl" id="ljp-tbl"></div>
+  ${caveat('<b>Cara membaca.</b> Pending bukan klaim ditolak: SEP menunggu konfirmasi atau perbaikan dari verifikator. Jumlah SEP pending per kode ' + (over?`hampir selalu tidak melebihi klaim kode yang sama pada bulan yang sama (kecuali ${over} SEP)`:'tidak pernah melebihi klaim kode yang sama pada bulan yang sama')+', konsisten dengan pending sebagai bagian dari klaim yang diajukan, tetapi hal ini tidak dapat dipastikan dari data. Rasio kode berklaim sedikit mudah berayun; perhatikan kolom Klaim.')}</div>`;
+  $('ljp-k').innerHTML='<div class="kgrid kkpis">'+
+    kcard('SEP pending / klaim',PN/KN*100,x=>dec(x,2)+'%',nf.format(PN)+' SEP pending dari '+nf.format(KN)+' klaim')+
+    kcard('Nilai pending / pendapatan klaim',PA/KT*100,x=>dec(x,2)+'%',rp(PA)+' dari '+rp(KT))+
+    kcard('Kode yang punya pending',rows.length,nf.format,'Dari '+nf.format(all.filter(r=>r.kn>0).length)+' kode berklaim')+
+    kcard('10 kode terbesar',PA?top10/PA*100:0,x=>dec(x,1)+'%','Porsi nilai pending (konsentrasi risiko)')+'</div>';
+  countUp($('ljp-k'));
+  const rr=rows.filter(r=>r.kn>=30&&r.pn>=3).sort((a,b)=>b.rate-a.rate).slice(0,10);
+  const lw=Math.min(Math.floor(W($('ljp-c1'))*.5),260);
+  if(rr.length)hbarsN($('ljp-c1'),rr.map(r=>({label:r.code+(r.desc?' · '+r.desc:''),vals:[r.rate*100]})),[{name:'% SEP pending',color:COL[3],vals:null}],{fmt:x=>dec(x,1)+'%',lw,title:'Rasio pending tertinggi'});
+  else $('ljp-c1').innerHTML='<p class="knote">Tidak ada kode yang memenuhi syarat angka minimum pada bulan terpilih.</p>';
+  hbarsN($('ljp-c2'),byAmt.slice(0,10).map(r=>({label:r.code+(r.desc?' · '+r.desc:''),vals:[r.pa]})),[{name:'Nilai pending',color:COL[1],vals:null}],{fmt:rp,lw,title:'Nilai pending terbesar'});
+  const F=[];
+  F.push(`<li><b>Konsentrasi:</b> 10 kode menyumbang ${pct(PA?top10/PA:0)} nilai pending dari ${rows.length} kode; yang terbesar <b>${esc(byAmt[0].code)}</b>${byAmt[0].desc?' ('+esc(byAmt[0].desc)+')':''} dengan ${rp(byAmt[0].pa)} (${nf.format(byAmt[0].pn)} SEP).</li>`);
+  if(flagged.length){const t=flagged.sort((a,b)=>b.rate-a.rate)[0];F.push(`<li class="w"><b>${flagged.length} kode</b> punya rasio pending ≥ 2× rata-rata RS (${pct(rate0)}) atau ≥ 5%; tertinggi <b>${esc(t.code)}</b> ${pct(t.rate)} (${nf.format(t.pn)} dari ${nf.format(t.kn)} klaim). Telaah kelengkapan resume medis dan koding untuk kode ini lebih dulu.</li>`)}
+  else F.push('<li>Tidak ada kode berklaim ≥ 30 yang rasio pending-nya ≥ 2× rata-rata RS (atau ≥ 5%) pada bulan terpilih.</li>');
+  const noK=rows.filter(r=>!r.kn);if(noK.length)F.push(`<li class="w">${noK.length} kode muncul di pending tetapi tidak ada di klaim bulan itu (${nf.format(sum(noK.map(r=>r.pn)))} SEP): perlu dicek apakah kode berubah setelah perbaikan koding.</li>`);
+  $('ljp-find').innerHTML=F.join('');
+  const cols=[
+    {k:'code',h:'Kode',cls:'l',v:r=>r.code,f:r=>`<b>${esc(r.code)}</b>`},
+    {k:'desc',h:'Deskripsi',cls:'l',v:r=>r.desc,f:r=>r.desc?esc(r.desc):'<span class="ksmall">belum ada deskripsi</span>'},
+    {k:'kn',h:'Klaim',v:r=>r.kn,f:r=>nf.format(r.kn)},
+    {k:'pn',h:'SEP pending',v:r=>r.pn,f:r=>nf.format(r.pn)},
+    {k:'rate',h:'% SEP pending',v:r=>isFinite(r.rate)?r.rate:-1,f:r=>isFinite(r.rate)?`<b>${pct(r.rate)}</b>`:'–'},
+    {k:'kt',h:'Pendapatan klaim',v:r=>r.kt,f:r=>rp(r.kt)},
+    {k:'pa',h:'Nilai pending',v:r=>r.pa,f:r=>rp(r.pa)},
+    {k:'vrate',h:'% nilai pending',v:r=>isFinite(r.vrate)?r.vrate:-1,f:r=>isFinite(r.vrate)?pct(r.vrate):'–'},
+    {k:'avg',h:'Nilai / SEP pending',v:r=>r.avg,f:r=>rp(r.avg)},
+    {k:'pm',h:'Bulan ada pending',v:r=>r.pm,f:r=>r.pm+' dari '+both.length}];
+  const tb=table($('ljp-tbl'),cols,rows,{sort:'pa',asc:false,count:$('ljp-cnt')});
+  combo($('ljp-combo'),{ph:'Cari kode atau nama diagnosis…',items:byAmt.map(r=>({s:r._s,text:r.code+(r.desc?' · '+r.desc:''),sub:nf.format(r.pn)+' SEP pending · '+nf.format(r.kn)+' klaim',code:r.code})),onPick:it=>tb.only(it?(r=>r.code===it.code):null),onType:v=>tb.search(v)});
 };
 
 /* ================= Penyebab pending ================= */
@@ -1606,7 +1864,7 @@ R.data=()=>{
   warns.push(`<li class="w">${D.carry.Agu} klaim rawat inap ${LA} dan ${D.carry.Sep} klaim ${LB} masuk di bulan sebelumnya; seluruhnya dihitung pada bulan tanggal pulang.</li>`);
   const rcBad=['Agu','Sep'].some(p=>['RI','RJ'].some(j=>{const r=D.recon[p][j];return r&&r.rek_n!=null&&(r.only_txt||r.only_rek||r.txt_tot!==r.rek_tot)}));
   if(rcBad) warns.push(`<li class="w"><b>Berkas TXT dan Rekap XLSX tidak sepenuhnya cocok</b> pada bulan terpilih (lihat tabel). Dashboard memakai berkas TXT; selisihnya adalah SEP yang ada di rekap tetapi tidak ada di TXT, atau sebaliknya.</li>`);
-  warns.push(`<li class="w">Penulisan nama DPJP tidak seragam antarberkas (huruf besar/kecil, titik). Dashboard menggabungkannya tanpa membedakan huruf besar/kecil dan titik: ${KA.meta_x.dpjp_raw} penulisan menjadi ${KA.meta_x.dpjp_norm} DPJP pada seluruh data. Tanpa penggabungan ini perbandingan per DPJP antarbulan akan keliru.</li>`);
+  warns.push(`<li class="w">Penulisan nama DPJP tidak seragam antarberkas (huruf besar/kecil, titik, nama belakang disingkat, gelar tidak lengkap). Dashboard menggabungkan penulisan yang jelas merujuk orang yang sama: ${KA.meta_x.dpjp_raw} penulisan menjadi ${KA.meta_x.dpjp_norm} nama (daftar penyatuan ada di Analisis lanjutan › DPJP &amp; case-mix; mohon dikonfirmasi bagian SDM). Tanpa penggabungan ini perbandingan per DPJP antarbulan akan keliru.</li>`);
   el.innerHTML=`
   <div class="card"><h2>Rekonsiliasi berkas TXT dengan Rekap Klaim XLSX</h2><p class="knote">Dicocokkan per nomor SEP. Kolom “SEP tak cocok” = hanya di TXT / hanya di XLSX.</p><div class="ktbl"><table><thead><tr><th class="l">Berkas</th><th class="num">Baris TXT</th><th class="num">Baris XLSX</th><th class="num">SEP tak cocok</th><th class="num">Selisih Total Tarif</th></tr></thead><tbody>${rcRow('Agu',LA)}${rcRow('Sep',LB)}</tbody></table></div></div>
   <div class="kgrid kg2" style="margin-top:14px">

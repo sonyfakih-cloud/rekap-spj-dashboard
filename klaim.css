@@ -290,3 +290,14 @@ html.mode-hp #appRootKlaim .pk-y{padding-top:12px;width:34px;}
 #appRootKlaim .kpg-btn:disabled{opacity:.4;cursor:not-allowed}
 #appRootKlaim .kpg-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 #appRootKlaim .kpg-gap{color:var(--muted);padding:0 2px}
+
+/* ---- Analisis lanjutan ---- */
+#appRootKlaim .lvbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px}
+#appRootKlaim .ljview{display:none}
+#appRootKlaim .ljview.active{display:block;animation:kfadeUp .4s ease both}
+#appRootKlaim .ljview > * + *{margin-top:16px}
+#appRootKlaim .ljview .kseg{flex-wrap:wrap}
+@media(prefers-reduced-motion:reduce){#appRootKlaim .ljview.active{animation:none!important}}
+#appRootKlaim details.kdet{margin-top:12px;border:1px solid var(--k-line);border-radius:12px;padding:10px 14px;background:var(--k-soft)}
+#appRootKlaim details.kdet summary{cursor:pointer;font-size:12.5px;font-weight:600;color:var(--k-ink2)}
+#appRootKlaim details.kdet ul.kfind li{font-size:12px}
