@@ -305,3 +305,5 @@ html.mode-hp #appRootKlaim .pk-y{padding-top:12px;width:34px;}
 
 #appRootKlaim .ksegw{max-width:100%;overflow-x:auto;scrollbar-width:thin}
 #appRootKlaim .ksegw button{white-space:nowrap;flex:none}
+
+#appRootKlaim select.ksel{font:inherit;font-size:13px;padding:8px 12px;border-radius:12px;border:1px solid var(--k-line);background:var(--card-solid);color:inherit;max-width:100%;min-width:0}

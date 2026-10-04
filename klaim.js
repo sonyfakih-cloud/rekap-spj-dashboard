@@ -797,11 +797,11 @@ PR.data=()=>{
 /* ================= Analisis lanjutan =================
    1) LOS per kode INA-CBG   2) DPJP disesuaikan case-mix (O/E)   3) SLA finalisasi klaim   4) Pending vs klaim per kode
    Data: KLAIM_AGG (per bulan), DPX_DATA (DPJP x kode, acuan 21 bulan), PK_DATA (pending). Semua agregat, tanpa data pasien. */
-const KAm=(window.KLAIM_AGG||{}).months||{}, DX=window.DPX_DATA||null;
+const KAm=(window.KLAIM_AGG||{}).months||{}, DX=window.DPX_DATA||null, DC=window.DPC_DATA||null;
 const clean=s=>String(s).replace(/^"+|"+$/g,'').trim();
 const LJ={};
 const LTABS=[['los','LOS per kode'],['dpjp','DPJP & case-mix'],['sla','SLA finalisasi'],['pvk','Pending vs klaim per kode']];
-let ljTab=store.get('pk_ljt')||'los',ljR={},dpJ='RI',slaD=+store.get('pk_sla_d')||7,slaP=+store.get('pk_sla_p')||80;
+let ljTab=store.get('pk_ljt')||'los',ljR={},dpJ='RI',dcSel=null,slaD=+store.get('pk_sla_d')||7,slaP=+store.get('pk_sla_p')||80;
 const MINN=30;
 const devChip=(ratio,ok,badUp)=>{
   if(!ok||!isFinite(ratio))return '<span class="ksmall">n kecil</span>';
@@ -888,7 +888,7 @@ LJ.dpjp=()=>{
   <div class="card"><h2>Tarif RS (intensitas layanan): selisih terhadap harapan</h2><p class="knote">O/E Tarif RS − 1. Tarif RS = tarif rumah sakit atas layanan yang dipakai pasien (obat, penunjang, tindakan, kamar). Dipakai sebagai <b>indikator intensitas layanan</b>, bukan biaya produksi (unit cost).</p><div id="ljd-c2"></div></div></div>
   <div class="card"><h3 class="ksect" style="margin-top:0">Temuan otomatis</h3><ul class="kfind" id="ljd-find"></ul></div>
   <h3 class="ksect">Semua DPJP (${j==='RI'?'rawat inap':'rawat jalan'})</h3><div class="card"><div class="ktoolbar"><div id="ljd-combo"></div><span class="kl" id="ljd-cnt"></span></div><div class="ktbl" id="ljd-tbl"></div><span id="lj-dtbl" hidden></span>
-  <p class="knote" style="margin:10px 0 0">CMI = rata-rata tarif INA-CBG per klaim DPJP ÷ rata-rata RS pada bulan terpilih (&gt; 1,00 = kasus lebih berat/mahal dari rata-rata). "Tanpa acuan kode" = porsi klaim yang acuannya bukan tingkat kode. Hanya kasus yang tercatat DPJP-nya (${nf.format(T.n)} klaim). ${ADJ?'LOS harapan sudah memperhitungkan usia dan status meninggal, tetapi belum memperhitungkan komorbid/diagnosis sekunder, ICU, rujukan, dan faktor lain yang tidak tertangkap data ini; ':'Perbedaan DPJP bisa berasal dari komorbid, usia, rujukan, dan faktor lain yang tidak tertangkap kode INA-CBG; '}gunakan sebagai bahan diskusi, bukan penilaian individu.</p></div>`;
+  <p class="knote" style="margin:10px 0 0">CMI = rata-rata tarif INA-CBG per klaim DPJP ÷ rata-rata RS pada bulan terpilih (&gt; 1,00 = kasus lebih berat/mahal dari rata-rata). "Tanpa acuan kode" = porsi klaim yang acuannya bukan tingkat kode. Hanya kasus yang tercatat DPJP-nya (${nf.format(T.n)} klaim). ${ADJ?'LOS harapan sudah memperhitungkan usia dan status meninggal, tetapi belum memperhitungkan komorbid/diagnosis sekunder, ICU, rujukan, dan faktor lain yang tidak tertangkap data ini; ':'Perbedaan DPJP bisa berasal dari komorbid, usia, rujukan, dan faktor lain yang tidak tertangkap kode INA-CBG; '}gunakan sebagai bahan diskusi, bukan penilaian individu.</p></div>${RIm&&DC&&ADJ?'<h3 class="ksect">Rincian: kode penyumbang selisih hari rawat</h3><div id="ljd-dc"></div>':''}`;
   if(ADJ){const dt=document.createElement('details');dt.className='kdet';const fa=AJ.age||{},fd=AJ.dead||{},bd=AJ.banding||{};
     dt.innerHTML=`<summary>Cara penyesuaian LOS untuk tingkat keparahan dalam satu kode</summary><p class="knote" style="margin-top:8px">Dalam satu kode INA-CBG, pasien bisa berbeda. Harapan LOS dihitung dari kode (atau kelompok dasar/jenis bila kode jarang) <b>dikali faktor</b> kelompok usia dan status pulang meninggal, diestimasi bersama pada ${nf.format(20360)} klaim rawat inap 21 bulan (model multiplikatif). Faktor usia: &lt; 1 th ${dec(fa['<1'],2)}; 1–17 th ${dec(fa['1-17'],2)}; 18–59 th ${dec(fa['18-59'],2)}; ≥ 60 th ${dec(fa['60+'],2)}. Meninggal ${dec(fd.ya,2)} (LOS lebih pendek karena pasien tidak lanjut dirawat), lainnya ${dec(fd.tidak,2)}.</p><p class="knote"><b>Hasil pemeriksaan:</b> penyesuaian ini mengubah gambaran hanya sedikit. Dari ${bd.dpjp_n} DPJP dengan klaim ≥ ${MINN} (21 bulan), urutan O/E sebelum dan sesudah sangat mirip (korelasi peringkat ${dec(bd.rank_corr,2)}), selisih O/E terbesar ${dec(bd.max_selisih_oe,2)} dan rata-rata ${dec(bd.rata_selisih_oe,3)}. Tidak ada DPJP di luar ±15% sebelum maupun sesudah penyesuaian. Artinya perbedaan LOS antar-DPJP bukan terutama karena komposisi usia/meninggal.</p><p class="knote"><b>Sengaja tidak dipakai:</b> (1) ICU: menaikkan LOS sekitar ${dec(1.44,2)} kali, tetapi sebagian merupakan keputusan pelayanan, sehingga menyesuaikannya dapat menutupi perbedaan praktik. (2) Status pulang "lain-lain": muncul sejak Jul 2025 dan mencapai 28–36% pada Okt–Nov 2025, jadi lebih mirip artefak pencatatan daripada ciri pasien. (3) Diagnosis sekunder/komorbid: bergantung pada kelengkapan pengkodean, bukan murni kondisi pasien. Karena itu keparahan <b>tidak sepenuhnya</b> tertangkap; selisih yang tersisa tetap bahan diskusi, bukan penilaian individu.</p>`;
     $('lj-dtbl').parentElement.appendChild(dt)}
@@ -940,7 +940,82 @@ LJ.dpjp=()=>{
     {k:'fb',h:'Tanpa acuan kode',v:r=>r.fb,f:r=>pct(r.fb,0)}]);
   const tb=table($('ljd-tbl'),cols,rows,{sort:'n',asc:false,count:$('ljd-cnt')});
   combo($('ljd-combo'),{ph:'Cari nama DPJP…',items:rows.slice().sort((a,b)=>b.n-a.n).map(r=>({s:r._s,text:r.name,sub:nf.format(r.n)+' klaim',name:r.name})),onPick:it=>tb.only(it?(r=>r.name===it.name):null),onType:v=>tb.search(v)});
+  if(RIm&&DC&&ADJ)dcDraw(ks,rows);
 };
+
+
+/* ---------- 2b. Rincian DPJP x kode: kontribusi selisih hari rawat ---------- */
+const REFL={C:'kode',B:'kelompok dasar',J:'rata-rata jenis'};
+function dcDraw(ks,rows){
+  const box=$('ljd-dc');if(!box)return;
+  const ag={};
+  ks.forEach(k=>Object.entries((DC.months||{})[k]||{}).forEach(([i,f])=>{const o=ag[i]=ag[i]||{};for(let q=0;q<f.length;q+=4){const e=o[f[q]]=o[f[q]]||[0,0,0];e[0]+=f[q+1];e[1]+=f[q+2];e[2]+=f[q+3]}}));
+  const P=Object.entries(ag).map(([i,o])=>{
+    const cs=Object.entries(o).map(([ci,e])=>{const inf=DC.codes[+ci],code=inf[0],n=e[0],d=e[1]-e[2],se=inf[1]*Math.sqrt(n),z=se>0?d/se:0;
+      const ds=clean(D.desc[code]||'');return {code,desc:ds,n,los:e[1],e:e[2],alos:e[1]/n,ealos:e[2]/n,d,se,z,ref:inf[2],flag:(n>=5&&Math.abs(z)>=2)?(d>0?1:-1):0,_s:(code+' '+ds).toLowerCase()}});
+    return {i,name:clean(DX.names[+i]),n:sum(cs.map(c=>c.n)),los:sum(cs.map(c=>c.los)),e:sum(cs.map(c=>c.e)),net:sum(cs.map(c=>c.d)),cs}});
+  if(!P.length){box.innerHTML=empty('Belum ada data rincian kode pada bulan terpilih.');return}
+  const big=P.filter(p=>p.n>=MINN).sort((a,b)=>b.net-a.net);
+  const fd=x=>nf.format(Math.round(x)),hari=x=>sgn(x,v=>dec(v,0))+' hari';
+  const lw=Math.min(Math.floor(W(box)*.4),250);
+  box.innerHTML=`<div class="card"><h2>Selisih hari rawat per DPJP</h2><p class="knote">Selisih = hari rawat nyata − hari rawat yang diharapkan (disesuaikan kode, usia, dan status meninggal), dijumlahkan semua kasus DPJP. Persen pada grafik di atas menunjukkan <b>seberapa menyimpang</b>; grafik ini menunjukkan <b>seberapa besar dampaknya dalam hari rawat</b>. Persen kecil pada DPJP dengan banyak klaim bisa berarti ratusan hari. Kanan (merah) = lebih banyak hari dari harapan.</p><div id="dc-c1"></div></div>
+  <div class="card"><h2>Rincian satu DPJP</h2><div class="ktoolbar"><span class="kl">DPJP</span><select class="ksel" id="dc-sel" aria-label="Pilih DPJP"></select></div><div id="dc-body"></div></div>`;
+  const dv=big.map(p=>({label:p.name+' ('+nf.format(p.n)+')',v:p.net,tip:`<b>${esc(p.name)}</b><br><span class="m">${nf.format(p.n)} klaim</span><br><span class="m">Nyata ${fd(p.los)} hari vs harapan ${fd(p.e)} hari</span><br><span class="m">Selisih ${hari(p.net)}</span>`}));
+  if(dv.length)diverge2($('dc-c1'),dv,{fmt:x=>dec(x,0),goodUp:false,lw,title:'Selisih hari rawat per DPJP'});else $('dc-c1').innerHTML='<p class="knote">Belum ada DPJP dengan klaim ≥ '+MINN+' pada bulan terpilih. Pilih lebih banyak bulan.</p>';
+  const all=P.slice().sort((a,b)=>b.n-a.n);
+  if(!dcSel||!all.some(p=>p.name===dcSel))dcSel=(big.length?big.slice().sort((a,b)=>Math.abs(b.net)-Math.abs(a.net))[0]:all[0]).name;
+  const sel=$('dc-sel');
+  sel.innerHTML=all.map(p=>`<option value="${esc(p.name)}">${esc(p.name)} (${nf.format(p.n)} klaim${p.n<MINN?', n kecil':''})</option>`).join('');
+  sel.value=dcSel;
+  const draw=()=>{
+    const p=all.find(q=>q.name===dcSel);if(!p)return;
+    const pos=p.cs.filter(c=>c.d>0),neg=p.cs.filter(c=>c.d<0),gp=sum(pos.map(c=>c.d)),gn=sum(neg.map(c=>c.d));
+    const elig=p.cs.filter(c=>c.n>=5),fl=p.cs.filter(c=>c.flag!==0);
+    const row=rows.find(r=>r.name===p.name),chk=row?Math.abs((row.alos-row.elos)*row.n-p.net):0;
+    const topP=pos.slice().sort((a,b)=>b.d-a.d),topN=neg.slice().sort((a,b)=>a.d-b.d);
+    const cd=c=>`<b>${esc(c.code)}</b>${c.desc?' · '+esc(c.desc):''}`;
+    const fchip=c=>c.n<5?'<span class="ksmall">n kecil</span>':c.flag>0?'<span class="kchip bad">di atas batas wajar</span>':c.flag<0?'<span class="kchip good">di bawah batas wajar</span>':'<span class="kchip flat">dalam batas wajar</span>';
+    const F=[];
+    if(p.n<MINN)F.push(`<li class="w">DPJP ini hanya punya ${nf.format(p.n)} klaim pada bulan terpilih (&lt; ${MINN}); rincian per kode sangat tidak stabil. Pilih lebih banyak bulan.</li>`);
+    F.push(`<li><b>Total:</b> ${nf.format(p.n)} klaim, ${fd(p.los)} hari nyata vs ${fd(p.e)} hari diharapkan: selisih bersih <b>${hari(p.net)}</b>. Kode yang melebihi harapan menambah ${hari(gp)} (${pos.length} kode), kode yang di bawah harapan mengurangi ${hari(gn)} (${neg.length} kode). Selisih bersih kecil bisa menyembunyikan penyimpangan besar yang saling meniadakan.</li>`);
+    if(topP.length){const t3=topP.slice(0,3),sh=gp>0?sum(t3.map(c=>c.d))/gp:0;
+      F.push(`<li><b>Penyumbang kelebihan terbesar:</b> ${t3.map(c=>cd(c)+' ('+hari(c.d)+', '+nf.format(c.n)+' klaim, ALOS '+dec(c.alos,1)+' vs '+dec(c.ealos,1)+')').join('; ')}. Tiga kode ini = ${dec(sh*100,0)}% dari seluruh kelebihan.</li>`)}
+    if(topN.length){const t3=topN.slice(0,3);
+      F.push(`<li><b>Penyumbang kekurangan terbesar:</b> ${t3.map(c=>cd(c)+' ('+hari(c.d)+', '+nf.format(c.n)+' klaim, ALOS '+dec(c.alos,1)+' vs '+dec(c.ealos,1)+')').join('; ')}.</li>`)}
+    F.push(`<li class="${fl.length?'w':''}">Dari ${elig.length} kode dengan ≥ 5 klaim, <b>${fl.length}</b> melewati batas wajar (±2 galat baku). Bila tidak ada perbedaan sama sekali, secara kebetulan diperkirakan sekitar ${dec(elig.length*0.05,1)} kode tetap melewati batas ini. Jadi tandanya petunjuk untuk menelaah berkas, bukan bukti.</li>`);
+    const fb=sum(p.cs.filter(c=>c.ref!=='C').map(c=>c.n));
+    if(fb>0)F.push(`<li>${dec(fb/p.n*100,0)}% klaim DPJP ini memakai acuan kelompok dasar atau rata-rata jenis (kode jarang, &lt; 10 klaim RS); selisih pada kode tersebut kurang andal.</li>`);
+    if(chk>1)F.push(`<li class="w">Peringatan data: jumlah semua kode (${hari(p.net)}) berbeda ${dec(chk,1)} hari dari tabel DPJP di atas. Mohon dilaporkan.</li>`);
+    const kp=[kcard('Klaim rawat inap',p.n,nf.format,'Pada bulan terpilih'),
+      kcard('ALOS nyata',p.los/p.n,x=>dec(x,2)+' hari','Harapan: '+dec(p.e/p.n,2)+' hari'),
+      kcard('Selisih bersih',p.net,x=>sgn(Math.round(x),nf.format)+' hari','Nyata − harapan'),
+      kcard('Kelebihan kotor',gp,x=>'+'+nf.format(Math.round(x))+' hari','Jumlah kode di atas harapan'),
+      kcard('Kekurangan kotor',-gn,x=>'−'+nf.format(Math.round(x))+' hari','Jumlah kode di bawah harapan')];
+    $('dc-body').innerHTML=`<div class="kgrid kkpis" id="dc-k">${kp.join('')}</div>
+    <h3 class="ksect">Temuan otomatis</h3><ul class="kfind">${F.join('')}</ul>
+    <h3 class="ksect">Kode dengan selisih terbesar</h3><div id="dc-c2"></div>
+    <h3 class="ksect">Semua kode DPJP ini</h3><div class="ktoolbar"><div id="dc-combo"></div><span class="kl" id="dc-cnt"></span></div><div class="ktbl" id="dc-tbl"></div>
+    <details class="kdet"><summary>Cara membaca dan batasnya</summary><p class="knote" style="margin-top:8px"><b>Selisih hari</b> per kode = hari rawat nyata − (klaim × ALOS harapan). ALOS harapan = rata-rata RS untuk kode yang sama selama 21 bulan, dikalikan faktor usia dan status meninggal (sama dengan O/E di atas). Jumlah selisih semua kode sama dengan selisih bersih DPJP.</p><p class="knote"><b>Batas wajar:</b> galat baku = simpangan baku lama rawat per klaim pada kelompok acuan yang sama × akar jumlah klaim. Selisih lebih dari 2 galat baku ditandai. Ini perkiraan kasar: lama rawat condong ke kanan sehingga pada klaim sedikit galat ditaksir terlalu kecil, dan tidak ada koreksi untuk banyaknya kode yang diperiksa sekaligus. Kode dengan &lt; 5 klaim tidak dinilai.</p><p class="knote"><b>Uji kalibrasi</b> (21 bulan penuh, 542 kombinasi DPJP-kode dengan ≥ 5 klaim): 6,8% melewati batas ±2 galat baku, sedangkan bila murni kebetulan sekitar 4,6%. Pada kombinasi dengan ≥ 30 klaim angkanya 15,4% (hanya 2,7% pada 10–29 klaim). Artinya pada sel besar selisihnya cenderung bukan kebetulan, tetapi data ini tidak bisa membedakan apakah sebabnya keparahan kasus, praktik, atau pengkodean.</p><p class="knote"><b>Yang tidak ditunjukkan:</b> penyebab. Selisih per kode bisa berasal dari tingkat keparahan, komorbid, ICU, rujukan, atau praktik DPJP yang tidak tertangkap data klaim. DPJP yang sering memegang kasus berat dalam satu kode akan tampak di atas harapan. Tingkat keparahan (I/II/III) pada kode INA-CBG ditentukan lewat pengkodean; selisih berlawanan pada kode berdasar sama (mis. -II positif dan -III negatif) mungkin mencerminkan pergeseran pengkodean keparahan, bukan lama rawat. Gunakan sebagai daftar berkas yang layak ditelaah bersama DPJP, bukan penilaian individu. DPJP di sini adalah DPJP yang tercatat pada e-klaim.</p></details>`;
+    countUp($('dc-k'));
+    const pick=topP.slice(0,8).concat(topN.slice(0,8)).filter((c,i,a)=>a.indexOf(c)===i).sort((a,b)=>b.d-a.d);
+    const cw=Math.min(Math.floor(W($('dc-c2'))*.5),260);
+    if(pick.length)diverge2($('dc-c2'),pick.map(c=>({label:c.code+(c.desc?' · '+c.desc:'')+' ('+nf.format(c.n)+')',v:c.d,tip:`<b>${esc(c.code)}</b>${c.desc?'<br>'+esc(c.desc):''}<br><span class="m">${nf.format(c.n)} klaim · ALOS ${dec(c.alos,2)} vs harapan ${dec(c.ealos,2)} hari</span><br><span class="m">Selisih ${hari(c.d)} (±2 galat baku = ${dec(2*c.se,0)} hari)</span>`})),{fmt:x=>dec(x,0),goodUp:false,lw:cw,title:'Selisih hari rawat per kode'});
+    else $('dc-c2').innerHTML='<p class="knote">Tidak ada selisih per kode.</p>';
+    const cols=[
+      {k:'code',h:'Kode',cls:'l',v:c=>c.code,f:c=>`<b>${esc(c.code)}</b>`},
+      {k:'desc',h:'Deskripsi',cls:'l',v:c=>c.desc,f:c=>c.desc?esc(c.desc):'<span class="ksmall">belum ada deskripsi</span>'},
+      {k:'n',h:'Klaim',v:c=>c.n,f:c=>nf.format(c.n)},
+      {k:'alos',h:'ALOS',v:c=>c.alos,f:c=>dec(c.alos,2)},
+      {k:'ealos',h:'ALOS harapan',v:c=>c.ealos,f:c=>dec(c.ealos,2)},
+      {k:'d',h:'Selisih hari',v:c=>c.d,f:c=>`<b>${sgn(c.d,v=>dec(v,1))}</b>`},
+      {k:'z',h:'Penilaian',v:c=>c.n>=5?c.z:0,f:fchip},
+      {k:'ref',h:'Acuan',cls:'l',v:c=>c.ref,f:c=>REFL[c.ref]||c.ref}];
+    const tb=table($('dc-tbl'),cols,p.cs,{sort:'d',asc:false,count:$('dc-cnt')});
+    combo($('dc-combo'),{ph:'Cari kode atau diagnosis…',items:p.cs.slice().sort((a,b)=>b.d-a.d).map(c=>({s:c._s,text:c.code+(c.desc?' · '+c.desc:''),sub:nf.format(c.n)+' klaim · '+sgn(c.d,v=>dec(v,1))+' hari',code:c.code})),onPick:it=>tb.only(it?(c=>c.code===it.code):null),onType:v=>tb.search(v)});
+  };
+  sel.onchange=()=>{dcSel=sel.value;draw()};
+  draw();
+}
 
 /* ---------- 3. SLA finalisasi ---------- */
 const BIN=['≤ 3 hari','4–7 hari','8–14 hari','> 14 hari'];
