@@ -712,6 +712,7 @@ PR.sebab=()=>{
   const ok=sikapOK(a)&&sikapOK(b);
   el.innerHTML=`<div class="ktoolbar"><span class="kl">Ukuran</span><div class="kseg" id="k-pdm"></div></div>
   ${caveat('<b>Cara membaca.</b> Kategori penyebab dan status jawaban RS adalah klasifikasi kata kunci (heuristik buatan analisis ini, bukan kategori resmi BPJS). Satu SEP dihitung sekali.')}
+  ${kelasWarn([A,B].filter(k=>PM(k)))}
   <div class="card"><h2>Kategori penyebab: ${esc(DS[0])} vs ${esc(DS[1])}</h2><p class="knote">Diurutkan dari yang terbesar. Pill merah = bertambah, hijau = berkurang.</p><div id="pd-sc"></div></div>
   <div class="kgrid kg2"><div class="card"><h2>Perubahan terbesar per kategori</h2><p class="knote">Selisih ${esc(DS[1])} dikurangi ${esc(DS[0])}; hijau = pending berkurang.</p><div id="pd-sd"></div></div>
   <div class="card"><h2>Status jawaban RS (100%)</h2><p class="knote">${ok?'Belum dijawab, menerima/menyesuaikan, atau menyanggah/melampirkan bukti (heuristik atas kolom jawaban).':'Tidak dapat ditampilkan: salah satu bulan berformat ekspor tanpa kolom jawaban RS.'}</p><div id="pd-ss"></div></div></div>
@@ -1127,25 +1128,35 @@ LJ.pvk=()=>{
    Tanpa nomor SEP atau data pasien. Kelompok = keputusan analis RS, bukan klasifikasi BPJS. */
 const LNC=['#84AAF3','#F4BA84','#6FC28F','#B79BE8','#9AA3B8'];
 const LNS=['Klinis DPJP','Dokumen medis (dokter & koder)','Koding (koder)','Administrasi / kepesertaan','Kebijakan BPJS'];
-const lainSection=pfx=>(D.meta&&D.meta.lain)?`<h3 class="ksect">Uraian kategori “Lainnya” menurut keputusan pengelola RS</h3><div id="${pfx}-box"></div>`:'';
+const lainSection=pfx=>(D.meta&&D.meta.lain)?`<h3 class="ksect">Uraian SEP yang pada aturan tahap 1 berkategori “Lainnya”, menurut keputusan pengelola RS</h3><div id="${pfx}-box"></div>`:'';
+/* Peringatan format berkas: bulan yang kategorinya banyak ditentukan aturan tahap 2 (teks bebas) tidak setara dengan bulan berlabel baku BPJS */
+function kelasWarn(ps){
+  const L=ps.filter(k=>PM(k)&&PM(k).fk).map(k=>({k,p:PM(k)}));
+  if(!L.length) return '';
+  const sh=L.map(x=>(x.p.via2||0)/Math.max(x.p.n,1)),dif=Math.max(...sh)-Math.min(...sh),kinds=new Set(L.map(x=>x.p.fk));
+  const bad=L.length>1&&(dif>=0.15||(kinds.size>1&&dif>=0.05));
+  const li=L.map(x=>`${esc(mlab(x.k))}: <b>${pct((x.p.via2||0)/Math.max(x.p.n,1),0)}</b> (${nf.format(x.p.via2||0)} dari ${nf.format(x.p.n)} SEP)`).join('; ');
+  const st=bad?' style="border-left-color:#E5636B"':'';
+  return `<div class="kcaveat"${st}><b>${bad?'Perbandingan kategori antarbulan ini belum setara.':'Catatan cara pengkategorian.'}</b> Format berkas pending berbeda antarbulan. Berkas Januari–Mei 2026 memuat jenis pending baku BPJS, sehingga kategorinya hampir pasti. Bulan lain hanya memuat tulisan bebas verifikator, jadi sebagian SEP dikategorikan lewat <b>aturan kata kunci tahap 2</b> (perkiraan, belum diperiksa satu per satu). Porsi SEP yang kategorinya ditentukan tahap 2: ${li}. ${bad?'Selisih pada kategori tertentu bisa berasal dari perbedaan cara baca ini, bukan perubahan nyata di lapangan. Yang dapat dibandingkan dengan aman hanya <b>total SEP dan nilai</b> per bulan.':'Selisih kecil antarbulan sebaiknya tidak ditafsirkan terlalu jauh.'}</div>`;
+}
 function lainDraw(ps,met,pfx){
   const box=$(pfx+'-box'),LN=D.meta&&D.meta.lain;if(!box||!LN)return;
   const mf=met==='n'?nf.format:rp;
   const withL=ps.filter(k=>PM(k).lain);
-  if(!withL.length){box.innerHTML=empty('Bulan terpilih tidak memiliki SEP berkategori “Lainnya”, sehingga tidak ada yang perlu diuraikan.');return}
+  if(!withL.length){box.innerHTML=empty('Bulan terpilih tidak memiliki SEP yang pada aturan tahap 1 berkategori “Lainnya”, sehingga tidak ada yang perlu diuraikan.');return}
   const G=LN.groups,tot=G.map((g,i)=>({n:sum(ps.map(k=>(((PM(k).lain||{})[i])||{n:0}).n)),amt:sum(ps.map(k=>(((PM(k).lain||{})[i])||{amt:0}).amt)),ri:sum(ps.map(k=>(((PM(k).lain||{})[i])||{ri:0}).ri)),rj:sum(ps.map(k=>(((PM(k).lain||{})[i])||{rj:0}).rj))}));
-  const lainN=sum(ps.map(k=>PM(k).lain_uniq||0)),allN=sum(ps.map(k=>PM(k).n)),lainA=sum(ps.map(k=>((PM(k).cat['Lainnya']||{}).amt)||0)),allA=sum(ps.map(k=>PM(k).amt));
+  const lainN=sum(ps.map(k=>PM(k).lain_uniq||0)),allN=sum(ps.map(k=>PM(k).n)),lainA=sum(ps.map(k=>((PM(k).lain_v1||{}).amt)||0)),allA=sum(ps.map(k=>PM(k).amt));
   const gsum=sum(tot.map(t=>t[met]))||1;
-  box.innerHTML=`${caveat(`<b>Cara membaca.</b> Kelompok di bawah adalah <b>keputusan pengelola RS</b> atas teks alasan verifikator yang masuk kategori “Lainnya” (bukan klasifikasi resmi BPJS). Artinya “siapa yang paling mungkin memegang perbaikan”, bukan penilaian kinerja dokter atau petugas. Cakupannya hanya SEP kategori “Lainnya”: <b>${nf.format(lainN)} dari ${nf.format(allN)} SEP pending</b> (${pct(lainN/allN)}) senilai <b>${rp(lainA)}</b> (${pct(lainA/allA)} dari nilai) pada bulan terpilih. Kategori lain (kodefikasi, fisioterapi, dan seterusnya) belum dikelompokkan dengan cara ini. Satu SEP yang punya dua alasan berbeda dapat terhitung di dua kelompok (selisih paling banyak 1 SEP per bulan).`)}
+  box.innerHTML=`${caveat(`<b>Cara membaca.</b> Kelompok di bawah adalah <b>keputusan pengelola RS</b> atas teks alasan verifikator pada SEP yang <b>pada aturan tahap 1 masuk “Lainnya”</b> (bukan klasifikasi resmi BPJS). Sebagian besar SEP ini kini sudah punya kategori penyebab bernama pada grafik di atas lewat aturan tahap 2; kelompok keputusan di sini tidak berubah. Artinya “siapa yang paling mungkin memegang perbaikan”, bukan penilaian kinerja dokter atau petugas. Cakupannya hanya SEP tersebut: <b>${nf.format(lainN)} dari ${nf.format(allN)} SEP pending</b> (${pct(lainN/allN)}) senilai <b>${rp(lainA)}</b> (${pct(lainA/allA)} dari nilai) pada bulan terpilih. SEP di kategori lain (kodefikasi, fisioterapi, dan seterusnya) belum dikelompokkan dengan cara ini. Satu SEP yang punya dua alasan berbeda dapat terhitung di dua kelompok (selisih paling banyak 1 SEP per bulan).`)}
   <div class="kgrid kg2"><div class="card"><h2>Kelompok penanggung jawab: antarbulan</h2><p class="knote">${met==='n'?'Jumlah SEP':'Nilai ajuan'} per kelompok keputusan, bulan-bulan terpilih berdampingan.</p><div id="${pfx}-c1"></div></div>
-  <div class="card"><h2>Komposisi kelompok per bulan (100%)</h2><p class="knote">Porsi tiap kelompok terhadap total “Lainnya” bulan itu.</p><div id="${pfx}-c2"></div></div></div>
+  <div class="card"><h2>Komposisi kelompok per bulan (100%)</h2><p class="knote">Porsi tiap kelompok terhadap SEP bulan itu yang pada aturan tahap 1 berkategori “Lainnya”.</p><div id="${pfx}-c2"></div></div></div>
   <div class="card"><h3 class="ksect" style="margin-top:0">Temuan otomatis</h3><ul class="kfind" id="${pfx}-find"></ul></div>
   <h3 class="ksect">Daftar alasan dan keputusan</h3><div class="card"><div class="ktoolbar"><span class="kl">Kelompok</span><div class="kseg ksegw" id="k-${pfx}g"></div><input type="search" id="${pfx}-q" placeholder="Cari kata dalam alasan atau catatan…" aria-label="Cari alasan"><span class="kl" id="${pfx}-cnt"></span></div><div class="ktbl" id="${pfx}-tbl"></div><p class="knote" style="margin:10px 0 0">Satu baris satu teks alasan (nomor SEP dan tanggal di dalam teks sudah disamarkan). Angka mengikuti bulan terpilih. Kolom Catatan berisi catatan yang tertulis di berkas keputusan; isinya belum diverifikasi ulang oleh analisis ini.</p></div>`;
   hbarsN($(pfx+'-c1'),G.map((g,i)=>({label:LNS[i],vals:ps.map(k=>((((PM(k).lain||{})[i])||{})[met])||0)})),serOf(ps,k=>null),{fmt:mf,lw:170,title:'Kelompok penanggung jawab antarbulan'});
   stack100($(pfx+'-c2'),withL.map(k=>({label:mlab(k),vals:G.map((g,i)=>((((PM(k).lain||{})[i])||{})[met])||0)})),LNS.map((s,i)=>({name:s,color:LNC[i]})),{title:'Komposisi kelompok'});
   /* temuan */
   const F=[],ord=tot.map((t,i)=>({i,...t})).sort((a,b)=>b[met]-a[met]),top=ord[0];
-  F.push(`<li><b>Terbesar menurut ${met==='n'?'jumlah SEP':'nilai'}:</b> ${esc(G[top.i])} (${nf.format(top.n)} SEP, ${rp(top.amt)}; ${pct(top[met]/gsum)} dari “Lainnya”).</li>`);
+  F.push(`<li><b>Terbesar menurut ${met==='n'?'jumlah SEP':'nilai'}:</b> ${esc(G[top.i])} (${nf.format(top.n)} SEP, ${rp(top.amt)}; ${pct(top[met]/gsum)} dari SEP yang semula “Lainnya”).</li>`);
   const byA=tot.map((t,i)=>({i,...t})).sort((a,b)=>b.amt-a.amt)[0],byN=tot.map((t,i)=>({i,...t})).sort((a,b)=>b.n-a.n)[0];
   if(byA.i!==byN.i) F.push(`<li class="w"><b>Jumlah dan nilai tidak sejalan:</b> paling banyak SEP ada di <b>${esc(G[byN.i])}</b> (${nf.format(byN.n)} SEP, rata-rata ${rp(byN.amt/(byN.n||1))} per SEP), tetapi paling besar nilainya di <b>${esc(G[byA.i])}</b> (${rp(byA.amt)}, rata-rata ${rp(byA.amt/(byA.n||1))} per SEP). Prioritas perbaikan sebaiknya mempertimbangkan keduanya.</li>`);
   const own=tot[1].amt+tot[2].amt+tot[0].amt,out=tot[4].amt,adm=tot[3].amt;
@@ -1178,7 +1189,8 @@ R.sebab=()=>{
   const cats=Object.keys(tot).sort((a,b)=>tot[b]-tot[a]);
   const sv=ps.filter(k=>PM(k).fmt!=='ekspor'),ev=ps.filter(k=>PM(k).fmt==='ekspor');
   el.innerHTML=`<div class="ktoolbar"><span class="kl">Ukuran</span><div class="kseg" id="k-sMet"></div></div>
-  ${caveat('<b>Cara membaca.</b> Kategori penyebab adalah klasifikasi otomatis berbasis kata kunci pada teks alasan verifikator BPJS (heuristik buatan analisis ini, bukan kategori resmi BPJS). Satu SEP dihitung sekali pada kategori yang paling dulu cocok. Bulan tanpa berkas tidak muncul.')}
+  ${caveat('<b>Cara membaca.</b> Kategori penyebab adalah klasifikasi otomatis berbasis kata kunci pada teks alasan verifikator BPJS (heuristik buatan analisis ini, bukan kategori resmi BPJS), dalam dua tahap: tahap 1 memakai jenis pending baku dan kata kunci; tahap 2 hanya memecah SEP yang tidak cocok pada tahap 1. Satu SEP dihitung sekali pada kategori yang paling dulu cocok. Bulan tanpa berkas tidak muncul.')}
+  ${kelasWarn(ps)}
   <div class="kgrid kg2"><div class="card"><h2>Komposisi penyebab per bulan (100%)</h2><p class="knote">Porsi tiap kategori terhadap total ${met==='n'?'SEP':'nilai'} pending bulan itu. Arahkan kursor pada segmen untuk angka.</p><div id="s-c1"></div></div>
   <div class="card"><h2>Status jawaban RS atas pending (100%)</h2><p class="knote">${sv.length?'Klasifikasi isi kolom jawaban RS (heuristik): belum dijawab, menerima/menyesuaikan, atau menyanggah/melampirkan bukti.':'Tidak ada bulan berformat verifikasi pada pilihan ini.'}${ev.length?' <b>'+ev.map(mlab).join(', ')+'</b> tidak ditampilkan karena formatnya tidak memuat kolom jawaban.':''}</p><div id="s-c2"></div></div></div>
   <div class="card"><h2>Kategori penyebab: perbandingan antarbulan</h2><p class="knote">Setiap kelompok batang memperlihatkan bulan-bulan terpilih untuk satu kategori, diurutkan dari yang terbesar.</p><div id="s-c3"></div></div>
@@ -1331,7 +1343,7 @@ R.klaim=()=>{
 R.data=()=>{
   const el=$('kview-data');
   const pk=TL.filter(hasP),np=pk.length,nrows=sum(pk.map(k=>PM(k).rows));
-  const lain=sum(pk.map(k=>(PM(k).cat['Lainnya']||{n:0}).n)),allN=sum(pk.map(k=>PM(k).n));
+  const lain=sum(pk.map(k=>(PM(k).cat['Lainnya']||{n:0}).n)),allN=sum(pk.map(k=>PM(k).n)),lain1=sum(pk.map(k=>(PM(k).lain_v1||{n:0}).n)),via=sum(pk.map(k=>PM(k).via2||0));
   el.innerHTML=`<h3 class="ksect" style="margin-top:0">Cakupan data per bulan</h3><div class="card"><div class="ktoolbar"><span class="kl" id="q-cnt"></span></div><div class="ktbl" id="q-tbl"></div>
   <p class="knote" style="margin:10px 0 0">Baris di berkas = satu SEP per alasan pending, sehingga lebih banyak dari SEP unik. Dashboard menghitung <b>SEP unik</b> untuk jumlah dan nilai agar satu SEP tidak terhitung berulang.</p></div>
   <h3 class="ksect">Pemeriksaan integritas</h3><div class="card"><ul class="kfind">
@@ -1343,7 +1355,7 @@ R.data=()=>{
    <li class="r"><b>${mfull('2026-05')}: hanya ${PM('2026-05').ri.n} SEP rawat inap</b> (bulan lain 50–150); berkas kemungkinan belum memuat pending rawat inap, sehingga nilainya terlalu rendah.</li>
    <li class="w"><b>Rawat jalan Januari–Maret 2025 tepat 100, 100, dan 120 SEP.</b> Pola angka bulat ini patut dicurigai sebagai pembatasan ekspor; perlu konfirmasi ke petugas sebelum dipakai sebagai pembanding.</li>
    <li class="w"><b>${mfull('2026-07')} berformat berbeda</b> (hasil ekspor: tanpa jawaban RS dan topik filtrasi, tetapi memuat DPJP). Kolom diselaraskan secara manual: SEP, jenis rawat, tanggal pulang, total tarif, dan keterangan pending.</li>
-   <li class="w"><b>Klasifikasi penyebab dan status jawaban RS adalah heuristik</b> berbasis kata kunci, bukan kategori resmi BPJS. Kategori “Lainnya” mencakup ${pct(lain/Math.max(allN,1))} SEP pada seluruh bulan, sehingga kamus kata kunci masih perlu disempurnakan.</li>
+   <li class="w"><b>Klasifikasi penyebab dan status jawaban RS adalah heuristik</b> berbasis kata kunci, bukan kategori resmi BPJS. Dengan aturan tahap 1 saja, “Lainnya” mencakup ${pct(lain1/Math.max(allN,1))} SEP pada seluruh bulan; aturan tahap 2 menurunkannya menjadi ${pct(lain/Math.max(allN,1))}. Sebanyak ${nf.format(via)} SEP (${pct(via/Math.max(allN,1))}) kini dikategorikan lewat tahap 2, terutama pada bulan 2025 dan Juli 2026 yang hanya memuat tulisan bebas. Perbandingan kategori antara bulan berformat berbeda tidak setara.</li>
    ${(()=>{const KA=window.KLAIM_AGG,ks=TL.filter(hasK),rc=KA?KA.recon:{};const bad=ks.filter(k=>rc[k]&&['RI','RJ'].some(j=>rc[k][j]&&rc[k][j].rek_n!=null&&(rc[k][j].only_txt||rc[k][j].only_rek||rc[k][j].txt_tot!==rc[k][j].rek_tot)));const none=ks.filter(k=>rc[k]&&['RI','RJ'].some(j=>rc[k][j]&&rc[k][j].rek_n==null));const both=TL.filter(k=>hasP(k)&&hasK(k));
      return `<li class="g"><b>Data klaim ${ks.length} bulan</b> (${mfull(ks[0])}–${mfull(ks[ks.length-1])}) dari TXT e-klaim; ${ks.length-bad.length-none.length} bulan cocok per nomor SEP dengan Rekap Klaim XLSX tanpa selisih.</li>`+
      (bad.length?`<li class="w"><b>Selisih TXT dan Rekap XLSX:</b> ${bad.map(k=>mfull(k)+' ('+['RI','RJ'].map(j=>{const r=rc[k][j];return r&&r.rek_n!=null&&(r.only_txt||r.only_rek)?j+': '+r.only_txt+' SEP hanya di TXT, '+r.only_rek+' hanya di XLSX':''}).filter(Boolean).join('; ')+')').join('; ')}. Dashboard memakai TXT.</li>`:'')+
