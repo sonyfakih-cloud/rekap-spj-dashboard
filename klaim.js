@@ -484,14 +484,13 @@ R.ringkasan=()=>{
     if(top) L.push(`<li><b>Kategori penyebab terbesar menurut nilai:</b> ${esc(top[0])} (${pct(top[1].amt/amt)} dari nilai, ${nf.format(top[1].n)} SEP). Dasar kategori: ${catMode==='kw'?'kata kunci pada teks alasan (heuristik)':'jenis pending BPJS (bulan 2025, Juli, dan Agustus 2026 memakai isian perkiraan, bukan nilai asli BPJS)'}; dipakai sebagai petunjuk arah, bukan angka baku.</li>`);
     if(cat['Lainnya']&&cat['Lainnya'].n/n>0.25) L.push(`<li class="w"><b>Kategori “Lainnya” besar (${pct(cat['Lainnya'].n/n)} SEP):</b> aturan kata kunci belum menangkap sebagian alasan. Uraiannya menurut keputusan pengelola RS (klinis DPJP, dokumen medis, koding, administrasi, kebijakan BPJS) ada di tab Penyebab pending, bagian “Uraian kategori Lainnya”.</li>`);
     /* sikap RS */
-    const sv=ps.filter(k=>PM(k).fmt!=='ekspor');
+    const sv=ps.filter(k=>sikapOK(PM(k))),nsv=ps.filter(k=>!sikapOK(PM(k)));
     if(sv.length){
-      const bn=sum(sv.map(k=>(PM(k).sikap['Belum ada jawaban RS']||{n:0}).n)),ba=sum(sv.map(k=>(PM(k).sikap['Belum ada jawaban RS']||{amt:0}).amt)),tn=sum(sv.map(k=>PM(k).n));
-      const worst=sv.slice().sort((a,b)=>((PM(b).sikap['Belum ada jawaban RS']||{amt:0}).amt)-((PM(a).sikap['Belum ada jawaban RS']||{amt:0}).amt))[0];
-      const wa=(PM(worst).sikap['Belum ada jawaban RS']||{amt:0}).amt;
-      if(wa>0) L.push(`<li class="${bn/tn>0.3?'r':'w'}"><b>Pending yang belum dijawab RS:</b> ${nf.format(bn)} SEP (${rp(ba)}) atau ${pct(bn/tn)} dari SEP pada ${sv.length} bulan berformat verifikasi. Terbesar pada ${mfull(worst)} (${rp(wa)}). Pending yang tidak dijawab dalam tenggat verifikasi berisiko berubah menjadi klaim tidak dibayar; ini kandidat tindakan paling cepat.</li>`);
+      const tn=sum(sv.map(k=>PM(k).n)),rn=sum(sv.map(k=>PM(k).n-((PM(k).sikap[SKB]||{n:0}).n)));
+      const cv_=sv.map(k=>skRec(PM(k))),lo=Math.min(...cv_),hi=Math.max(...cv_);
+      L.push(`<li class="w"><b>Jawaban RS yang tercatat di berkas pending:</b> ${nf.format(rn)} dari ${nf.format(tn)} SEP (${pct(rn/tn)}) pada ${sv.length} bulan yang berkasnya memuat kolom jawaban; cakupan per bulan ${pct(lo)} sampai ${pct(hi)}. SEP tanpa jawaban tercatat <i>tidak</i> berarti belum dijawab: jawaban dikirim lewat e-klaim dan tidak selalu dicatat ke berkas rekap, sehingga tingkat penyelesaian pending tidak dapat dinilai dari berkas ini.</li>`);
     }
-    if(ps.some(k=>PM(k).fmt==='ekspor')) L.push(`<li class="w"><b>${ps.filter(k=>PM(k).fmt==='ekspor').map(mlab).join(', ')}</b> memakai format berkas berbeda (tanpa kolom jawaban RS dan topik filtrasi), sehingga status jawaban RS tidak dapat dinilai untuk bulan tersebut.</li>`);
+    if(nsv.length) L.push(`<li class="w"><b>${nsv.map(mlab).join(', ')}</b>: berkas pending tidak memuat jawaban RS (kolom tidak ada, kosong, atau berformat ekspor). Status jawaban tidak dapat dinilai untuk bulan tersebut; ini keterbatasan berkas, bukan tanda pending belum dijawab.</li>`);
   }
   if(ks.length){
     const t=sum(ks.map(k=>KQ(k).tot)),r=sum(ks.map(k=>KQ(k).rs));
@@ -644,7 +643,11 @@ function pCards(j){
   '</div>';
   return h;
 }
-const sikapOK=m=>m.fmt!=='ekspor';
+/* Status jawaban RS: kolom jawaban di berkas pending hanya CATATAN. SEP tanpa jawaban tercatat BUKAN berarti belum dijawab (jawaban dikirim lewat e-klaim). */
+const SKB='Belum ada jawaban RS',SK_LAB={'Belum ada jawaban RS':'Jawaban tidak tercatat di berkas'};
+const skRec=m=>m.n?1-((m.sikap[SKB]||{n:0}).n/m.n):0;   // porsi SEP dengan jawaban tercatat
+const sikapOK=m=>m.fmt!=='ekspor'&&skRec(m)>0;          // berkas memuat jawaban RS (kolom ada dan terisi)
+const skWhy=m=>m.fmt==='ekspor'?'berformat ekspor tanpa kolom jawaban':'kolom jawaban tidak ada atau kosong di berkas';
 const catsU=(a,b)=>[...new Set(Object.keys(a.cat).concat(Object.keys(b.cat)))];
 const cv=(m,c,k)=>((m.cat[c]||{})[k])||0;
 
@@ -663,9 +666,8 @@ PR.ringkasan=()=>{
   if(up)L.push(`<li class="r"><b>Kategori penyebab yang paling menambah nilai pending:</b> ${esc(up.c)} (${sgn(up.d,rp)}; ${rp(up.a)} → ${rp(up.b)}). Dasar kategori: ${catMode==='kw'?'kata kunci (heuristik)':'jenis pending BPJS (2025, Juli, dan Agustus 2026 = isian perkiraan)'}.</li>`);
   if(dn)L.push(`<li class="g"><b>Kategori yang paling mengurangi nilai pending:</b> ${esc(dn.c)} (${sgn(dn.d,rp)}; ${rp(dn.a)} → ${rp(dn.b)}).</li>`);
   if(sikapOK(a)&&sikapOK(b)){
-    const ua=(a.sikap['Belum ada jawaban RS']||{n:0,amt:0}),ub=(b.sikap['Belum ada jawaban RS']||{n:0,amt:0});
-    L.push(`<li class="${ub.n/b.n>0.3?'r':'w'}"><b>Pending belum dijawab RS:</b> ${nf.format(ua.n)} SEP (${rp(ua.amt)}, ${pct(ua.n/a.n)} dari SEP) pada ${mlab(A)} dan ${nf.format(ub.n)} SEP (${rp(ub.amt)}, ${pct(ub.n/b.n)}) pada ${mlab(B)}. Pending yang tidak dijawab dalam tenggat berisiko menjadi klaim tidak dibayar.</li>`);
-  } else L.push(`<li class="w"><b>Status jawaban RS tidak dapat dibandingkan:</b> salah satu bulan (${[A,B].filter(k=>!sikapOK(PM(k))).map(mlab).join(', ')}) berformat ekspor tanpa kolom jawaban RS.</li>`);
+    L.push(`<li class="w"><b>Jawaban RS yang tercatat di berkas pending:</b> ${pct(skRec(a))} SEP pada ${mlab(A)} dan ${pct(skRec(b))} pada ${mlab(B)}. SEP lainnya hanya <i>tidak tercatat</i> jawabannya di berkas; itu bukan berarti belum dijawab, karena jawaban pending dikirim lewat e-klaim dan tidak selalu dicatat ke berkas rekap. Tingkat penyelesaian pending yang sebenarnya tidak dapat dinilai dari berkas ini.</li>`);
+  } else L.push(`<li class="w"><b>Status jawaban RS tidak dapat dibandingkan:</b> berkas ${[A,B].filter(k=>!sikapOK(PM(k))).map(k=>mlab(k)+' ('+skWhy(PM(k))+')').join('; ')}. Ini keterbatasan berkas, <b>bukan</b> tanda pending belum dijawab.</li>`);
   [A,B].forEach(k=>{if(D.meta.caution&&D.meta.caution[k])L.push(`<li class="r"><b>Peringatan data ${mfull(k)}:</b> ${esc(D.meta.caution[k])}. Perbandingan yang melibatkan bulan ini bisa menyesatkan.</li>`)});
   if(['2025-01','2025-02','2025-03'].some(k=>k===A||k===B))L.push(`<li class="w"><b>Pola angka bulat:</b> SEP rawat jalan Januari–Maret 2025 tepat 100, 100, dan 120; periksa kemungkinan berkas terpotong sebelum menyimpulkan.</li>`);
   L.push(`<li class="w"><b>Satu bulan melawan satu bulan.</b> Selisih dua bulan bukan tren: jumlah hari kerja, jumlah verifikator, dan waktu penarikan berkas memengaruhi angka. Gunakan mode multi-bulan (pilih lebih dari dua bulan) untuk melihat pola.</li>`);
@@ -678,7 +680,7 @@ PR.ringkasan=()=>{
   </div>
   <h3 class="ksect">Implikasi dan tindak lanjut</h3><div class="card"><ul class="kfind">
    <li><b>Prioritaskan tindak lanjut menurut nilai, bukan jumlah berkas.</b> Rawat inap hanya ${pct(b.ri.n/b.n)} dari SEP ${mlab(B)} tetapi ${pct(b.ri.amt/b.amt)} dari nilainya.</li>
-   ${sikapOK(b)?`<li><b>Jawab pending yang masih kosong.</b> ${nf.format((b.sikap['Belum ada jawaban RS']||{n:0}).n)} SEP ${mlab(B)} belum memiliki jawaban RS.</li>`:''}
+   <li><b>Catat jawaban dan tanggal jawab pending pada berkas rekap.</b> Berkas pending ${mlab(B)} ${sikapOK(b)?'mencatat jawaban untuk '+pct(skRec(b))+' SEP':'tidak memuat jawaban RS'}. Jawaban yang dikirim lewat e-klaim tidak otomatis masuk ke rekap, sehingga tanpa kolom jawaban dan tanggal jawab dashboard tidak dapat mengukur berapa pending yang selesai dan berapa lama.</li>
    <li><b>Telaah kategori penyebab terbesar</b> pada tab Penyebab pending untuk menentukan apakah masalahnya kodefikasi, administrasi, atau indikasi pelayanan, lalu perbaiki di sumbernya (SIMRS dan dokumentasi klinis).</li>
    <li><b>Cek ulang kelengkapan berkas</b> bulan yang bertanda peringatan sebelum dipakai sebagai dasar proyeksi arus kas.</li>
   </ul></div>`;
@@ -718,7 +720,7 @@ PR.sebab=()=>{
   ${kelasWarn([A,B].filter(k=>PM(k)))}
   <div class="card"><h2>Kategori penyebab: ${esc(DS[0])} vs ${esc(DS[1])}</h2><p class="knote">Diurutkan dari yang terbesar. Pill merah = bertambah, hijau = berkurang.</p><div id="pd-sc"></div></div>
   <div class="kgrid kg2"><div class="card"><h2>Perubahan terbesar per kategori</h2><p class="knote">Selisih ${esc(DS[1])} dikurangi ${esc(DS[0])}; hijau = pending berkurang.</p><div id="pd-sd"></div></div>
-  <div class="card"><h2>Status jawaban RS (100%)</h2><p class="knote">${ok?'Belum dijawab, menerima/menyesuaikan, atau menyanggah/melampirkan bukti (heuristik atas kolom jawaban).':'Tidak dapat ditampilkan: salah satu bulan berformat ekspor tanpa kolom jawaban RS.'}</p><div id="pd-ss"></div></div></div>
+  <div class="card"><h2>Status jawaban RS (100%)</h2><p class="knote">${ok?'Klasifikasi kata kunci atas kolom jawaban yang tercatat. “Jawaban tidak tercatat di berkas” bukan berarti belum dijawab.':'Tidak dapat ditampilkan: salah satu bulan berkasnya tidak memuat jawaban RS (kolom tidak ada, kosong, atau format ekspor).'}</p><div id="pd-ss"></div></div></div>
   ${lainSection('pln')}
   <h3 class="ksect">Teks alasan dari verifikator</h3><div class="card"><div class="ktoolbar"><span class="kl">Sumber</span><div class="kseg" id="k-pdt"></div><input type="search" id="pd-q" placeholder="Cari kata dalam alasan…" aria-label="Cari alasan"><span class="kl" id="pd-cnt"></span></div><div class="ktbl" id="pd-tbl"></div><p class="knote" style="margin:10px 0 0" id="pd-note"></p></div>`;
   seg('pdc',[['grp','JN 7 kelompok'],['jn','JN 15 jenis'],['kw','Kata kunci']],catMode,v=>setCatMode(v));
@@ -726,7 +728,7 @@ PR.sebab=()=>{
   hbars2($('pd-sc'),rows,{fmt:mf,tone:'bad',lw:190,title:'Kategori penyebab'});
   lainDraw([A,B].filter(k=>PM(k)),met,'pln');
   diverge2($('pd-sd'),dl,{fmt:mf,goodUp:false,lw:150,title:'Perubahan per kategori'});
-  if(ok){const ks=Object.keys(SK_COL);stack100($('pd-ss'),[A,B].map(k=>({label:mlab(k),vals:ks.map(s=>((PM(k).sikap[s]||{})[met])||0)})),ks.map(s=>({name:s,color:SK_COL[s]})),{title:'Status jawaban RS'})}
+  if(ok){const ks=Object.keys(SK_COL);stack100($('pd-ss'),[A,B].map(k=>({label:mlab(k),vals:ks.map(s=>((PM(k).sikap[s]||{})[met])||0)})),ks.map(s=>({name:SK_LAB[s]||s,color:SK_COL[s]})),{title:'Status jawaban RS'})}
   else $('pd-ss').innerHTML='<p class="knote">Tidak ada data.</p>';
   let src='topik',tb=null;
   const draw=()=>{
@@ -1316,12 +1318,12 @@ R.sebab=()=>{
   const met=sebabMet,mf=met==='n'?nf.format:rp,mx=met==='n'?nf.format:rpAx;
   const tot={};ps.forEach(k=>Object.entries(PM(k).cat).forEach(([c,v])=>{tot[c]=(tot[c]||0)+v[met]}));
   const cats=Object.keys(tot).sort((a,b)=>tot[b]-tot[a]);
-  const sv=ps.filter(k=>PM(k).fmt!=='ekspor'),ev=ps.filter(k=>PM(k).fmt==='ekspor');
+  const sv=ps.filter(k=>sikapOK(PM(k))),ev=ps.filter(k=>!sikapOK(PM(k)));
   el.innerHTML=`<div class="ktoolbar"><span class="kl">Ukuran</span><div class="kseg" id="k-sMet"></div><span class="kl">Dasar kategori</span><div class="kseg ksegw" id="k-sCat"></div></div>
   ${caveat('<b>Cara membaca.</b> '+catBasis()+' Satu SEP dihitung sekali pada kategori yang paling banyak muncul di barisnya. Bulan tanpa berkas tidak muncul.')}
   ${kelasWarn(ps)}
   <div class="kgrid kg2"><div class="card"><h2>Komposisi penyebab per bulan (100%)</h2><p class="knote">Porsi tiap kategori terhadap total ${met==='n'?'SEP':'nilai'} pending bulan itu. Arahkan kursor pada segmen untuk angka.</p><div id="s-c1"></div></div>
-  <div class="card"><h2>Status jawaban RS atas pending (100%)</h2><p class="knote">${sv.length?'Klasifikasi isi kolom jawaban RS (heuristik): belum dijawab, menerima/menyesuaikan, atau menyanggah/melampirkan bukti.':'Tidak ada bulan berformat verifikasi pada pilihan ini.'}${ev.length?' <b>'+ev.map(mlab).join(', ')+'</b> tidak ditampilkan karena formatnya tidak memuat kolom jawaban.':''}</p><div id="s-c2"></div></div></div>
+  <div class="card"><h2>Status jawaban RS atas pending (100%)</h2><p class="knote">${sv.length?'Klasifikasi kata kunci atas kolom jawaban yang tercatat di berkas pending. “Jawaban tidak tercatat di berkas” bukan berarti belum dijawab: jawaban dikirim lewat e-klaim dan tidak selalu dicatat ke berkas rekap.':'Tidak ada bulan yang berkasnya memuat jawaban RS pada pilihan ini.'}${ev.length?' <b>'+ev.map(mlab).join(', ')+'</b> tidak ditampilkan karena berkas pending bulan itu tidak memuat jawaban RS (kolom tidak ada, kosong, atau format ekspor).':''}</p><div id="s-c2"></div></div></div>
   <div class="card"><h2>Kategori penyebab: perbandingan antarbulan</h2><p class="knote">Setiap kelompok batang memperlihatkan bulan-bulan terpilih untuk satu kategori, diurutkan dari yang terbesar.</p><div id="s-c3"></div></div>
   <h3 class="ksect">Matriks kategori × bulan</h3><div class="card"><div class="ktoolbar"><span class="kl" id="s-cnt"></span></div><div class="ktbl" id="s-tbl"></div></div>
   ${lainSection('sln')}
@@ -1330,7 +1332,7 @@ R.sebab=()=>{
   seg('sMet',[['n','Jumlah SEP'],['amt','Nilai (Rp)']],met,v=>{sebabMet=v;rendered.sebab=0;KC.length=0;R.sebab();rendered.sebab=1});
   seg('sSrc',[['topik','Topik filtrasi (per SEP)'],['alasan','Teks alasan (per baris)']],sebabSrc,v=>{sebabSrc=v;drawText()});
   stack100($('s-c1'),ps.map(k=>({label:mlab(k),vals:cats.map(c=>((PM(k).cat[c]||{})[met])||0)})),cats.map((c,i)=>({name:c,color:COL[i%COL.length]})),{title:'Komposisi penyebab'});
-  if(sv.length) stack100($('s-c2'),sv.map(k=>({label:mlab(k),vals:Object.keys(SK_COL).map(s=>((PM(k).sikap[s]||{})[met])||0)})),Object.keys(SK_COL).map(s=>({name:s,color:SK_COL[s]})),{title:'Status jawaban RS'});
+  if(sv.length) stack100($('s-c2'),sv.map(k=>({label:mlab(k),vals:Object.keys(SK_COL).map(s=>((PM(k).sikap[s]||{})[met])||0)})),Object.keys(SK_COL).map(s=>({name:SK_LAB[s]||s,color:SK_COL[s]})),{title:'Status jawaban RS'});
   else $('s-c2').innerHTML='<p class="knote">Tidak ada data.</p>';
   const top=cats.slice(0,Math.min(cats.length,ps.length<=3?11:ps.length<=6?8:6));
   hbarsN($('s-c3'),top.map(c=>({label:c,vals:ps.map(k=>((PM(k).cat[c]||{})[met])||0)})),serOf(ps,k=>null),{fmt:mf,title:'Kategori penyebab antarbulan'});
@@ -1485,6 +1487,7 @@ R.data=()=>{
    ${Object.keys(BV).length?`<li class="g"><b>Hasil verifikasi BPJS (BAVK)</b> tersedia untuk ${Object.keys(BV).sort().map(mlab).join(', ')} (Analisis lanjutan, tab Hasil verifikasi). Jumlah pending menurut BAHV sama dengan berkas pending pada Feb, Apr, Jun, Jul, dan Agu 2026 (Jul dan Agu setelah SEP Tidak Layak dipisahkan; Mar tanpa BAHV; Mei selisih seperti di atas). Januari 2026 belum ada.</li>`:''}
    <li class="w"><b>Rawat jalan Januari–Maret 2025 tepat 100, 100, dan 120 SEP.</b> Pola angka bulat ini patut dicurigai sebagai pembatasan ekspor; perlu konfirmasi ke petugas sebelum dipakai sebagai pembanding.</li>
    <li class="w"><b>${mfull('2026-07')} dan ${mfull('2026-08')} berformat berbeda</b> (hasil ekspor: tanpa jawaban RS dan topik filtrasi, tetapi memuat DPJP). Kolom diselaraskan secara manual: SEP, jenis rawat, tanggal pulang, total tarif, dan keterangan pending.</li>
+   <li class="w"><b>Jawaban RS atas pending tidak tercatat lengkap di berkas.</b> ${(()=>{const no=pk.filter(k=>!sikapOK(PM(k))),yes=pk.filter(k=>sikapOK(PM(k))),lo=yes.length?yes.slice().sort((a,b)=>skRec(PM(a))-skRec(PM(b)))[0]:null;return `Berkas ${no.length} bulan (${no.map(mlab).join(', ')}) tidak memuat jawaban RS sama sekali (kolom tidak ada, kosong, atau format ekspor)${lo?`, dan pada bulan lain cakupannya berbeda-beda (terendah ${mlab(lo)}: ${pct(skRec(PM(lo)))} SEP bertanda jawaban)`:''}. Jawaban pending dikirim lewat e-klaim, jadi SEP tanpa jawaban tercatat <b>tidak</b> berarti belum dijawab. Dashboard sengaja tidak menyimpulkan tingkat penyelesaian pending dari kolom ini; untuk itu diperlukan kolom jawaban dan tanggal jawab pada rekap pending (atau data balasan dari e-klaim).`})()}</li>
    <li class="w"><b>Dasar kategori penyebab: jenis pending (JNSPENDING).</b> ${(()=>{const o=provSum(pk),T=Math.max(allN,1),b=(o.asli||0)+(o.teks||0),e=(o.isian_tinggi||0)+(o.isian_sedang||0)+(o.isian_rendah||0),r=o.isian_rendah||0,x=(o.turunan||0)+(o.kw||0)+(o.tbd||0);return `Dari ${nf.format(allN)} SEP: ${nf.format(b)} (${pct(b/T)}) berjenis pending baku BPJS (kolom JNSPENDING atau kalimat baku di awal teks alasan), ${nf.format(e)} (${pct(e/T)}) memakai <b>isian perkiraan Claude</b> (bukan keputusan BPJS dan belum diverifikasi tim casemix; ${nf.format(r)} SEP di antaranya berkeyakinan rendah), dan ${nf.format(x)} (${pct(x/T)}) diturunkan dari teks yang sama atau kata kunci cadangan. Total SEP dan nilai tidak bergantung pada kategori.`})()} Tampilan kata kunci tetap tersedia di tab Penyebab pending sebagai pembanding.</li>
    ${(()=>{const KA=window.KLAIM_AGG,ks=TL.filter(hasK),rc=KA?KA.recon:{};const bad=ks.filter(k=>rc[k]&&['RI','RJ'].some(j=>rc[k][j]&&rc[k][j].rek_n!=null&&(rc[k][j].only_txt||rc[k][j].only_rek||rc[k][j].txt_tot!==rc[k][j].rek_tot)));const none=ks.filter(k=>rc[k]&&['RI','RJ'].some(j=>rc[k][j]&&rc[k][j].rek_n==null));const both=TL.filter(k=>hasP(k)&&hasK(k));
      return `<li class="g"><b>Data klaim ${ks.length} bulan</b> (${mfull(ks[0])}–${mfull(ks[ks.length-1])}) dari TXT e-klaim; ${ks.length-bad.length-none.length} bulan cocok per nomor SEP dengan Rekap Klaim XLSX tanpa selisih.</li>`+
