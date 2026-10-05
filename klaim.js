@@ -824,7 +824,7 @@ PR.data=()=>{
 const KAm=(window.KLAIM_AGG||{}).months||{}, DX=window.DPX_DATA||null, DC=window.DPC_DATA||null;
 const clean=s=>String(s).replace(/^"+|"+$/g,'').trim();
 const LJ={};
-const LTABS=[['los','LOS per kode'],['dpjp','DPJP & case-mix'],['sla','SLA finalisasi'],['pvk','Pending vs klaim per kode']];
+const LTABS=[['los','LOS per kode'],['dpjp','DPJP & case-mix'],['sla','SLA finalisasi'],['pvk','Pending vs klaim per kode'],['bavk','Hasil verifikasi (BAVK)']];
 let ljTab=store.get('pk_ljt')||'los',ljR={},dpJ='RI',dcSel=null,slaD=+store.get('pk_sla_d')||7,slaP=+store.get('pk_sla_p')||80;
 const MINN=30;
 const devChip=(ratio,ok,badUp)=>{
@@ -1147,7 +1147,7 @@ LJ.pvk=()=>{
 };
 
 /* ================= Uraian kategori “Lainnya” menurut keputusan pengelola RS =================
-   Data: D.meta.lain (218 teks alasan beserta kelompok keputusan) dan D.months[k].lain (agregat per bulan x kelompok).
+   Data: D.meta.lain (217 teks alasan beserta kelompok keputusan) dan D.months[k].lain (agregat per bulan x kelompok).
    Tanpa nomor SEP atau data pasien. Kelompok = keputusan analis RS, bukan klasifikasi BPJS. */
 const LNC=['#84AAF3','#F4BA84','#6FC28F','#B79BE8','#9AA3B8'];
 const LNS=['Klinis DPJP','Dokumen medis (dokter & koder)','Koding (koder)','Administrasi / kepesertaan','Kebijakan BPJS'];
@@ -1214,6 +1214,98 @@ function kelasWarn(ps){
   const st=bad?' style="border-left-color:#E5636B"':'';
   return `<div class="kcaveat"${st}><b>${bad?'Bulan-bulan ini berasal dari sumber jenis pending yang berbeda.':'Catatan asal jenis pending.'}</b> Berkas pending Januari–Juni 2026 memuat kolom JNSPENDING dari BPJS (sebagian barisnya kosong; untuk baris itu dipakai kalimat baku di awal teks alasan, atau teks yang sama di bulan lain). Berkas 2025, Juli, dan Agustus 2026 tidak memuat kolom itu. Untuk bulan tersebut jenis pending ditetapkan per teks alasan: dipakai langsung bila teks diawali kalimat baku BPJS; selebihnya <b>isian perkiraan Claude</b> (bukan keputusan BPJS dan <b>belum diverifikasi tim casemix</b>). Rincian: ${li}. ${anyE?(bad?'Selisih antarkategori antara bulan berisi isian dan bulan berkolom asli perlu dibaca sebagai perkiraan; ':'')+'Isian berkeyakinan rendah paling mungkin berubah bila tim casemix memeriksanya.':''}</div>`;
 }
+
+/* ================= Hasil verifikasi BPJS (BAVK) =================
+   Data: window.BAVK_DATA (agregat dari Berita Acara Hasil Verifikasi Klaim, Bukti Penerimaan Klaim, BAKB, rincian per SEP, dicocokkan dengan TXT e-klaim dan berkas pending).
+   Tanpa nomor SEP / data pasien. Bulan tersedia: Feb-Jul 2026 (Mar tanpa BAHV: status diturunkan; Mei tanpa BPK/BAKB dan tanpa rincian induk). */
+const BV=(window.BAVK_DATA||{}).months||{}, BVX=window.BAVK_DATA||{};
+const BVC={layak:'#6FC28F',pending:'#F4BA84',tl:'#DC8077',dispute:'#84AAF3'};
+const fd=s=>s?s.slice(8)+'/'+s.slice(5,7)+'/'+s.slice(0,4):'–';
+const dd=(a,b)=>(a&&b)?Math.round((Date.parse(b)-Date.parse(a))/864e5):null;
+const bsum=(m,s,f,j)=>(j?[j]:['RI','RJ']).reduce((t,x)=>t+(f==='n'?m.st[s][x].n:m.st[s][x].amt),0);
+const bsub=(m,f,j)=>(j?[j]:['RI','RJ']).reduce((t,x)=>t+m.sub[x][f],0);
+const bavkKeys=()=>Object.keys(BV).sort();
+LJ.bavk=()=>{
+  const el=$('lj-bavk'),all=bavkKeys(),ks=SEL.filter(k=>BV[k]);
+  if(!all.length){el.innerHTML=empty('Data BAVK belum tersedia pada modul ini.');return}
+  if(!ks.length){el.innerHTML=empty(`Tidak ada data BAVK pada bulan terpilih. Data hasil verifikasi tersedia untuk <b>${all.length} bulan</b> (${mfull(all[0])} sampai ${mfull(all[all.length-1])}). Januari 2026 dan Agustus 2026 belum memiliki berkas BAVK.`);return}
+  const M=ks.map(k=>({k,m:BV[k]}));
+  const T=(s,f,j)=>sum(M.map(x=>bsum(x.m,s,f,j))),S=(f,j)=>sum(M.map(x=>bsub(x.m,f,j)));
+  const nS=S('n'),aS=S('amt'),nL=T('layak','n'),aL=T('layak','amt'),nP=T('pending','n'),aP=T('pending','amt'),nT=T('tl','n'),aT=T('tl','amt'),nD=T('dispute','n'),aD=T('dispute','amt');
+  const turun=ks.filter(k=>BV[k].st_src==='turunan'),hitung=ks.filter(k=>BV[k].sub_src==='hitung');
+  const lagK=M.filter(x=>x.m.lag);
+  const wl=(i,j)=>{const n=sum(lagK.map(x=>x.m.st.layak[j].n));return n?sum(lagK.map(x=>x.m.lag[j][i]*x.m.st.layak[j].n))/n:NaN};
+  const gap=M.map(x=>({k:x.k,bpk:dd(x.m.d.bpk||x.m.d.surat,x.m.d.bahv)})).filter(x=>x.bpk!=null);
+  const gapAvg=gap.length?sum(gap.map(x=>x.bpk))/gap.length:NaN;
+  const tak=M.filter(x=>x.m.tak),takN=sum(tak.map(x=>x.m.tak.RI.n+x.m.tak.RJ.n)),takA=sum(tak.map(x=>x.m.tak.RI.amt+x.m.tak.RJ.amt));
+  el.innerHTML=`<div class="card"><h2>Hasil verifikasi BPJS (BAVK): dari diajukan sampai layak</h2><p class="knote">Setiap bulan klaim diserahkan ke BPJS (<b>Bukti Penerimaan Klaim</b>), diperiksa kelengkapannya (<b>BAKB</b>), lalu diverifikasi dan ditetapkan lewat <b>Berita Acara Hasil Verifikasi Klaim (BAHV)</b> dengan status <b>Layak</b>, <b>Pending</b>, <b>Dispute</b>, atau <b>Tidak layak</b>. <b>Pending bukan ditolak</b>: SEP menunggu jawaban atau perbaikan dan dapat berubah menjadi layak pada penetapan berikutnya. Nilai di sini adalah <b>nilai ajuan INA-CBG</b> menurut BAHV, bukan kas yang sudah diterima. Data tersedia untuk ${all.map(mlab).join(', ')}; Januari dan Agustus 2026 belum ada berkasnya.</p>
+  <div id="ljb-k"></div></div>
+  <div class="kgrid kg2"><div class="card"><h2>Komposisi nilai ajuan menurut status BAHV</h2><p class="knote">Rupiah per bulan terpilih; tiap batang 100%.</p><div id="ljb-c1"></div></div>
+  <div class="card"><h2>Persentase nilai ajuan yang masih pending</h2><p class="knote">Rawat inap bernilai besar per SEP, sehingga porsi nilai pending jauh lebih besar daripada porsi jumlah SEP.</p><div id="ljb-c2"></div></div></div>
+  <div class="kgrid kg2"><div class="card"><h2>Median hari: tanggal pulang → BAHV</h2><p class="knote">Lama dari pasien pulang sampai klaim itu ditetapkan layak dalam BAHV (hanya SEP layak yang punya rincian). Bulan tanpa rincian induk tidak ditampilkan.</p><div id="ljb-c3"></div></div>
+  <div class="card"><h2>Temuan otomatis</h2><ul class="kfind" id="ljb-find"></ul></div></div>
+  <h3 class="ksect">Rincian per bulan</h3><div class="card"><div class="ktbl" id="ljb-tbl"></div></div>
+  <h3 class="ksect">Kecocokan dengan berkas pending dan TXT e-klaim</h3><div class="card"><p class="knote">BAHV dibandingkan dengan dua sumber lain di dashboard ini: jumlah SEP pending menurut berkas Laporan Verifikasi Pending, dan jumlah SEP pada TXT e-klaim bulan itu. Selisih bukan kesalahan pasti; lihat keterangan kolom.</p><div class="ktbl" id="ljb-rec"></div></div>
+  <div id="ljb-sel"></div>
+  ${caveat(`<b>Batas data BAVK.</b> (1) Rincian per SEP dalam BAVK hanya memuat SEP berstatus <b>layak</b>; SEP pending, dispute, dan tidak layak hanya diketahui jumlah dan nilainya dari BAHV. Karena itu "nilai disetujui sama dengan nilai ajuan" hanya berlaku untuk SEP layak dan <b>tidak membuktikan tidak ada pemotongan</b> pada SEP yang tidak layak. (2) Maret 2026 tidak punya BAHV: status diturunkan dari rincian layak ditambah berkas pending, dan cocok persis dengan BAKB (jumlah dan rupiah). (3) Mei 2026 tidak punya Bukti Penerimaan/BAKB dan rincian induk (berkas "BAHV Mei 2026" berisi dokumen Maret dan rincian susulan 6 Agustus 2026), sehingga jumlah diajukan dihitung dari jumlah status BAHV dan waktu proses tidak dihitung. (4) Pending yang berubah menjadi layak pada penetapan berikutnya hanya dapat dilihat untuk Mei 2026 (berkas susulan); bulan lain belum diketahui. (5) "Biaya riil RS" pada rincian BAVK sama dengan Tarif RS pada TXT (99,99%), jadi bukan unit cost.`)}`;
+  const nfR=x=>nf.format(x);
+  $('ljb-k').innerHTML='<div class="kgrid kkpis">'+
+    kcard('Diajukan ke BPJS',nS,nfR,'SEP · '+rp(aS)+(hitung.length?' (Mei dihitung dari status BAHV)':''))+
+    kcard('Layak',nL/nS*100,x=>dec(x,1)+'%',nfR(nL)+' SEP · '+rp(aL)+' ('+dec(aL/aS*100,1)+'% nilai)')+
+    kcard('Pending',nP,nfR,'SEP · '+rp(aP)+' ('+dec(aP/aS*100,1)+'% nilai) · '+dec(nP/nS*100,1)+'% SEP')+
+    kcard('Tidak layak + dispute',nT+nD,nfR,'SEP · '+rp(aT+aD)+(nD?'':' · tidak ada dispute'))+
+    kcard('Pengajuan → BAHV',gapAvg,x=>dec(x,0)+' hari','Rata-rata '+gap.length+' bulan; dari penyerahan klaim (tgl 3–6) sampai BAHV')+
+    kcard('Pulang → BAHV (median)',wl(0,'RI'),x=>isFinite(x)?dec(x,0)+' hari':'–','Rawat inap; rawat jalan '+(isFinite(wl(0,'RJ'))?dec(wl(0,'RJ'),0):'–')+' hari')+'</div>';
+  countUp($('ljb-k'));
+  const segs=[['layak','Layak'],['pending','Pending'],['dispute','Dispute'],['tl','Tidak layak']].map(([s,n])=>({name:n,color:BVC[s],s}));
+  stack100($('ljb-c1'),M.map(x=>({label:mlab(x.k),vals:segs.map(g=>bsum(x.m,g.s,'amt'))})),segs,{title:'Komposisi nilai ajuan menurut status BAHV'});
+  vbarsN($('ljb-c2'),ks.map(mlab),[{name:'Rawat inap',color:COL[0],vals:M.map(x=>bsum(x.m,'pending','amt','RI')/bsub(x.m,'amt','RI')*100)},{name:'Rawat jalan',color:COL[1],vals:M.map(x=>bsum(x.m,'pending','amt','RJ')/bsub(x.m,'amt','RJ')*100)}],{fmt:x=>dec(x,1)+'%',ax:x=>dec(x,0)+'%',title:'Persen nilai pending'});
+  if(lagK.length) vbarsN($('ljb-c3'),lagK.map(x=>mlab(x.k)),[{name:'Rawat inap',color:COL[0],vals:lagK.map(x=>x.m.lag.RI[0])},{name:'Rawat jalan',color:COL[1],vals:lagK.map(x=>x.m.lag.RJ[0])}],{fmt:x=>dec(x,0),ax:x=>dec(x,0),title:'Median hari pulang sampai BAHV'});
+  else $('ljb-c3').innerHTML='<p class="knote">Bulan terpilih tidak punya rincian induk.</p>';
+  const F=[];
+  const lp=M.map(x=>({k:x.k,p:bsum(x.m,'layak','n')/bsub(x.m,'n')})).sort((a,b)=>a.p-b.p);
+  F.push(`<li><b>Layak:</b> ${pct(nL/nS)} SEP dan ${pct(aL/aS)} nilai ajuan pada bulan terpilih (terendah ${mfull(lp[0].k)} ${pct(lp[0].p)}, tertinggi ${mfull(lp[lp.length-1].k)} ${pct(lp[lp.length-1].p)}).</li>`);
+  F.push(`<li class="${aP/aS>0.08?'w':''}"><b>Pending:</b> ${pct(nP/nS)} SEP tetapi ${pct(aP/aS)} nilai; rawat inap menyumbang ${pct(T('pending','amt','RI')/aP,0)} dari nilai pending.</li>`);
+  const rv=M.filter(x=>x.m.beda),nb=sum(rv.map(x=>x.m.beda.RI+x.m.beda.RJ)),nr=sum(rv.map(x=>bsum(x.m,'layak','n')));
+  if(rv.length) F.push(`<li><b>Tidak ada pemotongan nilai pada SEP layak:</b> pada ${nfR(nr)} SEP layak (${rv.length} bulan dengan rincian), nilai disetujui sama dengan nilai diajukan (${nb} SEP berbeda). Ini hanya berlaku untuk SEP layak.</li>`);
+  if(nT) F.push(`<li><b>Tidak layak:</b> ${nfR(nT)} SEP (${rp(aT)}), ${T('tl','n','RI')?'':'seluruhnya rawat jalan, '}rata-rata ${rp(aT/nT)} per SEP${nD?'':'; tidak ada dispute'}.</li>`);
+  if(isFinite(gapAvg)) F.push(`<li><b>Proses BPJS:</b> penetapan BAHV rata-rata ${dec(gapAvg,0)} hari setelah klaim diserahkan; dari tanggal pulang median ${isFinite(wl(0,'RI'))?dec(wl(0,'RI'),0):'–'} hari (RI) dan ${isFinite(wl(0,'RJ'))?dec(wl(0,'RJ'),0):'–'} hari (RJ), dengan ${isFinite(wl(2,'RI'))?dec(wl(2,'RI'),0):'–'} dan ${isFinite(wl(2,'RJ'))?dec(wl(2,'RJ'),0):'–'} hari dihitung dari finalisasi e-klaim.</li>`);
+  if(tak.length&&takN) F.push(`<li class="w"><b>Ada di TXT e-klaim tetapi tidak tercatat di BAVK:</b> ${nfR(takN)} SEP (${rp(takA)}) pada ${tak.filter(x=>x.m.tak.RI.n+x.m.tak.RJ.n>0).map(x=>mlab(x.k)).join(', ')}; tidak ditemukan pada pending maupun rincian bulan lain. Kemungkinan belum diajukan atau diajukan susulan yang belum diterima; perlu dicek ke tim klaim.</li>`);
+  const cut=M.filter(x=>x.k==='2026-05');
+  if(cut.length) F.push(`<li class="w"><b>Pending Mei 2026:</b> BAHV mencatat ${bsum(cut[0].m,'pending','n','RI')} SEP rawat inap pending, tetapi berkas pending hanya memuat ${cut[0].m.pf.RI.n}; ${bsum(cut[0].m,'pending','n','RI')-cut[0].m.pf.RI.n} SEP (${rp(bsum(cut[0].m,'pending','amt','RI')-cut[0].m.pf.RI.amt)}) tidak ada pada berkas pending Mei.</li>`);
+  $('ljb-find').innerHTML=F.join('');
+  const rows=M.map(x=>{const m=x.m,k=x.k,sn=bsub(m,'n'),sa=bsub(m,'amt'),ln=bsum(m,'layak','n'),pn=bsum(m,'pending','n');
+    return {k,src:m.st_src==='bahv'?'BAHV':'Turunan',sn,sa,ln,la:bsum(m,'layak','amt'),pl:ln/sn,pn,pa:bsum(m,'pending','amt'),tn:bsum(m,'tl','n'),dn:bsum(m,'dispute','n'),
+      bpk:m.d.bpk||m.d.surat||null,bakb:m.d.bakb||null,bahv:m.d.bahv,gap:dd(m.d.bpk||m.d.surat,m.d.bahv),lri:m.lag?m.lag.RI[0]:null,lrj:m.lag?m.lag.RJ[0]:null,_s:(k+' '+mfull(k)).toLowerCase(),sub_src:m.sub_src,no:m.no}});
+  const cols=[
+    {k:'k',h:'Bulan layanan',cls:'l',v:r=>r.k,f:r=>`<b>${mfull(r.k)}</b>${r.src==='Turunan'?' <span class="ksmall">(tanpa BAHV, status diturunkan)</span>':''}`},
+    {k:'sn',h:'Diajukan (SEP)',v:r=>r.sn,f:r=>nfR(r.sn)+(r.sub_src==='hitung'?' <span class="ksmall">dihitung</span>':'')},{k:'sa',h:'Nilai diajukan',v:r=>r.sa,f:r=>rp(r.sa)},
+    {k:'ln',h:'Layak (SEP)',v:r=>r.ln,f:r=>nfR(r.ln)},{k:'pl',h:'% layak',v:r=>r.pl,f:r=>pct(r.pl)},{k:'la',h:'Nilai layak',v:r=>r.la,f:r=>rp(r.la)},
+    {k:'pn',h:'Pending (SEP)',v:r=>r.pn,f:r=>nfR(r.pn)},{k:'pa',h:'Nilai pending',v:r=>r.pa,f:r=>rp(r.pa)},
+    {k:'tn',h:'Tidak layak (SEP)',v:r=>r.tn,f:r=>nfR(r.tn)},{k:'dn',h:'Dispute (SEP)',v:r=>r.dn,f:r=>nfR(r.dn)},
+    {k:'bpk',h:'Klaim diserahkan',v:r=>r.bpk||'',f:r=>fd(r.bpk)},{k:'bakb',h:'BAKB',v:r=>r.bakb||'',f:r=>fd(r.bakb)},{k:'bahv',h:'BAHV / rincian',v:r=>r.bahv||'',f:r=>fd(r.bahv)},
+    {k:'gap',h:'Hari serah → BAHV',v:r=>r.gap==null?-1:r.gap,f:r=>r.gap==null?'–':r.gap},
+    {k:'lri',h:'Median pulang → BAHV (RI)',v:r=>r.lri==null?-1:r.lri,f:r=>r.lri==null?'–':dec(r.lri,0)},{k:'lrj',h:'Median pulang → BAHV (RJ)',v:r=>r.lrj==null?-1:r.lrj,f:r=>r.lrj==null?'–':dec(r.lrj,0)}];
+  table($('ljb-tbl'),cols,rows,{sort:'k',asc:true});
+  const chip=(a,b)=>a===b?'<span class="kchip good">sama</span>':`<span class="kchip bad">${a>b?'+':'−'}${nfR(Math.abs(a-b))}</span>`;
+  const rrows=[];
+  M.forEach(x=>['RI','RJ'].forEach(j=>{const m=x.m,pb=m.st.pending[j].n,pf=m.pf[j].n,sn=m.sub[j].n,tx=m.txt[j],tk=m.tak?m.tak[j]:null,tlb=m.st.tl[j].n;
+    rrows.push({k:x.k,j,pb,pf,pbA:m.st.pending[j].amt,pfA:m.pf[j].amt,sn,tx,tk,tlb,turun:m.st_src==='turunan',hit:m.sub_src==='hitung',_s:(x.k+' '+mfull(x.k)+' '+j).toLowerCase()})}));
+  const rcols=[
+    {k:'k',h:'Bulan',cls:'l',v:r=>r.k,f:r=>`<b>${mfull(r.k)}</b>`},{k:'j',h:'Jenis',cls:'l',v:r=>r.j,f:r=>r.j==='RI'?'Rawat inap':'Rawat jalan'},
+    {k:'pb',h:'Pending menurut BAHV',v:r=>r.pb,f:r=>r.turun?'<span class="ksmall">tanpa BAHV</span>':nfR(r.pb)},
+    {k:'pf',h:'Pending menurut berkas pending',v:r=>r.pf,f:r=>nfR(r.pf)},
+    {k:'sel',h:'Selisih pending',v:r=>r.turun?0:r.pb-r.pf,f:r=>r.turun?'–':chip(r.pb,r.pf)},
+    {k:'sn',h:'Diajukan',v:r=>r.sn,f:r=>nfR(r.sn)+(r.hit?' <span class="ksmall">dihitung</span>':'')},{k:'tx',h:'SEP di TXT e-klaim',v:r=>r.tx,f:r=>nfR(r.tx)},
+    {k:'tk',h:'TXT tidak tercatat di BAVK',v:r=>r.tk?r.tk.n:-1,f:r=>r.tk==null?'<span class="ksmall">tak dapat dinilai</span>':(r.tk.n?`<span class="kchip bad">${nfR(r.tk.n)} SEP · ${rp(r.tk.amt)}</span>`:'<span class="kchip good">0</span>')}];
+  table($('ljb-rec'),rcols,rrows,{sort:'k',asc:true});
+  // Pending yang diselesaikan: satu-satunya contoh (Mei 2026)
+  const PS=BVX.pending_selesai,MS=BVX.mei_susulan,sel=$('ljb-sel');
+  if(PS&&MS) sel.innerHTML=`<h3 class="ksect">Tindak lanjut pending: berkas susulan Mei 2026 (6 Agustus 2026)</h3><div class="card"><p class="knote">Satu-satunya berkas tindak lanjut yang tersedia. Berisi <b>${nfR(MS.n)} SEP</b> (${MS.ri} RI, ${MS.rj} RJ; nilai ajuan ${rp(MS.diaj)}) yang ditetapkan layak pada 6 Agustus 2026, ${dec(PS.lag_dis_med,0)} hari (median) setelah pasien pulang.</p>
+  <ul class="kfind"><li><b>${nfR(PS.n)} SEP</b> di antaranya terdapat pada berkas pending Mei (${PS.ri} RI, ${PS.rj} RJ): pending ${rp(PS.pamt)} menjadi layak ${rp(PS.diaj)}; ${PS.n_nilai_berubah} SEP nilai ajuannya berubah (klaim direvisi).</li>
+  <li class="w"><b>${nfR(MS.ri_tdk_di_pending+MS.rj_tdk_di_pending)} SEP</b> (${MS.ri_tdk_di_pending} RI senilai ${rp(MS.ri_tdk_di_pending_diaj)}, ${MS.rj_tdk_di_pending} RJ) layak pada susulan tetapi tidak ada pada berkas pending Mei; ini konsisten dengan berkas pending Mei yang tidak lengkap untuk rawat inap. ${MS.tdk_di_klaim} SEP tidak ada pada TXT e-klaim.</li>
+  <li>Dari ${nfR(bsum(BV['2026-05'],'pending','n'))} SEP pending Mei menurut BAHV, ${nfR(PS.n)} yang terbukti diselesaikan lewat berkas ini; sisanya belum diketahui statusnya dari data yang ada.</li></ul></div>`;
+};
 
 /* ================= Penyebab pending ================= */
 const SK_COL={'Belum ada jawaban RS':'#E3B360','RS menerima / menyesuaikan':'#6FC28F','RS menyanggah / melampirkan bukti':'#84AAF3'};
@@ -1386,10 +1478,11 @@ R.data=()=>{
   <p class="knote" style="margin:10px 0 0">Baris di berkas = satu SEP per alasan pending, sehingga lebih banyak dari SEP unik. Dashboard menghitung <b>SEP unik</b> untuk jumlah dan nilai agar satu SEP tidak terhitung berulang.</p></div>
   <h3 class="ksect">Pemeriksaan integritas</h3><div class="card"><ul class="kfind">
    <li class="g"><b>Tidak ada SEP ganda antarbulan.</b> ${nf.format(D.meta.sum_sep_months)} SEP dijumlahkan dari ${np} bulan = ${nf.format(D.meta.unique_sep_all)} SEP unik di seluruh bulan, jadi total lintas bulan tidak menghitung dua kali.</li>
-   <li class="g"><b>Periode mengikuti tanggal pulang</b> (bulan berkas). Baris dengan tanggal pulang di luar bulan berkas atau kosong: ${sum(pk.map(k=>PM(k).month_mismatch))} (Juli 2026 memiliki 5 SEP tanpa tanggal pulang).</li>
+   <li class="g"><b>Periode mengikuti tanggal pulang</b> (bulan berkas). Baris dengan tanggal pulang di luar bulan berkas atau kosong: ${sum(pk.map(k=>PM(k).month_mismatch))} (Juli 2026: 5 SEP berstatus Tidak Layak, tanpa tarif dan tanpa tanggal pulang, sudah dikeluarkan dari daftar pending sehingga tidak dihitung sebagai pending).</li>
    <li class="g"><b>Baris persis kembar:</b> ${sum(pk.map(k=>PM(k).dup_rows))} dari ${nf.format(nrows)} baris.</li>
    <li class="${TL.filter(k=>hasK(k)&&!hasP(k)).length?'w':'g'}"><b>Pending ${np} bulan</b> (${mlab(pk[0])}–${mlab(pk[np-1])}), tanpa bulan kosong di antaranya${TL.filter(k=>hasK(k)&&!hasP(k)).length?'; belum ada berkas pending untuk '+TL.filter(k=>hasK(k)&&!hasP(k)).map(mfull).join(', ')+' (hanya klaim)':''}. ${mfull('2025-04')} dan ${mfull('2026-06')} sudah termasuk (berkas terenkripsi, dibuka dengan kata sandi masing-masing).</li>
-   <li class="r"><b>${mfull('2026-05')}: hanya ${PM('2026-05').ri.n} SEP rawat inap</b> (bulan lain 50–150); berkas kemungkinan belum memuat pending rawat inap, sehingga nilainya terlalu rendah.</li>
+   <li class="r"><b>${mfull('2026-05')}: hanya ${PM('2026-05').ri.n} SEP rawat inap</b> (bulan lain 50–150); ${BV['2026-05']?`BAHV Mei 2026 mencatat ${BV['2026-05'].st.pending.RI.n} SEP rawat inap pending (${rp(BV['2026-05'].st.pending.RI.amt)}), jadi berkas pending <b>terbukti tidak lengkap</b>: ${BV['2026-05'].st.pending.RI.n-PM('2026-05').ri.n} SEP (${rp(BV['2026-05'].st.pending.RI.amt-PM('2026-05').ri.amt)}) tidak ada pada berkas. Angka Mei di dashboard terlalu rendah untuk rawat inap; minta ulang berkas pending Mei.`:'berkas kemungkinan belum memuat pending rawat inap, sehingga nilainya terlalu rendah.'}</li>
+   ${Object.keys(BV).length?`<li class="g"><b>Hasil verifikasi BPJS (BAVK)</b> tersedia untuk ${Object.keys(BV).sort().map(mlab).join(', ')} (Analisis lanjutan, tab Hasil verifikasi). Jumlah pending menurut BAHV sama dengan berkas pending pada Feb, Apr, Jun, dan Jul 2026 (Mar tanpa BAHV; Mei selisih seperti di atas). Januari dan Agustus 2026 belum ada.</li>`:''}
    <li class="w"><b>Rawat jalan Januari–Maret 2025 tepat 100, 100, dan 120 SEP.</b> Pola angka bulat ini patut dicurigai sebagai pembatasan ekspor; perlu konfirmasi ke petugas sebelum dipakai sebagai pembanding.</li>
    <li class="w"><b>${mfull('2026-07')} dan ${mfull('2026-08')} berformat berbeda</b> (hasil ekspor: tanpa jawaban RS dan topik filtrasi, tetapi memuat DPJP). Kolom diselaraskan secara manual: SEP, jenis rawat, tanggal pulang, total tarif, dan keterangan pending.</li>
    <li class="w"><b>Dasar kategori penyebab: jenis pending (JNSPENDING).</b> ${(()=>{const o=provSum(pk),T=Math.max(allN,1),b=(o.asli||0)+(o.teks||0),e=(o.isian_tinggi||0)+(o.isian_sedang||0)+(o.isian_rendah||0),r=o.isian_rendah||0,x=(o.turunan||0)+(o.kw||0)+(o.tbd||0);return `Dari ${nf.format(allN)} SEP: ${nf.format(b)} (${pct(b/T)}) berjenis pending baku BPJS (kolom JNSPENDING atau kalimat baku di awal teks alasan), ${nf.format(e)} (${pct(e/T)}) memakai <b>isian perkiraan Claude</b> (bukan keputusan BPJS dan belum diverifikasi tim casemix; ${nf.format(r)} SEP di antaranya berkeyakinan rendah), dan ${nf.format(x)} (${pct(x/T)}) diturunkan dari teks yang sama atau kata kunci cadangan. Total SEP dan nilai tidak bergantung pada kategori.`})()} Tampilan kata kunci tetap tersedia di tab Penyebab pending sebagai pembanding.</li>
@@ -1398,7 +1491,7 @@ R.data=()=>{
      (bad.length?`<li class="w"><b>Selisih TXT dan Rekap XLSX:</b> ${bad.map(k=>mfull(k)+' ('+['RI','RJ'].map(j=>{const r=rc[k][j];return r&&r.rek_n!=null&&(r.only_txt||r.only_rek)?j+': '+r.only_txt+' SEP hanya di TXT, '+r.only_rek+' hanya di XLSX':''}).filter(Boolean).join('; ')+')').join('; ')}. Dashboard memakai TXT.</li>`:'')+
      (none.length?`<li class="w"><b>${none.map(mfull).join(', ')}:</b> Rekap Klaim rawat inap tidak dapat dicocokkan (format berkas berbeda), sehingga tidak direkonsiliasi.</li>`:'')+
      `<li class="w"><b>Pemilihan berkas klaim:</b> ${mfull('2025-10')} memakai subfolder FIX (989 SEP rawat inap; Rekap FIX memuat 992) dan ${mfull('2025-12')} memakai berkas induk (rawat jalan 6.757 SEP; subfolder FIX memuat 6.746 dan rekap rawat inap-nya berformat pivot). Jika berkas final yang diajukan berbeda, selisihnya kecil tetapi perlu dikonfirmasi.</li>`+
-     `<li class="w"><b>iDRG hanya lengkap mulai ${mfull('2026-04')}:</b> ${mfull('2026-03')} hanya sebagian klaim dan ${mfull('2026-07')} tanpa iDRG rawat inap. Perbandingan iDRG antarbulan tidak ditampilkan bila cakupan tidak penuh.</li>`+
+     (()=>{const cv=ks.map(k=>{const q=KA&&KA.months[k]&&KA.months[k].kpi&&KA.months[k].kpi.ALL;return{k,c:q&&q.n?q.n_idrg/q.n:0}}),z=cv.filter(x=>x.c===0),pa=cv.filter(x=>x.c>0&&x.c<.99),fu=cv.filter(x=>x.c>=.99);return fu.length?`<li class="w"><b>Keluaran iDRG lengkap mulai ${mfull(fu[0].k)}:</b> ${z.length?mfull(z[0].k)+(z.length>1?'–'+mfull(z[z.length-1].k):'')+' tidak memuat iDRG pada berkas; ':''}${pa.map(x=>mfull(x.k)+' hanya '+pct(x.c)+' klaim').join('; ')}${pa.length?'. ':''}Perbandingan iDRG antarbulan tidak ditampilkan bila cakupan tidak penuh.</li>`:''})()+
      `<li class="w"><b>Pending dan klaim dapat disandingkan untuk ${both.length} bulan</b> (${both.length?mlab(both[0])+'–'+mlab(both[both.length-1]):'–'}${TL.filter(k=>hasK(k)&&!hasP(k)).length?', tanpa '+TL.filter(k=>hasK(k)&&!hasP(k)).map(mlab).join(', ')+' yang pending-nya belum ada':''}). Rasionya indikatif karena tanggal tarik laporan pending berbeda dari berkas klaim.</li>`})()}
    <li><b>Data pasien tidak ditampilkan.</b> Dashboard hanya memuat agregat: nama, nomor kartu, NIK, nomor RM, dan nomor SEP tidak dimasukkan.</li>
   </ul></div>
