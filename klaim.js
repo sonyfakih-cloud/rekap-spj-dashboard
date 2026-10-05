@@ -564,7 +564,7 @@ function pill(cx,y,a,s,tone){
   return `<g class="kpill ${c}"><rect x="${cx-wd/2}" y="${y}" width="${wd}" height="16" rx="8"/><text x="${cx}" y="${y+11.5}" text-anchor="middle">${txt}</text></g>`;
 }
 function hbars2(el,rows,o={}){
-  const u=++KG2,w=W(el),fmt=o.fmt||nf.format,lw=o.lw||Math.min(Math.floor(w*.42),250),vp=158,rh=38,bh=11,oy=26;
+  const u=++KG2,w=W(el),fmt=o.fmt||nf.format,lw=Math.min(o.lw||250,Math.floor(w*(w<520?.3:.42))),vp=w<520?120:158,rh=38,bh=11,oy=26;
   const max=Math.max(...rows.flatMap(r=>[r.a,r.s]),1),sc=Math.max(10,w-lw-vp)/max;
   let s=`<svg width="${w}" height="${rows.length*rh+oy+6}" role="img" aria-label="${esc(o.title||'Grafik batang')}">${GLOSS(u)}${legendSvg(w)}`;
   rows.forEach((r,i)=>{
@@ -767,16 +767,35 @@ PR.kasus=()=>{
 
 PR.dpjp=()=>{
   const el=$('dpview-dpjp'),[A,B]=SEL,a=PM(A),b=PM(B);
-  if(!a.dpjp&&!b.dpjp){el.innerHTML=empty('Data DPJP untuk pending hanya tersedia pada berkas berformat ekspor, yaitu <b>Juli dan Agustus 2026</b>. Kedua bulan terpilih tidak memiliki kolom DPJP, sehingga perbandingan per DPJP belum dapat dibuat.');return}
+  if(!a.dpjp&&!b.dpjp){el.innerHTML=empty('Data DPJP untuk pending tersedia mulai <b>Januari 2026</b> (Januari–Juni 2026 dari TXT e-klaim, Juli–Agustus 2026 dari berkas pending). Kedua bulan terpilih tidak memilikinya, sehingga perbandingan per DPJP belum dapat dibuat.');return}
   if(!(a.dpjp&&b.dpjp)){
     const k=a.dpjp?A:B;
-    el.innerHTML=empty(`Hanya <b>${mfull(k)}</b> yang memiliki kolom DPJP; bulan pasangannya tidak. Perbandingan antar-DPJP tidak dapat dibuat, jadi hanya bulan ini yang ditampilkan di bawah.`)+`<div class="card"><div class="ktoolbar"><div id="pd-dc"></div><span class="kl" id="pd-dn"></span></div><div class="ktbl" id="pd-dt"></div></div>`;
+    el.innerHTML=empty(`Hanya <b>${mfull(k)}</b> yang memiliki data DPJP; bulan pasangannya tidak. Perbandingan antar-DPJP tidak dapat dibuat, jadi hanya bulan ini yang ditampilkan di bawah.`)+`<div class="card"><div class="ktoolbar"><div id="pd-dc"></div><span class="kl" id="pd-dn"></span></div><div class="ktbl" id="pd-dt"></div></div>`;
     const rows=Object.entries(PM(k).dpjp).map(([name,v])=>({name,...v,_s:name.toLowerCase()}));
     const cols=[{k:'name',h:'DPJP',cls:'l',v:r=>r.name,f:r=>esc(r.name)},{k:'n',h:'SEP',v:r=>r.n,f:r=>nf.format(r.n)},{k:'ri',h:'RI',v:r=>r.ri,f:r=>nf.format(r.ri)},{k:'rj',h:'RJ',v:r=>r.rj,f:r=>nf.format(r.rj)},{k:'amt',h:'Nilai pending',v:r=>r.amt,f:r=>rp(r.amt)}];
     const t=table($('pd-dt'),cols,rows,{sort:'amt',asc:false,limit:40,count:$('pd-dn')});
     combo($('pd-dc'),{ph:'Cari nama DPJP…',items:rows.map(r=>({s:r._s,text:r.name,sub:nf.format(r.n)+' SEP · '+rp(r.amt),name:r.name})),onPick:it=>t.only(it?(r=>r.name===it.name):null),onType:v=>t.search(v)});
     return;
   }
+  /* kedua bulan punya DPJP: bandingkan A vs B */
+  const M={};
+  [[A,0],[B,1]].forEach(([k,i])=>Object.entries(PM(k).dpjp).forEach(([name,v])=>{const key=nk(name),o=M[key]=M[key]||{name,n:[0,0],amt:[0,0]};o.n[i]+=v.n;o.amt[i]+=v.amt}));
+  const rows=Object.values(M).map(o=>({name:o.name,na:o.n[0],nb:o.n[1],dn:o.n[1]-o.n[0],aa:o.amt[0],ab:o.amt[1],da:o.amt[1]-o.amt[0],_s:o.name.toLowerCase()}));
+  const bars=rows.slice().sort((x,y)=>Math.max(y.aa,y.ab)-Math.max(x.aa,x.ab)).slice(0,10).map(r=>({label:r.name,a:r.aa,s:r.ab,tip:tipCmp(r.name,r.aa,r.ab,rp)}));
+  const dl=rows.slice().sort((x,y)=>Math.abs(y.da)-Math.abs(x.da)).slice(0,8).map(r=>({label:r.name,v:r.da,tip:tipCmp(r.name,r.aa,r.ab,rp)}));
+  const src=[A,B].map(k=>mlab(k)+' = '+(PM(k).dpjp_src||'berkas pending')).join('; ');
+  el.innerHTML=`${caveat('<b>Cara membaca.</b> Nilai dan jumlah SEP pending per DPJP. Pending tidak berarti DPJP salah; ini peta konsentrasi tindak lanjut. <b>Sumber nama DPJP:</b> '+esc(src)+'. DPJP dari TXT e-klaim adalah DPJP pada klaim SEP tersebut, bukan keterangan verifikator.')}
+  <div class="card"><h2>DPJP dengan nilai pending terbesar: ${esc(DS[0])} vs ${esc(DS[1])}</h2><p class="knote">10 DPJP teratas menurut nilai pending tertinggi pada salah satu bulan.</p><div id="pd-db"></div></div>
+  <div class="kgrid kg2"><div class="card"><h2>Perubahan terbesar per DPJP</h2><p class="knote">Selisih nilai ${esc(DS[1])} dikurangi ${esc(DS[0])}; hijau = pending berkurang.</p><div id="pd-dd"></div></div>
+  <div class="card"><div class="ktoolbar"><div id="pd-dc"></div><span class="kl" id="pd-dn"></span></div><div class="ktbl" id="pd-dt"></div></div></div>`;
+  hbars2($('pd-db'),bars,{fmt:rp,tone:'bad',lw:190,title:'Nilai pending per DPJP'});
+  diverge2($('pd-dd'),dl,{fmt:rp,goodUp:false,lw:150,title:'Perubahan nilai pending per DPJP'});
+  const cols=[{k:'name',h:'DPJP',cls:'l',v:r=>r.name,f:r=>esc(r.name)},
+    {k:'na',h:'SEP '+mlab(A),v:r=>r.na,f:r=>nf.format(r.na)},{k:'nb',h:'SEP '+mlab(B),v:r=>r.nb,f:r=>nf.format(r.nb)},
+    {k:'aa',h:'Nilai '+mlab(A),v:r=>r.aa,f:r=>rp(r.aa)},{k:'ab',h:'Nilai '+mlab(B),v:r=>r.ab,f:r=>rp(r.ab)},
+    {k:'da',h:'Selisih nilai',v:r=>r.da,f:r=>sgn(r.da,rp)}];
+  const t=table($('pd-dt'),cols,rows,{sort:'ab',asc:false,limit:40,count:$('pd-dn')});
+  combo($('pd-dc'),{ph:'Cari nama DPJP…',items:rows.slice().sort((x,y)=>Math.max(y.aa,y.ab)-Math.max(x.aa,x.ab)).map(r=>({s:r._s,text:r.name,sub:nf.format(r.na)+' → '+nf.format(r.nb)+' SEP',name:r.name})),onPick:it=>t.only(it?(r=>r.name===it.name):null),onType:v=>t.search(v)});
 };
 
 PR.data=()=>{
@@ -1279,12 +1298,12 @@ R.kasus=()=>{
     onPick:it=>tb.only(it?(r=>r.code===it.code):null),onType:v=>tb.search(v)});
   /* DPJP */
   const box=$('c-dp');
-  if(!dp.length){box.innerHTML=empty('Data DPJP untuk pending hanya tersedia pada berkas berformat ekspor, yaitu <b>Juli dan Agustus 2026</b>. Berkas verifikasi 2025 sampai Juni 2026 tidak memuat kolom DPJP. Pilih Juli atau Agustus 2026 untuk melihatnya.');return}
+  if(!dp.length){box.innerHTML=empty('Data DPJP untuk pending tersedia mulai <b>Januari 2026</b>: Januari–Juni 2026 diambil dari TXT e-klaim (dicocokkan per nomor SEP) dan Juli–Agustus 2026 dari berkas pending. Berkas pending 2025 tidak memuat kolom DPJP. Pilih bulan 2026 untuk melihatnya.');return}
   const da={};
   dp.forEach(k=>Object.entries(PM(k).dpjp).forEach(([name,v])=>{const key=nk(name),o=da[key]=da[key]||{name,n:0,amt:0,ri:0,rj:0};o.n+=v.n;o.amt+=v.amt;o.ri+=v.ri;o.rj+=v.rj}));
   const drows=Object.values(da).map(o=>({...o,_s:o.name.toLowerCase()}));
   box.innerHTML=`<div class="card"><div class="ktoolbar"><div id="d-combo"></div><span class="kl" id="d-cnt"></span></div><div class="kgrid kg2"><div id="d-c1"></div><div class="ktbl" id="d-tbl"></div></div>
-  <p class="knote" style="margin:10px 0 0">Periode: ${dp.map(mfull).join(', ')}. Rawat inap dan rawat jalan <b>dijumlahkan</b> per DPJP. Pending tidak berarti DPJP salah; ini peta konsentrasi tindak lanjut. ${PM(dp[0]).dpjp_variants_raw?'Nama DPJP digabung tanpa membedakan huruf besar dan titik ('+PM(dp[0]).dpjp_variants_raw+' variasi penulisan di berkas disatukan).':''}</p></div>`;
+  <p class="knote" style="margin:10px 0 0">Periode: ${dp.map(mfull).join(', ')}. Rawat inap dan rawat jalan <b>dijumlahkan</b> per DPJP. Pending tidak berarti DPJP salah; ini peta konsentrasi tindak lanjut. <b>Sumber nama DPJP:</b> ${dp.map(k=>mlab(k)+' = '+(PM(k).dpjp_src||'berkas pending')).join('; ')}. DPJP dari TXT e-klaim adalah DPJP pada klaim SEP tersebut (bukan keterangan verifikator); pada Juli–Agustus 2026 nama di berkas pending sama persis dengan TXT e-klaim untuk semua SEP yang terisi. SEP pending selalu ditemukan pada TXT e-klaim bulan yang sama. ${PM(dp[0]).dpjp_variants_raw?'Nama DPJP digabung tanpa membedakan huruf besar dan titik ('+PM(dp[0]).dpjp_variants_raw+' variasi penulisan di berkas disatukan).':''}</p></div>`;
   hbarsN($('d-c1'),drows.slice().sort((a,b)=>b.amt-a.amt).slice(0,10).map(r=>({label:r.name,vals:[r.amt]})),[{name:'Nilai pending',color:'#84AAF3',vals:[]}],{fmt:rp,title:'DPJP dengan nilai pending terbesar'});
   const dc=[
     {k:'name',h:'DPJP',cls:'l',v:r=>r.name,f:r=>esc(r.name)},
