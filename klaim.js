@@ -767,7 +767,7 @@ PR.kasus=()=>{
 
 PR.dpjp=()=>{
   const el=$('dpview-dpjp'),[A,B]=SEL,a=PM(A),b=PM(B);
-  if(!a.dpjp&&!b.dpjp){el.innerHTML=empty('Data DPJP untuk pending tersedia mulai <b>Januari 2026</b> (Januari–Juni 2026 dari TXT e-klaim, Juli–Agustus 2026 dari berkas pending). Kedua bulan terpilih tidak memilikinya, sehingga perbandingan per DPJP belum dapat dibuat.');return}
+  if(!a.dpjp&&!b.dpjp){el.innerHTML=empty('Kedua bulan terpilih tidak memiliki data DPJP pending, sehingga perbandingan per DPJP belum dapat dibuat. Data DPJP tersedia untuk Januari 2025–Agustus 2026.');return}
   if(!(a.dpjp&&b.dpjp)){
     const k=a.dpjp?A:B;
     el.innerHTML=empty(`Hanya <b>${mfull(k)}</b> yang memiliki data DPJP; bulan pasangannya tidak. Perbandingan antar-DPJP tidak dapat dibuat, jadi hanya bulan ini yang ditampilkan di bawah.`)+`<div class="card"><div class="ktoolbar"><div id="pd-dc"></div><span class="kl" id="pd-dn"></span></div><div class="ktbl" id="pd-dt"></div></div>`;
@@ -1298,12 +1298,12 @@ R.kasus=()=>{
     onPick:it=>tb.only(it?(r=>r.code===it.code):null),onType:v=>tb.search(v)});
   /* DPJP */
   const box=$('c-dp');
-  if(!dp.length){box.innerHTML=empty('Data DPJP untuk pending tersedia mulai <b>Januari 2026</b>: Januari–Juni 2026 diambil dari TXT e-klaim (dicocokkan per nomor SEP) dan Juli–Agustus 2026 dari berkas pending. Berkas pending 2025 tidak memuat kolom DPJP. Pilih bulan 2026 untuk melihatnya.');return}
+  if(!dp.length){box.innerHTML=empty('Bulan terpilih tidak memiliki data DPJP pending. Data DPJP tersedia untuk Januari 2025–Agustus 2026: Januari 2025–Juni 2026 diambil dari TXT e-klaim (dicocokkan per nomor SEP) dan Juli–Agustus 2026 dari berkas pending.');return}
   const da={};
   dp.forEach(k=>Object.entries(PM(k).dpjp).forEach(([name,v])=>{const key=nk(name),o=da[key]=da[key]||{name,n:0,amt:0,ri:0,rj:0};o.n+=v.n;o.amt+=v.amt;o.ri+=v.ri;o.rj+=v.rj}));
   const drows=Object.values(da).map(o=>({...o,_s:o.name.toLowerCase()}));
   box.innerHTML=`<div class="card"><div class="ktoolbar"><div id="d-combo"></div><span class="kl" id="d-cnt"></span></div><div class="kgrid kg2"><div id="d-c1"></div><div class="ktbl" id="d-tbl"></div></div>
-  <p class="knote" style="margin:10px 0 0">Periode: ${dp.map(mfull).join(', ')}. Rawat inap dan rawat jalan <b>dijumlahkan</b> per DPJP. Pending tidak berarti DPJP salah; ini peta konsentrasi tindak lanjut. <b>Sumber nama DPJP:</b> ${dp.map(k=>mlab(k)+' = '+(PM(k).dpjp_src||'berkas pending')).join('; ')}. DPJP dari TXT e-klaim adalah DPJP pada klaim SEP tersebut (bukan keterangan verifikator); pada Juli–Agustus 2026 nama di berkas pending sama persis dengan TXT e-klaim untuk semua SEP yang terisi. SEP pending selalu ditemukan pada TXT e-klaim bulan yang sama. ${PM(dp[0]).dpjp_variants_raw?'Nama DPJP digabung tanpa membedakan huruf besar dan titik ('+PM(dp[0]).dpjp_variants_raw+' variasi penulisan di berkas disatukan).':''}</p></div>`;
+  <p class="knote" style="margin:10px 0 0">Periode: ${dp.map(mfull).join(', ')}. Rawat inap dan rawat jalan <b>dijumlahkan</b> per DPJP. Pending tidak berarti DPJP salah; ini peta konsentrasi tindak lanjut. <b>Sumber nama DPJP:</b> ${dp.map(k=>mlab(k)+' = '+(PM(k).dpjp_src||'berkas pending')).join('; ')}. DPJP dari TXT e-klaim adalah DPJP pada klaim SEP tersebut (bukan keterangan verifikator); uji silang pada Juli–Agustus 2026 (yang punya kolom DPJP di berkas pending) menunjukkan nama sama persis dengan TXT e-klaim untuk semua SEP yang terisi. ${(()=>{const u=dp.reduce((t,k)=>t+(PM(k).dpjp_unmatched||0),0);return u?u+' SEP tidak ditemukan pada TXT e-klaim sehingga dicatat sebagai &quot;(tanpa DPJP)&quot;.':'Semua SEP pending pada bulan terpilih ditemukan pada TXT e-klaim bulan yang sama.'})()} Variasi penulisan nama (huruf besar/kecil, titik, gelar) disatukan; penyatuan nama yang meragukan belum dilakukan.</p></div>`;
   hbarsN($('d-c1'),drows.slice().sort((a,b)=>b.amt-a.amt).slice(0,10).map(r=>({label:r.name,vals:[r.amt]})),[{name:'Nilai pending',color:'#84AAF3',vals:[]}],{fmt:rp,title:'DPJP dengan nilai pending terbesar'});
   const dc=[
     {k:'name',h:'DPJP',cls:'l',v:r=>r.name,f:r=>esc(r.name)},
