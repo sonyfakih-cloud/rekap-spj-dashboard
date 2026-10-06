@@ -316,5 +316,5 @@ html.mode-hp #appRootKlaim .krow{font-size:11px;letter-spacing:-.2px}
 html.mode-hp #appRootKlaim .krow span::before{margin-right:4px;width:7px;height:7px}
 html.mode-hp #appRootKlaim .krow b{letter-spacing:-.3px}
 /* v27: odometer diperlambat (v27 3,4 dtk; v28 6,4 dtk) */
-#appRootKlaim .go .odc{transition:transform 3.9s cubic-bezier(.3,.5,.3,1) var(--dl,0s);}
+#appRootKlaim .go .odc{transition:transform 6.4s cubic-bezier(.3,.5,.3,1) var(--dl,0s);}
 @media(prefers-reduced-motion:reduce){#appRootKlaim .go .odc{transition:none;}}

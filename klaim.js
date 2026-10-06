@@ -147,7 +147,7 @@ const tipN=(label,ser,vals,fmt)=>`<b>${esc(label)}</b>`+ser.map((s,i)=>`<br><spa
 function vbarsN(el,labels,ser,o={}){
   const u=++KG,w=W(el),h=(o.h||250),fmt=o.fmt||nf.format,ax=o.ax||(fmt===rp?rpAx:fmt);
   const all=ser.flatMap(s=>s.vals.filter(v=>v!=null));const mx=niceMax(Math.max(...all,1));
-  const l=Math.max(42,String(ax(mx)).length*7+12),r=10,t=14,b=30,pw=w-l-r,ph=h-t-b,n=labels.length,gw=pw/n,k=ser.length;
+  const l=Math.max(42,String(ax(mx)).length*7+12),r=16,t=14,b=30,pw=w-l-r,ph=h-t-b,n=labels.length,gw=pw/n,k=ser.length;
   const bw=Math.max(5,Math.min(34,(gw*.78)/k-2));
   let s=`<svg width="${w}" height="${h}" role="img" aria-label="${esc(o.title||'Grafik batang')}">${gdefs(u,ser.map(x=>x.color))}`;
   for(let i=0;i<=4;i++){const y=t+ph-ph*i/4;s+=`<line class="kgrid" x1="${l}" x2="${w-r}" y1="${y}" y2="${y}"/><text x="${l-6}" y="${y+4}" text-anchor="end">${ax(mx*i/4)}</text>`}
@@ -195,7 +195,7 @@ function stack100(el,rows,segs,o={}){
 }
 /* garis tren seluruh bulan; bulan terpilih diberi pita sorot; bulan tanpa berkas ditandai lingkaran kosong */
 function trendN(el,cats,ser,o={}){
-  const u=++KG,w=W(el),h=o.h||270,fmt=o.fmt||nf.format,ax=o.ax||(fmt===rp?rpAx:fmt),t=22,b=30,r=14;
+  const u=++KG,w=W(el),h=o.h||270,fmt=o.fmt||nf.format,ax=o.ax||(fmt===rp?rpAx:fmt),t=22,b=30,r=22;
   const mx=niceMax(Math.max(...ser.flatMap(s=>s.vals.filter(v=>v!=null)),1)),l=Math.max(42,String(ax(mx)).length*7+12);
   const pw=w-l-r,ph=h-t-b,X=i=>l+pw*(i/(cats.length-1)),Y=v=>t+ph-ph*v/mx,cl=y=>Math.min(t+ph,Math.max(t,y));
   let s=`<svg width="${w}" height="${h}" role="img" aria-label="${esc(o.title||'Tren bulanan')}">${gdefs(u,ser.map(x=>x.color))}`;
@@ -248,7 +248,7 @@ const PM=k=>D.months[k], KQ=(k,j)=>D.klaim[k][j||'ALL'];
 const MISS={
   '2026-09':'Berkas pending September 2026 belum tersedia; hanya data klaim.'
 };
-const MAXSEL=12;
+const MAXSEL=24;   // v29: seluruh 24 bulan (2025+2026) dapat dibandingkan
 const unent=s=>String(s).replace(/&gt;/g,'>').replace(/&lt;/g,'<').replace(/&quot;/g,'"').replace(/&amp;/g,'&');
 const nk=s=>String(s).toUpperCase().replace(/[\s.,]+/g,' ').trim();
 const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
@@ -260,7 +260,12 @@ try{const s=JSON.parse(store.get('pk_sel')||'null');if(Array.isArray(s))SEL=s.fi
 if(!SEL.length) SEL=TL.filter(k=>k>='2026-01'&&(hasP(k)||hasK(k)));
 SEL=[...new Set(SEL)].sort().slice(0,MAXSEL);
 const selP=()=>SEL.filter(hasP), selK=()=>SEL.filter(hasK);
-const colOf=k=>COL[SEL.indexOf(k)%COL.length];
+/* v29: bila pilihan mencakup dua tahun, warna mengikuti BULAN KALENDER (Jan 25 dan Jan 26 satu warna; 2025 lebih terang, 2026 lebih gelap) agar mudah dipasangkan */
+function shade(hex,dl){const n=parseInt(hex.slice(1),16);let r=(n>>16)/255,g=(n>>8&255)/255,b=(n&255)/255;const mx=Math.max(r,g,b),mn=Math.min(r,g,b);let h=0,sat=0,l=(mx+mn)/2;
+  if(mx!==mn){const d=mx-mn;sat=l>.5?d/(2-mx-mn):d/(mx+mn);h=mx===r?(g-b)/d+(g<b?6:0):mx===g?(b-r)/d+2:(r-g)/d+4;h/=6}
+  l=Math.min(.82,Math.max(.32,l+dl));const q=l<.5?l*(1+sat):l+sat-l*sat,p=2*l-q,f=t=>{t=(t+1)%1;return t<1/6?p+(q-p)*6*t:t<1/2?q:t<2/3?p+(q-p)*(2/3-t)*6:p};
+  const c=[f(h+1/3),f(h),f(h-1/3)].map(v=>Math.round(v*255).toString(16).padStart(2,'0'));return '#'+c.join('')}
+const colOf=k=>{if(new Set(SEL.map(x=>x.slice(0,4))).size<2)return COL[SEL.indexOf(k)%COL.length];return shade(COL[(+k.slice(5)-1)%COL.length],k.startsWith('2025')?.07:-.09)};
 const serOf=(ks,fn,name)=>ks.map(k=>({name:name?name(k):mlab(k),color:colOf(k),vals:fn(k)}));
 
 function toast(msg){
@@ -285,7 +290,7 @@ function renderPicker(){
   const noP=SEL.filter(k=>!hasP(k)),noK=SEL.filter(k=>!hasK(k));
   const leg=SEL.map(k=>`<span class="pk-l"><i style="background:${colOf(k)}"></i>${mlab(k)}</span>`).join('');
   $('pk').innerHTML=`<div class="pk-head"><h2>Pilih bulan yang dibandingkan</h2><p class="knote">Ketuk bulan untuk menambah atau melepas (maksimal ${MAXSEL}). Titik <i class="pdot p"></i> = ada data pending, titik <i class="pdot k"></i> = ada data klaim. Bulan yang tidak punya titik tidak dapat dipilih.</p></div>`+h+
-   `<div class="pk-pre"><span class="pl">Pilihan cepat</span><button type="button" data-p="y2025">Semua 2025</button><button type="button" data-p="y2026">Semua 2026</button><button type="button" data-p="last6">6 bulan data terakhir</button><button type="button" data-p="augsep">Agu–Sep 2026</button><button type="button" data-p="agu2">Agu 2025 vs Agu 2026</button><button type="button" data-p="yoy">Jan–Mar 2025 vs 2026</button><button type="button" data-p="clear" class="ghost">Kosongkan</button></div>`+
+   `<div class="pk-pre"><span class="pl">Pilihan cepat</span><button type="button" data-p="y2025">Semua 2025</button><button type="button" data-p="y2026">Semua 2026</button><button type="button" data-p="last6">6 bulan data terakhir</button><button type="button" data-p="augsep">Agu–Sep 2026</button><button type="button" data-p="agu2">Agu 2025 vs Agu 2026</button><button type="button" data-p="yoy">Jan–Mar 2025 vs 2026</button><button type="button" data-p="ytd9">Jan–Sep 2025 vs Jan–Sep 2026</button><button type="button" data-p="all">Semua bulan tersedia</button><button type="button" data-p="clear" class="ghost">Kosongkan</button></div>`+
    `<div class="pk-sum"><b>${SEL.length}</b> bulan dipilih · pending <b>${ps.length}</b> bulan · klaim <b>${ks.length}</b> bulan${leg?'<span class="pk-legs">'+leg+'</span>':''}</div>`+
    (LV==='lanjut'?'':SEL.length===2?(modeOf()==='multi'?'<div class="pk-warn">Mode 2 bulan (A vs B) butuh dua bulan yang sama-sama punya data pending atau sama-sama punya data klaim. Saat ini ditampilkan mode multi-bulan.</div>':'<div class="pk-mode">Mode 2 bulan aktif: tampilan perbandingan A vs B untuk '+(modeOf()==='duoK'?'klaim':'pending')+'.</div>'):'<div class="pk-hint">Pilih tepat 2 bulan untuk tampilan perbandingan A vs B (seperti Agustus vs September). Pilih lebih dari 2 untuk perbandingan multi-bulan.</div>')+(SEL.length&&(noP.length||noK.length)?`<div class="pk-warn">${noP.length?'Tanpa data pending: '+noP.map(mlab).join(', ')+'. ':''}${noK.length?'Tanpa data klaim: '+noK.map(mlab).join(', ')+' (data klaim tidak tersedia).':''}</div>`:'');
 }
@@ -304,11 +309,42 @@ $('pk').addEventListener('click',e=>{
   else if(p==='last6')setSel(av.slice(-6));
   else if(p==='augsep')setSel(['2026-08','2026-09']);
   else if(p==='agu2')setSel(['2025-08','2026-08']);
+  else if(p==='ytd9')setSel(av.filter(k=>+k.slice(5)<=9));
+  else if(p==='all')setSel(av);
   else if(p==='yoy')setSel(['2025-01','2025-02','2025-03','2026-01','2026-02','2026-03']);
   else setSel([]);
 });
 
 /* ================= Helper tampilan ================= */
+/* ---- periode sejajar: total bulan terpilih 2025 vs 2026 pada bulan kalender yang sama ---- */
+function periodeBlock(){
+  const yrs=[...new Set(SEL.map(k=>k.slice(0,4)))].sort();if(yrs.length<2)return '';
+  const [y1,y2]=yrs,mm=[...new Set(SEL.map(k=>k.slice(5)))].sort();
+  const ok=(fn)=>mm.filter(m=>SEL.includes(y1+'-'+m)&&SEL.includes(y2+'-'+m)&&fn(y1+'-'+m)&&fn(y2+'-'+m));
+  const mP=ok(hasP),mK=ok(hasK),mB=mm.filter(m=>mP.includes(m)&&mK.includes(m));
+  const nm=a=>a.map(m=>MF[+m-1].slice(0,3)).join(', ');
+  const tot=(ms,y,fn)=>ms.reduce((t,m)=>t+fn(y+'-'+m),0);
+  const row=(lab,ms,fa,fmt,good,ratio)=>{if(!ms.length)return `<tr><td class="l">${lab}</td><td class="num" colspan="4">tidak ada bulan yang berpasangan</td></tr>`;
+    const a=ratio?ratio(ms,y1):tot(ms,y1,fa),b=ratio?ratio(ms,y2):tot(ms,y2,fa),d=b-a;
+    return `<tr><td class="l">${lab}</td><td class="num">${fmt(a)}</td><td class="num">${fmt(b)}</td><td class="num">${(d>0?'+':d<0?'−':'')+(fmt===pf?dec(Math.abs(d)*100,1)+' pp':fmt(Math.abs(d)))}</td><td class="num">${chg(a,b,good)||'–'}</td></tr>`};
+  const pf=x=>pct(x),pn=nf.format;
+  const rows=[
+    row('SEP pending',mP,k=>PM(k).n,pn,false),
+    row('Nilai pending',mP,k=>PM(k).amt,rp,false),
+    row('Nilai per SEP pending',mP,null,rp,null,(ms,y)=>tot(ms,y,k=>PM(k).amt)/tot(ms,y,k=>PM(k).n)),
+    row('Jumlah klaim',mK,k=>KQ(k).n,pn,true),
+    row('Pendapatan klaim INA-CBG',mK,k=>KQ(k).tot,rp,true),
+    row('Defisit klaim vs Tarif RS',mK,k=>-KQ(k).sel,rp,false),
+    row('Rasio klaim / Tarif RS',mK,null,pf,true,(ms,y)=>tot(ms,y,k=>KQ(k).tot)/tot(ms,y,k=>KQ(k).rs)),
+    row('Nilai pending ÷ pendapatan klaim',mB,null,pf,false,(ms,y)=>tot(ms,y,k=>PM(k).amt)/tot(ms,y,k=>KQ(k).tot))
+  ].join('');
+  const cau=D.meta.caution||{},cm=[...new Set([...mP].filter(m=>cau[y1+'-'+m]||cau[y2+'-'+m]))];
+  const drop=SEL.filter(k=>!(mP.includes(k.slice(5))||mK.includes(k.slice(5)))).map(mlab);
+  return `<h3 class="ksect">Periode sejajar ${y1} vs ${y2}</h3><div class="card"><p class="knote">Total bulan terpilih dibandingkan pada <b>bulan kalender yang sama</b> di kedua tahun, supaya jumlah bulan setara. Pending: ${mP.length?nm(mP)+' ('+mP.length+' bulan)':'tidak ada pasangan'}. Klaim: ${mK.length?nm(mK)+' ('+mK.length+' bulan)':'tidak ada pasangan'}. Δ% hijau berarti membaik, merah memburuk, abu-abu netral.</p><div class="ktbl"><table><thead><tr><th class="l">Ukuran</th><th class="num">${y1}</th><th class="num">${y2}</th><th class="num">Selisih</th><th class="num">Δ%</th></tr></thead><tbody>${rows}</tbody></table></div>`+
+   (cm.length?`<p class="knote" style="margin:10px 0 0">⚠ Berkas pending kemungkinan tidak lengkap pada: ${cm.map(m=>MF[+m-1].slice(0,3)).join(', ')} (lihat peringatan data); selisih pending bulan itu dapat menyesatkan.</p>`:'')+
+   (drop.length?`<p class="knote" style="margin:6px 0 0">Tidak dimasukkan (tidak ada pasangan bulan yang sama di tahun lain): ${drop.join(', ')}.</p>`:'')+'</div>';
+}
+
 function chg(a,b,good){ /* good: true naik baik, false naik buruk, null netral */
   if(!a) return '';
   const r=(b-a)/a,up=r>0.0005,dn=r<-0.0005;let c='flat';
@@ -428,6 +464,8 @@ R.ringkasan=()=>{
       kcard('Rasio klaim / Tarif RS',sum(ks.map(k=>KQ(k).tot))/sum(ks.map(k=>KQ(k).rs)),x=>pct(x),'Makin rendah, makin besar selisih tarif',two?chg(a.tot/a.rs,b.tot/b.rs,true):'')+
       '</div>';
   }
+  /* v29: periode sejajar 2025 vs 2026 (bulan kalender yang sama di kedua tahun) */
+  h+=periodeBlock();
   /* tren seluruh bulan */
   h+=`<h3 class="ksect">Tren pending seluruh bulan (bulan terpilih diberi sorotan)</h3><div class="kgrid kg2"><div class="card"><h2>Nilai pending per bulan</h2><p class="knote">Lingkaran putus-putus = tidak ada berkas pending yang dapat dihitung (arahkan kursor untuk alasannya).</p><div id="r-tr1"></div></div><div class="card"><h2>Jumlah SEP pending per bulan</h2><p class="knote">Satu baris = satu SEP (nomor SEP unik, bukan jumlah alasan).</p><div id="r-tr2"></div></div></div>
   <div class="kgrid kg2" style="margin-top:14px"><div class="card"><h2>Pendapatan klaim INA-CBG per bulan</h2><p class="knote">Total tarif INA-CBG yang diajukan (rawat inap + rawat jalan), seluruh bulan data klaim.</p><div id="r-tr4"></div></div><div class="card"><h2>Nilai pending sebagai persen pendapatan klaim</h2><p class="knote">Hanya untuk bulan yang punya data pending dan klaim. Indikatif: laporan pending berasal dari tanggal tarik yang berbeda dari berkas klaim, dan nilai pending belum tentu dibayar atau ditolak.</p><div id="r-tr3"></div></div></div>`;
