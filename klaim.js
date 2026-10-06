@@ -6,7 +6,8 @@ const reduceMotion=()=>window.matchMedia&&matchMedia('(prefers-reduced-motion: r
 const nf = new Intl.NumberFormat('id-ID');
 const dec = (n,d=1)=>n.toLocaleString('id-ID',{minimumFractionDigits:d,maximumFractionDigits:d});
 const esc = s=>String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
-function rp(n,full){const a=Math.abs(n),s=n<0?'−':'';if(full)return s+'Rp '+nf.format(Math.round(a));if(a>=1e9)return s+'Rp '+dec(a/1e9,2)+' M';if(a>=1e6)return s+'Rp '+dec(a/1e6,1)+' jt';return s+'Rp '+nf.format(Math.round(a));}
+function rp(n){const a=Math.abs(n),s=n<0?'−':'';return s+'Rp '+nf.format(Math.round(a));}   // v27: SELALU rupiah penuh
+function rpC(n){const a=Math.abs(n),s=n<0?'−':'';if(a>=1e9)return s+'Rp '+dec(a/1e9,2)+' M';if(a>=1e6)return s+'Rp '+dec(a/1e6,1)+' jt';return s+'Rp '+nf.format(Math.round(a));}   // ringkas (tidak dipakai lagi kecuali sumbu)
 const rpAx = n=>{const a=Math.abs(n);return a>=1e9?dec(n/1e9,1)+' M':a>=1e6?dec(n/1e6,0)+' jt':nf.format(n)};
 const pct = (x,d=1)=>dec(x*100,d)+'%';
 const trunc=(s,n)=>s.length>n?s.slice(0,n-1)+'…':s;
@@ -115,7 +116,7 @@ function odo(e,txt){
   const ch=[...txt],nd=ch.filter(c=>c>='0'&&c<='9').length;let pos=0,html='';
   ch.forEach(c=>{
     if(c>='0'&&c<='9'){const rank=nd-1-pos,end=(+c)+10*(rank<3?2:1);let strip='';for(let k=0;k<30;k++)strip+='<i>'+(k%10)+'</i>';
-      html+=`<span class="od" aria-hidden="true"><span class="odc" style="--end:${end};--dl:${(pos*0.06).toFixed(2)}s">${strip}</span></span>`;pos++}
+      html+=`<span class="od" aria-hidden="true"><span class="odc" style="--end:${end};--dl:${(pos*0.05).toFixed(2)}s">${strip}</span></span>`;pos++}
     else html+=`<span class="oc" aria-hidden="true">${esc(c)}</span>`;
   });
   e.setAttribute('aria-label',txt);e.innerHTML=html;e.classList.remove('go');
@@ -144,7 +145,7 @@ function rbar(x,y,w,h,u,i,dir,idx){
 const tipN=(label,ser,vals,fmt)=>`<b>${esc(label)}</b>`+ser.map((s,i)=>`<br><span class="m" style="color:${s.color}">●</span> <span class="m">${esc(s.name)}: ${vals[i]==null?'–':fmt(vals[i])}</span>`).join('');
 /* batang vertikal berkelompok: labels = kategori (sumbu x), ser = bulan (warna) */
 function vbarsN(el,labels,ser,o={}){
-  const u=++KG,w=W(el),h=(o.h||250),fmt=o.fmt||nf.format,ax=o.ax||fmt;
+  const u=++KG,w=W(el),h=(o.h||250),fmt=o.fmt||nf.format,ax=o.ax||(fmt===rp?rpAx:fmt);
   const all=ser.flatMap(s=>s.vals.filter(v=>v!=null));const mx=niceMax(Math.max(...all,1));
   const l=Math.max(42,String(ax(mx)).length*7+12),r=10,t=14,b=30,pw=w-l-r,ph=h-t-b,n=labels.length,gw=pw/n,k=ser.length;
   const bw=Math.max(5,Math.min(34,(gw*.78)/k-2));
@@ -163,7 +164,7 @@ function vbarsN(el,labels,ser,o={}){
 }
 /* batang horizontal berkelompok: rows = kategori (baris), ser = bulan */
 function hbarsN(el,rows,ser,o={}){
-  const u=++KG,w=W(el),fmt=o.fmt||nf.format,k=ser.length,lw=o.lw||Math.min(Math.floor(w*.38),250),vp=k<=3?86:12;
+  const u=++KG,w=W(el),fmt=o.fmt||nf.format,k=ser.length,lw=o.lw||Math.min(Math.floor(w*.38),250),vp=k<=3?Math.max(86,String(fmt(Math.max(...rows.flatMap(r=>r.vals.map(v=>v||0)),1))).length*6.4+12):12;
   const bh=k<=2?11:k<=4?9:k<=7?7:5,gap=3,rh=k*(bh+gap)+14;
   const max=Math.max(...rows.flatMap(r=>r.vals.map(v=>v||0)),1),sc=(w-lw-vp-6)/max;
   let s=`<svg width="${w}" height="${rows.length*rh+6}" role="img" aria-label="${esc(o.title||'Grafik batang')}">${gdefs(u,ser.map(x=>x.color))}`;
@@ -194,7 +195,7 @@ function stack100(el,rows,segs,o={}){
 }
 /* garis tren seluruh bulan; bulan terpilih diberi pita sorot; bulan tanpa berkas ditandai lingkaran kosong */
 function trendN(el,cats,ser,o={}){
-  const u=++KG,w=W(el),h=o.h||270,fmt=o.fmt||nf.format,ax=o.ax||fmt,t=22,b=30,r=14;
+  const u=++KG,w=W(el),h=o.h||270,fmt=o.fmt||nf.format,ax=o.ax||(fmt===rp?rpAx:fmt),t=22,b=30,r=14;
   const mx=niceMax(Math.max(...ser.flatMap(s=>s.vals.filter(v=>v!=null)),1)),l=Math.max(42,String(ax(mx)).length*7+12);
   const pw=w-l-r,ph=h-t-b,X=i=>l+pw*(i/(cats.length-1)),Y=v=>t+ph-ph*v/mx,cl=y=>Math.min(t+ph,Math.max(t,y));
   let s=`<svg width="${w}" height="${h}" role="img" aria-label="${esc(o.title||'Tren bulanan')}">${gdefs(u,ser.map(x=>x.color))}`;
@@ -315,7 +316,7 @@ function chg(a,b,good){ /* good: true naik baik, false naik buruk, null netral *
   return `<span class="kchip ${c}">${up?'▲':dn?'▼':'■'} ${dec(Math.abs(r)*100,1)}%</span>`;
 }
 function kcard(lab,v,f,hint,chip){
-  return `<div class="kpi-card k-kpi"><div class="klab">${lab}</div><div class="kval" data-cu="${KC.push([v,f])-1}">${f(v)}</div>${chip?`<div class="krow">${chip}</div>`:''}${hint?`<div class="khint">${hint}</div>`:''}</div>`;
+  return `<div class="kpi-card k-kpi"><div class="klab">${lab}</div><div class="kval${String(f(v)).length>13?' long':''}" data-cu="${KC.push([v,f])-1}">${f(v)}</div>${chip?`<div class="krow">${chip}</div>`:''}${hint?`<div class="khint">${hint}</div>`:''}</div>`;
 }
 const empty=msg=>`<div class="card"><p class="knote" style="margin:0">${msg}</p></div>`;
 const caveat=h=>`<div class="kcaveat">${h}</div>`;
@@ -577,7 +578,7 @@ function hbars2(el,rows,o={}){
   el.innerHTML=s+'</svg>';
 }
 function vbars2(el,labels,a,sv,o={}){
-  const u=++KG2,w=W(el),h=(o.h||240)+16,fmt=o.fmt||nf.format,ax=o.ax||fmt,l=Math.max(40,String(ax(Math.max(...a,...sv,1))).length*7+10),r=10,t=52,b=26;
+  const u=++KG2,w=W(el),h=(o.h||240)+16,fmt=o.fmt||nf.format,ax=o.ax||(fmt===rp?rpAx:fmt),l=Math.max(40,String(ax(Math.max(...a,...sv,1))).length*7+10),r=10,t=52,b=26;
   const mx=niceMax(Math.max(...a,...sv,1)),pw=w-l-r,ph=h-t-b,n=labels.length,gw=pw/n,bw=Math.min(34,gw*.3);
   let s=`<svg width="${w}" height="${h}" role="img" aria-label="${esc(o.title||'Grafik batang')}">${GLOSS(u)}${legendSvg(w)}`;
   for(let i=0;i<=4;i++){const y=t+ph-ph*i/4;s+=`<line class="kgrid" x1="${l}" x2="${w-r}" y1="${y}" y2="${y}"/><text x="${l-6}" y="${y+4}" text-anchor="end">${ax(mx*i/4)}</text>`}
@@ -594,7 +595,7 @@ function vbars2(el,labels,a,sv,o={}){
   el.innerHTML=s+'</svg>';
 }
 function diverge2(el,rows,o={}){
-  const u=++KG2,w=W(el),fmt=o.fmt||nf.format,lw=o.lw||Math.min(Math.floor(w*.42),250),rh=30,p0=lw+92,p1=w-96,bh=13;
+  const u=++KG2,w=W(el),fmt=o.fmt||nf.format,lw=o.lw||Math.min(Math.floor(w*.42),250),rh=30,LWd=Math.max(0,...rows.map(r=>String(sgn(r.v,fmt)).length))*6.4+12,p0=lw+Math.max(92,LWd),p1=w-Math.max(96,LWd+4),bh=13;
   const mn=Math.min(0,...rows.map(r=>r.v)),mx=Math.max(0,...rows.map(r=>r.v)),sc=Math.max(10,p1-p0)/((mx-mn)||1),z=p0+(-mn)*sc;
   const goodUp=o.goodUp!==false;
   let s=`<svg width="${w}" height="${rows.length*rh+10}" role="img" aria-label="${esc(o.title||'Perubahan')}">${GLOSS(u)}`;
@@ -1626,7 +1627,8 @@ function compose(a,b){
 const nf = new Intl.NumberFormat('id-ID');
 const dec = (n,d=1)=>n.toLocaleString('id-ID',{minimumFractionDigits:d,maximumFractionDigits:d});
 const esc = s=>String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
-function rp(n,full){const a=Math.abs(n),s=n<0?'−':'';if(full)return s+'Rp '+nf.format(Math.round(a));if(a>=1e9)return s+'Rp '+dec(a/1e9,2)+' M';if(a>=1e6)return s+'Rp '+dec(a/1e6,1)+' jt';return s+'Rp '+nf.format(Math.round(a));}
+function rp(n){const a=Math.abs(n),s=n<0?'−':'';return s+'Rp '+nf.format(Math.round(a));}   // v27: SELALU rupiah penuh
+function rpC(n){const a=Math.abs(n),s=n<0?'−':'';if(a>=1e9)return s+'Rp '+dec(a/1e9,2)+' M';if(a>=1e6)return s+'Rp '+dec(a/1e6,1)+' jt';return s+'Rp '+nf.format(Math.round(a));}   // ringkas (tidak dipakai lagi kecuali sumbu)
 const rpF=n=>rp(n,true);   // v26: angka lengkap (tanpa singkatan M/jt) untuk temuan otomatis dan kartu KPI
 const rpAx = n=>{const a=Math.abs(n);return a>=1e9?dec(n/1e9,1)+' M':a>=1e6?dec(n/1e6,0)+' jt':nf.format(n)};
 const pct = (x,d=1)=>dec(x*100,d)+'%';
@@ -1689,7 +1691,7 @@ function hbars(el,rows,o={}){
   el.innerHTML=s+'</svg>';
 }
 function vbars(el,labels,a,sv,o={}){
-  const u=++KG,w=W(el),h=(o.h||240)+16,fmt=o.fmt||nf.format,ax=o.ax||fmt,l=o.pct?44:Math.max(40,String(ax(Math.max(...a,...sv))).length*7+10),r=10,t=52,b=26;
+  const u=++KG,w=W(el),h=(o.h||240)+16,fmt=o.fmt||nf.format,ax=o.ax||(fmt===rp?rpAx:fmt),l=o.pct?44:Math.max(40,String(ax(Math.max(...a,...sv))).length*7+10),r=10,t=52,b=26;
   const mx=niceMax(Math.max(...a,...sv)),pw=w-l-r,ph=h-t-b,n=labels.length,gw=pw/n,bw=Math.min(34,gw*.3);
   let s=`<svg width="${w}" height="${h}" role="img" aria-label="${esc(o.title||'Grafik batang')}">${GLOSS(u)}${legendSvg(w)}`;
   for(let i=0;i<=4;i++){const y=t+ph-ph*i/4;s+=`<line class="kgrid" x1="${l}" x2="${w-r}" y1="${y}" y2="${y}"/><text x="${l-6}" y="${y+4}" text-anchor="end">${ax(mx*i/4)}</text>`}
@@ -1706,8 +1708,8 @@ function vbars(el,labels,a,sv,o={}){
   el.innerHTML=s+'</svg>';
 }
 function diverge(el,rows,o={}){
-  const u=++KG,w=W(el),fmt=o.fmt||nf.format,lw=o.lw||Math.min(Math.floor(w*.42),250),rh=30,p0=lw+92,p1=w-96,bh=13;
-  const mn=Math.min(0,...rows.map(r=>r.v)),mx=Math.max(0,...rows.map(r=>r.v)),sc=(p1-p0)/((mx-mn)||1),z=p0+(-mn)*sc;
+  const u=++KG,w=W(el),fmt=o.fmt||nf.format,lw=o.lw||Math.min(Math.floor(w*.42),250),rh=30,LWd=Math.max(0,...rows.map(r=>String(sg(r.v,fmt)).length))*6.4+12,p0=lw+Math.max(92,LWd),p1=w-Math.max(96,LWd+4),bh=13;
+  const mn=Math.min(0,...rows.map(r=>r.v)),mx=Math.max(0,...rows.map(r=>r.v)),sc=Math.max(10,p1-p0)/((mx-mn)||1),z=p0+(-mn)*sc;
   let s=`<svg width="${w}" height="${rows.length*rh+10}" role="img" aria-label="${esc(o.title||'Perubahan')}">${GLOSS(u)}`;
   rows.forEach((r,i)=>{
     const y=i*rh+10,bw=Math.abs(r.v)*sc,x=r.v>=0?z:z-bw;
@@ -1854,7 +1856,7 @@ function odo(e,txt){
   const ch=[...txt],nd=ch.filter(c=>c>='0'&&c<='9').length;let pos=0,html='';
   ch.forEach(c=>{
     if(c>='0'&&c<='9'){const rank=nd-1-pos,end=(+c)+10*(rank<3?2:1);let strip='';for(let k=0;k<30;k++)strip+='<i>'+(k%10)+'</i>';
-      html+=`<span class="od" aria-hidden="true"><span class="odc" style="--end:${end};--dl:${(pos*0.06).toFixed(2)}s">${strip}</span></span>`;pos++}
+      html+=`<span class="od" aria-hidden="true"><span class="odc" style="--end:${end};--dl:${(pos*0.05).toFixed(2)}s">${strip}</span></span>`;pos++}
     else html+=`<span class="oc" aria-hidden="true">${esc(c)}</span>`;
   });
   e.setAttribute('aria-label',txt);e.innerHTML=html;e.classList.remove('go');
