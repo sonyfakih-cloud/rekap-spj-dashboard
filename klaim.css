@@ -307,3 +307,11 @@ html.mode-hp #appRootKlaim .pk-y{padding-top:12px;width:34px;}
 #appRootKlaim .ksegw button{white-space:nowrap;flex:none}
 
 #appRootKlaim select.ksel{font:inherit;font-size:13px;padding:8px 12px;border-radius:12px;border:1px solid var(--k-line);background:var(--card-solid);color:inherit;max-width:100%;min-width:0}
+
+/* v26: nilai Rupiah lengkap pada kartu KPI mode dua bulan */
+#appRootKlaim .kval.long{font-size:19px;letter-spacing:-.2px;word-break:break-all}
+html.mode-hp #appRootKlaim .kval.long{font-size:15px}
+/* v26: angka lengkap di HP — baris perbandingan tidak boleh terpotong */
+html.mode-hp #appRootKlaim .krow{font-size:11px;letter-spacing:-.2px}
+html.mode-hp #appRootKlaim .krow span::before{margin-right:4px;width:7px;height:7px}
+html.mode-hp #appRootKlaim .krow b{letter-spacing:-.3px}

@@ -341,10 +341,10 @@ function show(id){
 nav.onclick=e=>{const b=e.target.closest('button');if(b)show(b.dataset.t)};
 let DUO=store.get('pk_duo')||'K';
 /* Dasar kategori penyebab: grp = jenis pending BPJS (7 kelompok, utama); jn = 15 jenis; kw = kata kunci pada teks alasan */
-const CATM=['grp','jn','kw'];let catMode=CATM.includes(store.get('pk_catmode'))?store.get('pk_catmode'):'grp';
+const CATM=['grp','jn','kw'];let catMode='grp';   // v26: selalu mulai dari 'JN 7 kelompok' (pilihan tidak lagi diingat antarkunjungan, agar 'Kata kunci' tidak tetap aktif sendiri)
 const catBasis=()=>catMode==='kw'?'Kategori penyebab pada tampilan ini <b>klasifikasi kata kunci</b> pada teks alasan (heuristik buatan analisis ini, bukan kategori BPJS), dua tahap: tahap 1 kata kunci, tahap 2 hanya memecah SEP yang tidak cocok pada tahap 1.':'Kategori penyebab pada tampilan ini mengikuti <b>jenis pending (JNSPENDING) BPJS</b>'+(catMode==='grp'?', dikelompokkan menjadi 7':' (15 jenis, tanpa pengelompokan)')+'. Bulan yang berkasnya tidak memuat kolom itu memakai isian perkiraan (lihat peringatan di bawah).';
 function applyCat(){Object.values(D.months).forEach(m=>{m.cat=m['cat_'+catMode]||m.cat_grp||m.cat})}
-function setCatMode(v){if(!CATM.includes(v)||v===catMode)return;catMode=v;store.set('pk_catmode',v);applyCat();rerender()}
+function setCatMode(v){if(!CATM.includes(v)||v===catMode)return;catMode=v;applyCat();rerender()}
 applyCat();
 let LV=store.get('pk_lv')==='lanjut'?'lanjut':'main';
 function renderLV(){const b=$('lvBar');if(!b)return;
@@ -631,11 +631,11 @@ const J=(m,j)=>j==='RI'?m.ri:j==='RJ'?m.rj:{n:m.n,amt:m.amt};
 const JNm={ALL:'Semua',RI:'Rawat inap',RJ:'Rawat jalan'};
 function pCards(j){
   const [A,B]=SEL,a=PM(A),b=PM(B),ja=J(a,j),jb=J(b,j);
-  const card=(lab,va,vs,f,ch,hint)=>`<div class="kpi-card k-kpi"><div class="klab">${lab}</div><div class="kval" data-cu="${KC.push([vs,f])-1}">${f(vs)}</div><div class="krow"><span class="a">${esc(DS[0])} <b>${f(va)}</b></span><span class="s">${esc(DS[1])} ${ch}</span></div>${hint?`<div class="khint">${hint}</div>`:''}</div>`;
+  const card=(lab,va,vs,f,ch,hint)=>`<div class="kpi-card k-kpi"><div class="klab">${lab}</div><div class="kval${String(f(vs)).length>13?' long':''}" data-cu="${KC.push([vs,f])-1}">${f(vs)}</div><div class="krow"><span class="a">${esc(DS[0])} <b>${f(va)}</b></span><span class="s">${esc(DS[1])} ${ch}</span></div>${hint?`<div class="khint">${hint}</div>`:''}</div>`;
   let h='<div class="kgrid kkpis">'+
     card('SEP pending',ja.n,jb.n,nf.format,chg(ja.n,jb.n,false))+
-    card('Nilai pending',ja.amt,jb.amt,rp,chg(ja.amt,jb.amt,false),'Nilai ajuan SEP yang masih pending')+
-    card('Nilai rata-rata per SEP',ja.n?ja.amt/ja.n:0,jb.n?jb.amt/jb.n:0,rp,chg(ja.n?ja.amt/ja.n:0,jb.n?jb.amt/jb.n:0,null))+
+    card('Nilai pending',ja.amt,jb.amt,rpF,chg(ja.amt,jb.amt,false),'Nilai ajuan SEP yang masih pending')+
+    card('Nilai rata-rata per SEP',ja.n?ja.amt/ja.n:0,jb.n?jb.amt/jb.n:0,rpF,chg(ja.n?ja.amt/ja.n:0,jb.n?jb.amt/jb.n:0,null))+
     (j==='ALL'?card('Porsi nilai rawat inap',a.ri.amt/a.amt,b.ri.amt/b.amt,x=>pct(x),chgPP(a.ri.amt/a.amt,b.ri.amt/b.amt,null),'Makin tinggi, makin terkonsentrasi di rawat inap')+
       card('Pasien unik',a.patients,b.patients,nf.format,chg(a.patients,b.patients,false))+
       card('SEP multi-alasan',a.multi_reason_sep,b.multi_reason_sep,nf.format,chg(a.multi_reason_sep,b.multi_reason_sep,false),'SEP dengan lebih dari satu alasan'):'')+
@@ -652,6 +652,7 @@ const skLow=m=>sikapOK(m)&&skRec(m)<0.5;   // jawaban tercatat hanya sebagian ke
 const catsU=(a,b)=>[...new Set(Object.keys(a.cat).concat(Object.keys(b.cat)))];
 const cv=(m,c,k)=>((m.cat[c]||{})[k])||0;
 
+const rpF=n=>rp(n,true);   // v26: angka lengkap pada temuan otomatis
 PR.ringkasan=()=>{
   const el=$('dpview-ringkasan'),[A,B]=SEL,a=PM(A),b=PM(B);
   const dAmt=b.amt-a.amt,dN=b.n-a.n;
@@ -659,13 +660,13 @@ PR.ringkasan=()=>{
   const dcat=catsU(a,b).map(c=>({c,d:cv(b,c,'amt')-cv(a,c,'amt'),a:cv(a,c,'amt'),b:cv(b,c,'amt')})).sort((x,y)=>Math.abs(y.d)-Math.abs(x.d));
   const up=dcat.filter(x=>x.d>0)[0],dn=dcat.filter(x=>x.d<0)[0];
   const L=[];
-  L.push(`<li class="${dAmt>0?'r':'g'}"><b>Nilai pending ${dAmt>=0?'naik':'turun'} ${rp(Math.abs(dAmt))} (${sgn(dAmt/a.amt*100,x=>dec(x,1))}%)</b>, dari ${rp(a.amt)} (${mfull(A)}) ke ${rp(b.amt)} (${mfull(B)}), dengan jumlah SEP ${nf.format(a.n)} → ${nf.format(b.n)} (${sgn(dN/a.n*100,x=>dec(x,1))}%). Nilai per SEP bergerak dari ${rp(a.amt/a.n)} ke ${rp(b.amt/b.n)}.</li>`);
+  L.push(`<li class="${dAmt>0?'r':'g'}"><b>Nilai pending ${dAmt>=0?'naik':'turun'} ${rpF(Math.abs(dAmt))} (${sgn(dAmt/a.amt*100,x=>dec(x,1))}%)</b>, dari ${rpF(a.amt)} (${mfull(A)}) ke ${rpF(b.amt)} (${mfull(B)}), dengan jumlah SEP ${nf.format(a.n)} → ${nf.format(b.n)} (${sgn(dN/a.n*100,x=>dec(x,1))}%). Nilai per SEP bergerak dari ${rpF(a.amt/a.n)} ke ${rpF(b.amt/b.n)}.</li>`);
   const vol=(x,y)=>x.n?(y.n-x.n)*(x.amt/x.n):0,mix=(x,y)=>y.n&&x.n?y.amt-y.n*(x.amt/x.n):0;
   const vri=vol(a.ri,b.ri),mri=mix(a.ri,b.ri),vrj=vol(a.rj,b.rj),mrj=mix(a.rj,b.rj);
   const big=[['rawat inap · volume',vri],['rawat inap · nilai per SEP',mri],['rawat jalan · volume',vrj],['rawat jalan · nilai per SEP',mrj]].sort((x,y)=>Math.abs(y[1])-Math.abs(x[1]))[0];
-  L.push(`<li><b>Penggerak utama perubahan:</b> ${big[0]} (${sgn(big[1],rp)}). Rawat inap memegang ${pct(a.ri.amt/a.amt)} nilai pending pada ${mlab(A)} dan ${pct(b.ri.amt/b.amt)} pada ${mlab(B)}, sehingga selisih nilai paling ditentukan oleh jumlah dan bobot kasus rawat inap.</li>`);
-  if(up)L.push(`<li class="r"><b>Kategori penyebab yang paling menambah nilai pending:</b> ${esc(up.c)} (${sgn(up.d,rp)}; ${rp(up.a)} → ${rp(up.b)}). Dasar kategori: ${catMode==='kw'?'kata kunci (heuristik)':'jenis pending BPJS (2025, Juli, dan Agustus 2026 = isian perkiraan)'}.</li>`);
-  if(dn)L.push(`<li class="g"><b>Kategori yang paling mengurangi nilai pending:</b> ${esc(dn.c)} (${sgn(dn.d,rp)}; ${rp(dn.a)} → ${rp(dn.b)}).</li>`);
+  L.push(`<li><b>Penggerak utama perubahan:</b> ${big[0]} (${sgn(big[1],rpF)}). Rawat inap memegang ${pct(a.ri.amt/a.amt)} nilai pending pada ${mlab(A)} dan ${pct(b.ri.amt/b.amt)} pada ${mlab(B)}, sehingga selisih nilai paling ditentukan oleh jumlah dan bobot kasus rawat inap.</li>`);
+  if(up)L.push(`<li class="r"><b>Kategori penyebab yang paling menambah nilai pending:</b> ${esc(up.c)} (${sgn(up.d,rpF)}; ${rpF(up.a)} → ${rpF(up.b)}). Dasar kategori: ${catMode==='kw'?'kata kunci (heuristik)':'jenis pending BPJS (2025, Juli, dan Agustus 2026 = isian perkiraan)'}.</li>`);
+  if(dn)L.push(`<li class="g"><b>Kategori yang paling mengurangi nilai pending:</b> ${esc(dn.c)} (${sgn(dn.d,rpF)}; ${rpF(dn.a)} → ${rpF(dn.b)}).</li>`);
   if(sikapOK(a)&&sikapOK(b)){
     L.push(`<li class="w"><b>Jawaban RS yang tercatat di berkas pending:</b> ${pct(skRec(a))} SEP pada ${mlab(A)} dan ${pct(skRec(b))} pada ${mlab(B)}. SEP lainnya hanya <i>tidak tercatat</i> jawabannya di berkas; itu bukan berarti belum dijawab, karena jawaban pending dikirim lewat e-klaim dan tidak selalu dicatat ke berkas rekap. Tingkat penyelesaian pending yang sebenarnya tidak dapat dinilai dari berkas ini.</li>`);
   } else L.push(`<li class="w"><b>Status jawaban RS tidak dapat dibandingkan:</b> berkas ${[A,B].filter(k=>!sikapOK(PM(k))).map(k=>mlab(k)+' ('+skWhy(PM(k))+')').join('; ')}. Ini keterbatasan berkas, <b>bukan</b> tanda pending belum dijawab.</li>`);
@@ -1626,6 +1627,7 @@ const nf = new Intl.NumberFormat('id-ID');
 const dec = (n,d=1)=>n.toLocaleString('id-ID',{minimumFractionDigits:d,maximumFractionDigits:d});
 const esc = s=>String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
 function rp(n,full){const a=Math.abs(n),s=n<0?'−':'';if(full)return s+'Rp '+nf.format(Math.round(a));if(a>=1e9)return s+'Rp '+dec(a/1e9,2)+' M';if(a>=1e6)return s+'Rp '+dec(a/1e6,1)+' jt';return s+'Rp '+nf.format(Math.round(a));}
+const rpF=n=>rp(n,true);   // v26: angka lengkap (tanpa singkatan M/jt) untuk temuan otomatis dan kartu KPI
 const rpAx = n=>{const a=Math.abs(n);return a>=1e9?dec(n/1e9,1)+' M':a>=1e6?dec(n/1e6,0)+' jt':nf.format(n)};
 const pct = (x,d=1)=>dec(x*100,d)+'%';
 const sg = (n,f)=> (n>0?'+':n<0?'−':'')+f(Math.abs(n));
@@ -1864,14 +1866,14 @@ function countUp(root){
 }
 function kpiCards(j){
   const a=K('Agu',j),s=K('Sep',j);
-  const card=(lab,va,vs,f,ch,hint)=>`<div class="kpi-card k-kpi"><div class="klab">${lab}</div><div class="kval" data-cu="${KC.push([vs,f])-1}">${f(vs)}</div><div class="krow"><span class="a">${LA} <b>${f(va)}</b></span><span class="s">${LB} ${ch}</span></div>${hint?`<div class="khint">${hint}</div>`:''}</div>`;
+  const card=(lab,va,vs,f,ch,hint)=>`<div class="kpi-card k-kpi"><div class="klab">${lab}</div><div class="kval${String(f(vs)).length>13?' long':''}" data-cu="${KC.push([vs,f])-1}">${f(vs)}</div><div class="krow"><span class="a">${LA} <b>${f(va)}</b></span><span class="s">${LB} ${ch}</span></div>${hint?`<div class="khint">${hint}</div>`:''}</div>`;
   return '<div class="kgrid kkpis">'+
    card('Jumlah klaim',a.n,s.n,nf.format,chg(a.n,s.n,true))+
-   card('Pendapatan klaim INA-CBG',a.tot,s.tot,rp,chg(a.tot,s.tot,true),'Total tarif yang diajukan')+
-   card('Tarif RS atas layanan sama',a.rs,s.rs,rp,chg(a.rs,s.rs,null))+
-   card('Defisit klaim vs Tarif RS',-a.sel,-s.sel,rp,chg(-a.sel,-s.sel,false),'Tarif RS dikurangi klaim')+
+   card('Pendapatan klaim INA-CBG',a.tot,s.tot,rpF,chg(a.tot,s.tot,true),'Total tarif yang diajukan')+
+   card('Tarif RS atas layanan sama',a.rs,s.rs,rpF,chg(a.rs,s.rs,null))+
+   card('Defisit klaim vs Tarif RS',-a.sel,-s.sel,rpF,chg(-a.sel,-s.sel,false),'Tarif RS dikurangi klaim')+
    card('Rasio klaim / Tarif RS',a.tot/a.rs,s.tot/s.rs,x=>pct(x),chgPP(a.tot/a.rs,s.tot/s.rs,true),'Makin rendah, makin besar selisih')+
-   card('Rata-rata klaim per kasus',a.tot/a.n,s.tot/s.n,rp,chg(a.tot/a.n,s.tot/s.n,null))+
+   card('Rata-rata klaim per kasus',a.tot/a.n,s.tot/s.n,rpF,chg(a.tot/a.n,s.tot/s.n,null))+
    card(j==='RI'?'Pasien rawat inap unik':'Pasien unik (No. RM)',a.pat,s.pat,nf.format,chg(a.pat,s.pat,true))+
   '</div>';
 }
@@ -1901,20 +1903,20 @@ R.ringkasan=()=>{
   const pc=(x,y)=>sg((y/x-1)*100,v=>dec(v,1))+'%';
   const F=[],I=[];
   /* temuan */
-  F.push(`<li><b>Pendapatan klaim ${dRev>=0?'naik':'turun'} ${rp(Math.abs(dRev))} (${pc(a.tot,s.tot)})</b>, dari ${rp(a.tot)} (${LA}) ke ${rp(s.tot)} (${LB}); jumlah klaim ${nf.format(a.n)} → ${nf.format(s.n)} (${pc(a.n,s.n)}). Rawat inap ${sg(sr.tot-ar.tot,rp)}, rawat jalan ${sg(sj.tot-aj.tot,rp)}.</li>`);
+  F.push(`<li><b>Pendapatan klaim ${dRev>=0?'naik':'turun'} ${rpF(Math.abs(dRev))} (${pc(a.tot,s.tot)})</b>, dari ${rpF(a.tot)} (${LA}) ke ${rpF(s.tot)} (${LB}); jumlah klaim ${nf.format(a.n)} → ${nf.format(s.n)} (${pc(a.n,s.n)}). Rawat inap ${sg(sr.tot-ar.tot,rpF)}, rawat jalan ${sg(sj.tot-aj.tot,rpF)}.</li>`);
   const rjAll=sj.n/aj.n-1, rjDay=perDay.rjWd[1]/perDay.rjWd[0]-1, calend=Math.abs(rjAll-rjDay)>=0.03;
   F.push(`<li class="${calend?'w':''}"><b>${calend?'Jumlah hari kerja memengaruhi perbandingan rawat jalan.':'Rawat jalan per hari kerja bergerak searah dengan totalnya.'}</b> ${LA}: ${eff.Agu.eff} hari kerja efektif${hol(eff.Agu)}; ${LB}: ${eff.Sep.eff}${hol(eff.Sep)}. Klaim rawat jalan total ${sg(rjAll*100,v=>dec(v,1))}%, per hari kerja ${sg(rjDay*100,v=>dec(v,1))}% (${nf.format(Math.round(perDay.rjWd[0]))} → ${nf.format(Math.round(perDay.rjWd[1]))} klaim/hari); pendapatan rawat jalan per hari kerja ${sg((perDay.rjWdRev[1]/perDay.rjWdRev[0]-1)*100,v=>dec(v,1))}%.</li>`);
   const up=riCodes.slice().sort((x,y)=>y.dt-x.dt)[0], dn=riCodes.slice().sort((x,y)=>x.dt-y.dt)[0];
   let diagNote='';
   if(up&&up.code==='A-4-13-I'){const da=D.diagA.Agu,db=D.diagA.Sep;const ks=[...new Set(Object.keys(da).concat(Object.keys(db)))].slice(0,3);if(ks.length)diagNote=` Diagnosis utama kelompok ini: ${ks.map(k=>k+' ('+(da[k]||0)+' → '+(db[k]||0)+')').join(', ')}.`}
-  F.push(`<li><b>Rawat inap ${sr.n>=ar.n?'naik':'turun'} ${dec(Math.abs((sr.n/ar.n-1)*100),1)}% dalam jumlah klaim</b> (${dec(perDay.ri[0],1)} → ${dec(perDay.ri[1],1)} per hari kalender), rata-rata klaim per kasus ${pc(ar.tot/ar.n,sr.tot/sr.n)} (${rp(ar.tot/ar.n)} → ${rp(sr.tot/sr.n)}).${up?` Perubahan pendapatan terbesar: ${esc(up.desc)} (${esc(up.code)}), ${up.Agu.n} → ${up.Sep.n} kasus (${sg(up.dt,rp)})${dn&&dn.dt<0?`; berlawanan arah, ${esc(dn.desc)} (${esc(dn.code)}) ${sg(dn.dt,rp)}`:''}.`:''}${diagNote}</li>`);
+  F.push(`<li><b>Rawat inap ${sr.n>=ar.n?'naik':'turun'} ${dec(Math.abs((sr.n/ar.n-1)*100),1)}% dalam jumlah klaim</b> (${dec(perDay.ri[0],1)} → ${dec(perDay.ri[1],1)} per hari kalender), rata-rata klaim per kasus ${pc(ar.tot/ar.n,sr.tot/sr.n)} (${rpF(ar.tot/ar.n)} → ${rpF(sr.tot/sr.n)}).${up?` Perubahan pendapatan terbesar: ${esc(up.desc)} (${esc(up.code)}), ${up.Agu.n} → ${up.Sep.n} kasus (${sg(up.dt,rpF)})${dn&&dn.dt<0?`; berlawanan arah, ${esc(dn.desc)} (${esc(dn.code)}) ${sg(dn.dt,rpF)}`:''}.`:''}${diagNote}</li>`);
   const defA=-a.sel, defB=-s.sel, topDef=riCodes.concat(rjCodes).sort((x,y)=>y.defS-x.defS)[0];
   if(defA>0){const defR=defB/defA-1;
-    F.push(`<li class="${defR>0.02?'r':defR<-0.02?'g':''}"><b>Defisit terhadap Tarif RS ${defR>=0?'melebar':'menyempit'} ${dec(Math.abs(defR)*100,1)}%</b>: ${rp(defA)} → ${rp(defB)}; rasio klaim/Tarif RS ${pct(a.tot/a.rs)} → ${pct(s.tot/s.rs)}. ${topDef?`Penyumbang defisit terbesar ${LB}: ${esc(topDef.desc)} (${rp(topDef.defS)}).`:''}${dial&&(sj.rs-sj.tot)>0?` Dialisis rawat jalan sendiri ${rp(dial.defS)} atau ${pct(dial.defS/(sj.rs-sj.tot),0)} dari defisit rawat jalan.`:''}</li>`);}
+    F.push(`<li class="${defR>0.02?'r':defR<-0.02?'g':''}"><b>Defisit terhadap Tarif RS ${defR>=0?'melebar':'menyempit'} ${dec(Math.abs(defR)*100,1)}%</b>: ${rpF(defA)} → ${rpF(defB)}; rasio klaim/Tarif RS ${pct(a.tot/a.rs)} → ${pct(s.tot/s.rs)}. ${topDef?`Penyumbang defisit terbesar ${LB}: ${esc(topDef.desc)} (${rpF(topDef.defS)}).`:''}${dial&&(sj.rs-sj.tot)>0?` Dialisis rawat jalan sendiri ${rpF(dial.defS)} atau ${pct(dial.defS/(sj.rs-sj.tot),0)} dari defisit rawat jalan.`:''}</li>`);}
   const lmJ=D.lag_med.RJ,lmI=D.lag_med.RI;
   if(lmJ.Agu!=null&&lmJ.Sep!=null){const better=lmJ.Sep<lmJ.Agu;
     F.push(`<li class="${better?'g':lmJ.Sep>lmJ.Agu?'w':''}"><b>Proses klaim ${better?'lebih cepat':lmJ.Sep>lmJ.Agu?'lebih lambat':'setara'}.</b> Median jarak tanggal pulang ke tanggal grouping di berkas: rawat jalan ${fl(lmJ.Agu)} → ${fl(lmJ.Sep)} hari, rawat inap ${fl(lmI.Agu)} → ${fl(lmI.Sep)} hari. Ini membaca penanda waktu di berkas, bukan status verifikasi BPJS; selisihnya juga dipengaruhi tanggal penarikan berkas (${pullTxt(KEYA)} dan ${pullTxt(KEYB)}).</li>`);}
-  if(idrgOK) F.push(`<li class="w"><b>Simulasi iDRG di berkas</b> menghasilkan ${rp(s.idrg)} untuk ${LB}, ${sg((s.idrg/s.tot-1)*100,v=>dec(v,1))}% terhadap klaim INA-CBG dan ${pct(s.idrg/s.rs,1)} dari Tarif RS. Angka indikatif, belum tentu tarif pembayaran yang berlaku.</li>`);
+  if(idrgOK) F.push(`<li class="w"><b>Simulasi iDRG di berkas</b> menghasilkan ${rpF(s.idrg)} untuk ${LB}, ${sg((s.idrg/s.tot-1)*100,v=>dec(v,1))}% terhadap klaim INA-CBG dan ${pct(s.idrg/s.rs,1)} dari Tarif RS. Angka indikatif, belum tentu tarif pembayaran yang berlaku.</li>`);
   else F.push(`<li class="w"><b>Simulasi iDRG tidak dibandingkan:</b> cakupan data iDRG di berkas ${LA} ${pct(cov('Agu'),0)} dan ${LB} ${pct(cov('Sep'),0)} dari klaim.</li>`);
   /* implikasi */
   I.push(`<li><b>Minta rekap status verifikasi BPJS</b> (layak, pending, dispute) untuk ${MA} dan ${MB}. Berkas klaim hanya memuat klaim yang diajukan, sehingga nilai layak bayar dan piutang belum dapat dihitung dari sini. Jika laporan pending kedua bulan tersedia, pilih mode Pending di atas untuk melihat klaim yang tertahan.</li>`);
