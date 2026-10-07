@@ -788,6 +788,11 @@ function buildDonutSVG(segments, total){
     const sweep = (seg.value/total)*360;
     const a0 = angle, a1 = angle + sweep;
     angle = a1;
+    if(sweep >= 359.99){
+      // 1 segmen = 100% -> busur 360 derajat jadi garis kosong (start = end). Gambar cincin penuh.
+      const ring = (r)=>`M ${cx-r} ${cy} A ${r} ${r} 0 1 1 ${cx+r} ${cy} A ${r} ${r} 0 1 1 ${cx-r} ${cy} Z`;
+      return `<path d="${ring(outerR)} ${ring(innerR)}" fill-rule="evenodd" fill="${seg.color}" stroke="#ffffff" stroke-width="2"/>`;
+    }
     return `<path d="${wedgePath(a0,a1)}" fill="${seg.color}" stroke="#ffffff" stroke-width="2"/>`;
   }).join('');
 
@@ -4626,6 +4631,8 @@ const PEND_KATEGORI_ = [
   {label:'Lain-lain PAD yang Sah'},
 ];
 const PEND_KAT_WARNA_ = {'2024':'#A8B5D9', '2025':'#84AAF3', '2026':'#F4BA84'};
+// warna tiap KATEGORI (donat) -- urut sama dgn PEND_KATEGORI_
+const PEND_KAT_WARNA_KATEGORI_ = ['#84AAF3','#F4BA84','#7ED3B2','#C3A6F0','#F28B9B','#F2D16B','#8FD0E8'];
 const PEND_KAT_CHARTS_ = {};
 
 function pendKategoriData_(){
@@ -4701,6 +4708,36 @@ const pendKatLabelPlugin_ = {
   }
 };
 
+
+// Donat per tahun (3 kartu, gaya sama dgn donat Retribusi/Lain-lain di kartu Ringkasan)
+// utk 7 kategori. Proporsi = porsi tiap kategori thd JUMLAH 7 kategori tahun itu.
+function renderPendKategoriDonuts_(suffix, d){
+  const wrap = $('#pendKatDonuts' + suffix);
+  if(!wrap) return;
+  if(!d.adaData){ wrap.innerHTML = ''; return; }
+  const bln = MONTH_NAMES[d.uptoIdx];
+  const money = v => 'Rp ' + fmt(v);
+  wrap.innerHTML = d.series.map(s=>{
+    const total = s.vals.reduce((x,v)=>x+(v||0), 0);
+    const segs = PEND_KATEGORI_.map((k,i)=>({ label:k.label, value:s.vals[i]||0, color:PEND_KAT_WARNA_KATEGORI_[i] })).filter(x=>x.value>0);
+    const donutHtml = total > 0 ? buildDonutSVG(segs, total) : '<div class="anomaly-empty">Belum ada data</div>';
+    const legend = PEND_KATEGORI_.map((k,i)=>{
+      const v = s.vals[i] || 0;
+      const pct = total > 0 ? (v/total*100).toFixed(1).replace('.',',') + '%' : '-';
+      return `<div class="komp-legend-item" title="${k.label}: ${money(v)}">
+        <span class="komp-dot" style="background:${PEND_KAT_WARNA_KATEGORI_[i]}"></span>
+        <span class="komp-legend-label">${k.label}</span>
+        <span class="komp-legend-pct">${pct}</span>
+      </div>`;
+    }).join('');
+    return `<div class="kpi-card pend-donut-card">
+      <div class="kpi-year"><b>Tahun ${s.year}</b><small>s.d ${bln}</small></div>
+      <div class="pend-donut-total"><span>Jumlah 7 kategori</span><b>${money(total)}</b></div>
+      <div class="komp-donut-wrap">${donutHtml}<div class="komp-legend kat-legend">${legend}</div></div>
+    </div>`;
+  }).join('');
+}
+
 function renderPendKategoriChart_(suffix){
   const canvas = $('#pendKatChart' + suffix);
   if(!canvas || typeof Chart === 'undefined') return;
@@ -4709,6 +4746,7 @@ function renderPendKategoriChart_(suffix){
   const lbl = $('#pendKatLabel' + suffix);
   const note = $('#pendKatNote' + suffix);
   const d = pendKategoriData_();
+  renderPendKategoriDonuts_(suffix, d);
   if(PEND_KAT_CHARTS_[suffix]){ PEND_KAT_CHARTS_[suffix].destroy(); PEND_KAT_CHARTS_[suffix] = null; }
   if(!d.adaData){
     if(tbl) tbl.innerHTML = '<tbody><tr><td style="text-align:left">Data rekening per tahun (Khusus Tahun Pendapatan) belum dimuat.</td></tr></tbody>';

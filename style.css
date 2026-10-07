@@ -1332,7 +1332,7 @@ html.mode-hp #filterRekening, html.mode-hp #filterRekeningP{ min-width:0!importa
 .odo-t{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
 .odo-d{display:inline-block;overflow:hidden;height:1.25em;line-height:1.25em;vertical-align:-0.29em;user-select:none;-webkit-user-select:none;}
 .odo-s::before{content:attr(data-c);}
-.odo-s{display:inline-block;height:1.25em;line-height:1.25em;vertical-align:-0.29em;user-select:none;-webkit-user-select:none;}
+.odo-s{display:inline-block;height:1.25em;line-height:1.25em;vertical-align:baseline;user-select:none;-webkit-user-select:none;}
 .odo-c{display:block;transform:translateY(var(--to,0));will-change:transform;}
 .odo-c::before{content:"0\A 1\A 2\A 3\A 4\A 5\A 6\A 7\A 8\A 9\A 0\A 1\A 2\A 3\A 4\A 5\A 6\A 7\A 8\A 9\A 0\A 1\A 2\A 3\A 4\A 5\A 6\A 7\A 8\A 9\A 0\A 1\A 2\A 3\A 4\A 5\A 6\A 7\A 8\A 9";display:block;white-space:pre;line-height:1.25em;}
 .odo-c.go{animation:odoRoll var(--dur,1000ms) cubic-bezier(.2,.85,.25,1) both;}
@@ -1350,3 +1350,17 @@ html.mode-hp #filterRekening, html.mode-hp #filterRekeningP{ min-width:0!importa
 .pend-kat-note{margin:8px 2px 0;font-size:11.5px;color:var(--muted);line-height:1.5;}
 .pend-kat-warn{display:block;margin-bottom:6px;padding:8px 10px;border-radius:8px;background:rgba(224,86,86,.10);color:#c0392b;font-weight:600;}
 [data-theme="dark"] .pend-kat-warn{color:#ff8a80;background:rgba(255,138,128,.12);}
+
+/* Perkuat aturan odometer (spesifisitas) -- aturan umum spt ".kpi-ring span{position:relative}" dulu
+   menimpa .odo-t sehingga teks cadangan ikut tampil dobel di dalam cincin persen. */
+.odo .odo-t{position:absolute !important;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
+.odo .odo-d{display:inline-block;overflow:hidden;height:1.25em;line-height:1.25em;vertical-align:-0.29em;position:static;font-size:inherit;}
+.odo .odo-s{display:inline-block;height:1.25em;line-height:1.25em;vertical-align:baseline;position:static;font-size:inherit;}
+.odo .odo-c{display:block;position:static;font-size:inherit;}
+
+/* Donat kategori pendapatan (3 kartu per tahun) */
+.pend-donut-row{margin:4px 0 22px;}
+.pend-donut-card .pend-donut-total{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin:6px 0 4px;font-size:12px;color:var(--muted);}
+.pend-donut-card .pend-donut-total b{color:var(--text);font-size:13px;}
+.komp-legend.kat-legend{grid-template-columns:1fr;gap:5px;}
+.komp-legend.kat-legend .komp-legend-label{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.3;}

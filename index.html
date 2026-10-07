@@ -28,7 +28,7 @@
      pengunjung yang sudah pernah buka situs ini masih bisa melihat versi lama (ini akar
      masalah "kok belum berubah" yang pernah dilaporkan). Setiap kali app.js/style.css
      diupdate, NAIKKAN angka v= di bawah supaya browser dipaksa ambil versi baru. -->
-<link rel="stylesheet" href="style.css?v=36">
+<link rel="stylesheet" href="style.css?v=37">
 <link rel="stylesheet" href="klaim.css?v=1">
 <script src="chart.umd.min.js"></script>
 <script src="xlsx.full.min.js?v=8"></script>
@@ -527,6 +527,7 @@
         <div class="kpi-row" id="kpiRowP"></div>
         <div class="pend-kat-block">
           <h4 class="pend-kat-title">Realisasi per Kategori Pendapatan <span id="pendKatLabelP"></span></h4>
+          <div class="kpi-row pend-donut-row" id="pendKatDonutsP"></div>
           <div class="chart-wrap" style="height:380px;"><canvas id="pendKatChartP"></canvas></div>
           <div class="range-detail-wrap"><table class="range-detail pend-kat-table" id="pendKatTableP"></table></div>
           <p class="pend-kat-note" id="pendKatNoteP"></p>
@@ -756,6 +757,7 @@
 
       <div class="card">
         <h3>Realisasi per Kategori Pendapatan <span id="pendKatLabelG">— kumulatif s.d. bulan terakhir</span></h3>
+        <div class="kpi-row pend-donut-row" id="pendKatDonutsG"></div>
         <div class="chart-wrap" style="height:380px;"><canvas id="pendKatChartG"></canvas></div>
         <div class="range-detail-wrap"><table class="range-detail pend-kat-table" id="pendKatTableG"></table></div>
         <p class="pend-kat-note" id="pendKatNoteG"></p>
@@ -924,7 +926,7 @@
 <script src="data.js?v=8"></script>
 <script src="data_pendapatan.js?v=2"></script>
 <script src="data_kategori_pendapatan.js?v=1"></script>
-<script src="app.js?v=66"></script>
+<script src="app.js?v=67"></script>
 <script src="klaim_data.js?v=1"></script>
 <script src="klaim.js?v=1"></script>
 <script src="odometer.js?v=2"></script>

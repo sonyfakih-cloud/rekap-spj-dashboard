@@ -1,20 +1,26 @@
 /* ============================================================================
    ODOMETER — animasi angka bergulir dari bawah ke atas (seperti angka di mesin
-   pompa bensin) untuk SEMUA modul dashboard (Belanja, Pendapatan, Gabungan).
+   pompa bensin) untuk SEMUA angka di SEMUA modul dashboard (Belanja, Pendapatan,
+   Gabungan, Klaim BPJS) — terutama tabel.
 
    Cara kerja (tanpa mengubah fungsi render di app.js):
    - MutationObserver memantau DOM. Setiap kali app.js menulis ulang tabel/kartu
      (innerHTML / textContent), angka di dalamnya otomatis dibungkus menjadi
      "kolom digit" yang berputar.
-   - Angka baru dianimasikan dari 0. Angka yang berubah (mis. ganti filter bulan,
-     data live masuk) bergulir dari nilai lama ke nilai baru. Angka yang nilainya
-     sama persis dengan yang tampil sebelumnya TIDAK dianimasikan ulang (jadi
-     mengetik di kotak cari tidak membuat tabel "berputar" terus-menerus).
-   - Konversi dilakukan malas (IntersectionObserver): hanya angka yang terlihat di
-     layar yang dibuat — tabel ratusan baris tetap ringan, dan animasi tampil
-     tepat saat tab/halaman dibuka.
-   - Yang TIDAK dianimasikan: kode rekening (5.1.1.01), tahun (2026), tanggal,
-     nomor bukti, judul/label/header, isian form, modal detail transaksi BKU.
+   - Cakupan = SELURUH isi halaman modul (.main), kecuali yang dikecualikan (lihat
+     SKIP): kode rekening, tahun, tanggal, nomor bukti, judul/label/header, isian
+     form, modal detail transaksi BKU.
+   - Angka baru dianimasikan dari 0. Angka yang berubah (ganti filter bulan, data
+     live masuk) bergulir dari nilai lama ke nilai baru. Angka yang tampil ulang
+     dengan nilai SAMA juga diputar ulang (mis. tombol Sync/Reload) — kecuali saat
+     pengguna sedang mengetik/memilih di kotak filter (supaya tabel tidak "berputar"
+     di setiap ketikan).
+   - TABEL: satu BARIS dikonversi sekaligus begitu baris itu terlihat — semua kolom
+     dalam baris (termasuk kolom yang tersembunyi di kanan karena tabel digeser)
+     ikut jadi odometer, bukan hanya sel yang kebetulan terlihat.
+   - Konversi malas (IntersectionObserver): hanya baris/kartu yang terlihat di
+     layar yang dibuat, jadi tabel ratusan baris tetap ringan, dan animasi tampil
+     tepat saat tab/halaman dibuka. Saat pindah tab, angka yang terlihat diputar ulang.
    - Teks asli tetap ada (span tersembunyi .odo-t) sehingga copy-paste & Ctrl+F
      tetap menemukan angka aslinya.
    - Menghormati pengaturan "kurangi gerakan" (prefers-reduced-motion).
@@ -30,24 +36,21 @@
   if(REDUCED || !('IntersectionObserver' in window) || !('MutationObserver' in window)) return;
 
   var LH = 1.25;          // tinggi satu digit (em) — harus sama dengan CSS .odo-d
-  var CELLS = 40;         // panjang strip digit (0-9 x4) — harus sama dengan CSS .odo-c::before
 
-  // Area dashboard yang angkanya dianimasikan
-  var SCOPES = [
-    '.kpi-row', '.exec-kpi-row', '.status-grid', 'table.data tbody',
-    'table.range-detail tbody', '.range-summary', '#filterResult', '#filterResultP',
-    '.exec-narasi', '.anomaly-summary-row', '#anomaliListG',
-    '.data-per-badge', 'span[id^="countKhusus"]', 'span[id^="countPerbandingan"]',
-    '#anomaliCountLabel'
-  ].join(',');
+  // Area dashboard yang angkanya dianimasikan: seluruh halaman tiap modul
+  var SCOPES = '.app .main, #hubScreen';
 
-  // Elemen yang TIDAK boleh disentuh
+  // Elemen yang TIDAK boleh disentuh (teks narasi, judul, label, kode, form, dsb.)
   var SKIP = [
-    'th', 'h1', 'h2', 'h3', 'h4', 'label', 'select', 'option', 'input', 'textarea',
-    'button', 'script', 'style', 'canvas', 'svg', '.odo', '.tip', '.kpi-year',
-    '.status-card-title', '.status-card-jenis', '.range-detail-caption',
-    '.bku-modal-overlay', '.auth-overlay', '.intro-anim-screen', '.marquee-bar',
-    'table.data tbody td:nth-child(-n+2)'
+    'th', 'h1', 'h2', 'label', 'select', 'option', 'input', 'textarea',
+    'button', 'script', 'style', 'canvas', 'svg', 'a',
+    '.odo', '.tip', '.kpi-year', '.status-card-title', '.status-card-jenis',
+    '.range-detail-caption', '.range-label', '.card-desc', '.klik-hint', '.footer-note',
+    '.title-block', '.toolbar', '.range-toolbar', '.year-checks', '.pill',
+    '.marquee-bar', '.k-tabs', '.nav-item', '.hub-menu-card p',
+    '.bku-modal-overlay', '.auth-overlay', '.intro-anim-screen',
+    '[data-odo="off"]',
+    'table.data tbody td:nth-child(-n+2)'     // kolom Kode & Nama Rekening
   ].join(',');
 
   var TOKEN = /\d+(?:[.,]\d+)*/g;
@@ -88,6 +91,12 @@
       n = n.parentElement;
     }
     return parts.join('/');
+  }
+
+  // pengguna sedang mengetik / memilih di kotak filter?
+  function userEditing(){
+    var a = document.activeElement;
+    return !!(a && (a.tagName === 'INPUT' || a.tagName === 'SELECT' || a.tagName === 'TEXTAREA'));
   }
 
   // ---- bangun elemen odometer untuk satu token ----
@@ -140,6 +149,7 @@
   function convertHost(host){
     if(!host.isConnected) return;
     var kids = Array.prototype.slice.call(host.childNodes), ti = 0;
+    var editing = userEditing();
     for(var i = 0; i < kids.length; i++){
       var n = kids[i];
       if(n.nodeType !== 3) continue;
@@ -153,7 +163,10 @@
         var key = keyFor(host, ti++);
         var prev = REG.get(key);
         REG.set(key, t);
-        if(prev === t) continue;                       // sama persis -> biarkan apa adanya
+        if(prev === t){
+          if(editing) continue;                        // sedang mengetik di filter -> jangan putar ulang
+          prev = undefined;                            // tampil ulang dgn nilai sama -> putar dari 0 lagi
+        }
         frag.appendChild(document.createTextNode(txt.slice(last, m.index)));
         frag.appendChild(buildOdo(t, prev));
         last = m.index + t.length;
@@ -164,10 +177,35 @@
         host.replaceChild(frag, n);
       }
     }
-    if(REG.size > 40000) REG.clear();
+    if(REG.size > 60000) REG.clear();
   }
 
-  // ---- konversi malas: hanya saat host terlihat di layar ----
+  // kumpulkan semua "host" (elemen yang punya teks angka langsung) di dalam sebuah unit
+  function collectHosts(root){
+    var tw = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    var n, set = [], seen = new Set();
+    while((n = tw.nextNode())){
+      if(!/\d/.test(n.nodeValue)) continue;
+      var p = n.parentElement;
+      if(!p || seen.has(p) || p.closest(SKIP)) continue;
+      seen.add(p); set.push(p);
+    }
+    return set;
+  }
+
+  // unit yang diobservasi: BARIS tabel (supaya semua kolom dalam satu baris ikut
+  // berubah, termasuk yang tersembunyi di kanan) atau elemen host itu sendiri
+  function convertUnit(unit){
+    if(!unit.isConnected) return;
+    if(unit.tagName === 'TR'){
+      var hosts = collectHosts(unit);
+      for(var i = 0; i < hosts.length; i++) convertHost(hosts[i]);
+    } else {
+      convertHost(unit);
+    }
+  }
+
+  // ---- konversi malas: hanya saat unit terlihat di layar ----
   var io = new IntersectionObserver(function(entries){
     var did = false;
     for(var i = 0; i < entries.length; i++){
@@ -175,27 +213,29 @@
       if(!e.isIntersecting && e.target.isConnected) continue;
       io.unobserve(e.target);
       e.target.__odoPending = false;
-      if(e.target.isConnected){ convertHost(e.target); did = true; }
+      if(e.target.isConnected){ convertUnit(e.target); did = true; }
     }
     if(did) mo.takeRecords();                          // buang catatan mutasi buatan sendiri
   }, { rootMargin: '120px 0px' });
 
-  function queueHost(host){
-    if(host.__odoPending) return;
-    host.__odoPending = true;
-    io.observe(host);
+  function queueUnit(unit){
+    if(unit.__odoPending) return;
+    unit.__odoPending = true;
+    io.observe(unit);
   }
 
   function walk(root){
     var tw = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
-    var n, hosts = [];
+    var n;
     while((n = tw.nextNode())){
       if(!/\d/.test(n.nodeValue)) continue;
       var p = n.parentElement;
-      if(!p || p.__odoPending || p.closest(SKIP)) continue;
-      if(hosts.indexOf(p) === -1) hosts.push(p);
+      if(!p || p.closest(SKIP)) continue;
+      var tr = p.closest('tr');
+      var unit = tr || p;
+      if(unit.__odoPending) continue;
+      queueUnit(unit);
     }
-    for(var i = 0; i < hosts.length; i++) queueHost(hosts[i]);
   }
 
   function scanNode(node){
@@ -245,7 +285,7 @@
     setTimeout(function(){
       var cols = section.querySelectorAll('.odo-c.go');
       var vis = [], vh = window.innerHeight || 800;
-      for(var i = 0; i < cols.length && vis.length < 1500; i++){
+      for(var i = 0; i < cols.length && vis.length < 2500; i++){
         var r = cols[i].getBoundingClientRect();
         if(r.bottom > 0 && r.top < vh) vis.push(cols[i]);
       }
