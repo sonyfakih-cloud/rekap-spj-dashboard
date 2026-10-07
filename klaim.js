@@ -364,10 +364,23 @@ function chg(a,b,good){ /* good: true naik baik, false naik buruk, null netral *
   if(!a) return '';
   const r=(b-a)/a,up=r>0.0005,dn=r<-0.0005;let c='flat';
   if(good!==null){if(up)c=good?'good':'bad';if(dn)c=good?'bad':'good'}
-  return `<span class="kchip ${c}">${up?'▲':dn?'▼':'■'} ${dec(Math.abs(r)*100,1)}%</span>`;
+  return `<span class="kchip ${c}" data-a="${a}" data-b="${b}">${up?'▲':dn?'▼':'■'} ${dec(Math.abs(r)*100,1)}%</span>`;
+}
+
+/* v32: selisih mutlak di bawah chip persen. chip membawa data-a/data-b (nilai asli); angka dibentuk dengan pemformat kartu */
+function dlt(chip,f){
+  const m=/data-a="([^"]*)" data-b="([^"]*)"( data-pp="1")?/.exec(chip||'');if(!m)return '';
+  const a=+m[1],b=+m[2];if(!isFinite(a)||!isFinite(b))return '';
+  const c=(/kchip (good|bad|flat|warn)/.exec(chip)||[])[1]||'flat',ar=/▲/.test(chip)?'+':/▼/.test(chip)?'−':'±';
+  const pn=x=>{const s=String(f(x)),v=parseFloat(s.replace(/[^\d,]/g,'').replace(',','.'));return (/^[\s]*[-−]/.test(s)||/[-−]\s*Rp/.test(s)?-1:1)*v};
+  let t;
+  if(m[3])t=dec(Math.abs(b-a)*100,1)+' pp';                                   /* chip sudah dalam pp: pakai nilai yang sama */
+  else if(/%$/.test(String(f(0.5))))t=dec(Math.abs(pn(b)-pn(a)),1)+' pp';     /* persen: selisih angka yang tampil */
+  else{const A=pn(a),B=pn(b);t=isFinite(A)&&isFinite(B)?f(Math.abs(B-A)):f(Math.abs(b-a))}  /* selisih angka yang tampil (bulat) */
+  return `<span class="dl ${c}">${/ksmall/.test(chip)?'Selisih bulan awal → akhir':'Selisih'} <b>${ar}${t}</b></span>`;
 }
 function kcard(lab,v,f,hint,chip){
-  return `<div class="kpi-card k-kpi"><div class="klab">${lab}</div><div class="kval${String(f(v)).length>13?' long':''}" data-cu="${KC.push([v,f])-1}">${f(v)}</div>${chip?`<div class="krow">${chip}</div>`:''}${hint?`<div class="khint">${hint}</div>`:''}</div>`;
+  return `<div class="kpi-card k-kpi"><div class="klab">${lab}</div><div class="kval${String(f(v)).length>13?' long':''}" data-cu="${KC.push([v,f])-1}">${f(v)}</div>${chip?`<div class="krow">${chip}${dlt(chip,f)}</div>`:''}${hint?`<div class="khint">${hint}</div>`:''}</div>`;
 }
 const empty=msg=>`<div class="card"><p class="knote" style="margin:0">${msg}</p></div>`;
 const caveat=h=>`<div class="kcaveat">${h}</div>`;
@@ -513,7 +526,7 @@ R.ringkasan=()=>{
   const rows=SEL.map(k=>{
     const p=hasP(k)?PM(k):null,q=hasK(k)?KQ(k):null;
     const cau=D.meta.caution||{};
-    const r={k,p,q,dp:p&&prev?chg(prev.amt,p.amt,false)+((cau[k]||cau[prev.k])?'<span class="kchip warn" title="Perubahan ini dipengaruhi berkas yang kemungkinan tidak lengkap (lihat peringatan data)">⚠</span>':''):'',_s:mfull(k)};
+    const r={k,p,q,dp:p&&prev?chg(prev.amt,p.amt,false)+' <span class="ksmall">'+sgn(p.amt-prev.amt,rp)+'</span>'+((cau[k]||cau[prev.k])?'<span class="kchip warn" title="Perubahan ini dipengaruhi berkas yang kemungkinan tidak lengkap (lihat peringatan data)">⚠</span>':''):'',_s:mfull(k)};
     if(p)prev={amt:p.amt,k};return r});
   const cols=[
     {k:'k',h:'Bulan',cls:'l',v:r=>r.k,f:r=>`<b>${mfull(r.k)}</b>`},
@@ -626,6 +639,27 @@ function pill(cx,y,a,s,tone){
   const c=tone==='flat'||Math.abs(p)<0.05?'f':((p>0)===(tone!=='bad')?'g':'r');
   return `<g class="kpill ${c}"><rect x="${cx-wd/2}" y="${y}" width="${wd}" height="16" rx="8"/><text x="${cx}" y="${y+11.5}" text-anchor="middle">${txt}</text></g>`;
 }
+
+/* v32: teks selisih mutlak untuk grafik batang berpasangan (di bawah label baris) */
+function dtxt(a,s,fmt){
+  if(!isFinite(a)||!isFinite(s))return null;
+  const pn=x=>{const t=String(fmt(x)),v=parseFloat(t.replace(/[^\d,]/g,'').replace(',','.'));return (/^\s*[-−]/.test(t)||/[-−]\s*Rp/.test(t)?-1:1)*v};
+  const A=pn(a),B=pn(s);if(!isFinite(A)||!isFinite(B))return null;
+  const d=B-A,isP=/%$/.test(String(fmt(0.5)));
+  const body=isP?dec(Math.abs(d),1)+' pp':fmt(Math.abs(d));
+  if(!/\d/.test(body)||/^\D*0([,.]0+)?\D*$/.test(body))return {t:'±'+body,c:'f'};
+  return {t:(d>0?'+':'−')+body,d};
+}
+function DV_(cx,y,gw,a,sv,fmt,o){
+  const x=dtxt(a,sv,fmt);if(!x||!(a>0)||x.t.length*5.9>gw-2)return '';
+  const c=x.c||((x.d>0)===((o&&o.tone)!=='bad')?'g':'r');
+  return `<text class="kdl ${(o&&o.tone)==='flat'?'f':c}" x="${cx}" y="${y}" text-anchor="middle">${x.t}</text>`;
+}
+function DL_(r,y,bh,fmt,o){
+  const x=dtxt(r.a,r.s,fmt);if(!x||!(r.a>0))return '';
+  const c=x.c||((x.d>0)===((o&&o.tone)!=='bad')?'g':'r');
+  return `<text class="kdl ${(o&&o.tone)==='flat'?'f':c}" x="0" y="${y+2*bh+3}">${x.t}</text>`;
+}
 function hbars2(el,rows,o={}){
   const u=++KG2,w=W(el),fmt=o.fmt||nf.format,lw=Math.min(o.lw||250,Math.floor(w*(w<520?.3:.42))),vp=w<520?120:158,rh=38,bh=11,oy=26;
   const max=Math.max(...rows.flatMap(r=>[r.a,r.s]),1),sc=Math.max(10,w-lw-vp)/max;
@@ -633,7 +667,7 @@ function hbars2(el,rows,o={}){
   rows.forEach((r,i)=>{
     const y=i*rh+oy,wa=r.a*sc,ws=r.s*sc;
     s+=`<g data-ktip="${esc(tipCmp(r.label,r.a,r.s,fmt))}"><rect x="0" y="${y-4}" width="${w}" height="${rh-2}" fill="transparent"/>`+
-       `<text class="klbl v" x="0" y="${y+bh+5}">${esc(trunc(r.label,Math.floor(lw/6.3)))}</text>`+
+       `<text class="klbl v" x="0" y="${y+bh-1}">${esc(trunc(r.label,Math.floor(lw/6.3)))}</text>`+DL_(r,y,bh,fmt,o)+
        bar3(lw,y,Math.max(wa,r.a>0?2:0),bh,'fa',u,'bh',i*2)+`<text class="kv" x="${lw+wa+6}" y="${y+bh-1}">${fmt(r.a)}</text>`+
        bar3(lw,y+bh+4,Math.max(ws,r.s>0?2:0),bh,'fs',u,'bh',i*2+1)+`<text class="kv" x="${lw+ws+6}" y="${y+2*bh+3}">${fmt(r.s)}</text>`+
        pill(w-30,y+bh-8,r.a,r.s,o.tone)+`</g>`;
@@ -641,7 +675,7 @@ function hbars2(el,rows,o={}){
   el.innerHTML=s+'</svg>';
 }
 function vbars2(el,labels,a,sv,o={}){
-  const u=++KG2,w=W(el),h=(o.h||240)+16,fmt=o.fmt||nf.format,ax=o.ax||(fmt===rp?rpAx:fmt),l=Math.max(40,String(ax(Math.max(...a,...sv,1))).length*7+10),r=10,t=52,b=26;
+  const u=++KG2,w=W(el),h=(o.h||240)+16,fmt=o.fmt||nf.format,ax=o.ax||(fmt===rp?rpAx:fmt),l=Math.max(40,String(ax(Math.max(...a,...sv,1))).length*7+10),r=10,t=52,b=38;
   const mx=niceMax(Math.max(...a,...sv,1)),pw=w-l-r,ph=h-t-b,n=labels.length,gw=pw/n,bw=Math.min(34,gw*.3);
   let s=`<svg width="${w}" height="${h}" role="img" aria-label="${esc(o.title||'Grafik batang')}">${GLOSS(u)}${legendSvg(w)}`;
   for(let i=0;i<=4;i++){const y=t+ph-ph*i/4;s+=`<line class="kgrid" x1="${l}" x2="${w-r}" y1="${y}" y2="${y}"/><text x="${l-6}" y="${y+4}" text-anchor="end">${ax(mx*i/4)}</text>`}
@@ -653,7 +687,7 @@ function vbars2(el,labels,a,sv,o={}){
        bar3(cx+2,t+ph-Math.max(hs,sv[i]>0?2:0),bw,Math.max(hs,sv[i]>0?2:0),'fs',u,'bv',i*2+1);
     if(gw>=86)s+=`<text class="kv" x="${cx-bw/2-2}" y="${t+ph-ha-5}" text-anchor="middle" font-size="10">${fmt(a[i])}</text><text class="kv" x="${cx+bw/2+2}" y="${t+ph-hs-5}" text-anchor="middle" font-size="10">${fmt(sv[i])}</text>`;
     if(gw>=46)s+=pill(cx,Math.max(24,top-(gw>=86?34:22)),a[i],sv[i],o.tone);
-    s+=`<text class="klbl" x="${cx}" y="${h-8}" text-anchor="middle">${esc(trunc(lb,Math.floor(gw/6.2)+2))}</text></g>`;
+    s+=`<text class="klbl" x="${cx}" y="${h-21}" text-anchor="middle">${esc(trunc(lb,Math.floor(gw/6.2)+2))}</text>${DV_(cx,h-7,gw,a[i],sv[i],fmt,o)}</g>`;
   });
   el.innerHTML=s+'</svg>';
 }
@@ -672,7 +706,7 @@ function diverge2(el,rows,o={}){
   s+=`<line class="axis" x1="${z}" x2="${z}" y1="0" y2="${rows.length*rh+8}"/>`;
   el.innerHTML=s+'</svg>';
 }
-const chgPP=(a,b,good)=>{const d=(b-a)*100,up=d>0.05,dn=d<-0.05;let c='flat';if(good!==null){if(up)c=good?'good':'bad';if(dn)c=good?'bad':'good'}return `<span class="kchip ${c}">${up?'▲':dn?'▼':'■'} ${dec(Math.abs(d),1)} pp</span>`};
+const chgPP=(a,b,good)=>{const d=(b-a)*100,up=d>0.05,dn=d<-0.05;let c='flat';if(good!==null){if(up)c=good?'good':'bad';if(dn)c=good?'bad':'good'}return `<span class="kchip ${c}" data-a="${a}" data-b="${b}" data-pp="1">${up?'▲':dn?'▼':'■'} ${dec(Math.abs(d),1)} pp</span>`};
 
 /* ----- mesin tab 2 bulan pending ----- */
 const PT=[['ringkasan','Ringkasan'],['ri','Rawat inap'],['rj','Rawat jalan'],['sebab','Penyebab pending'],['kasus','INA-CBG'],['dpjp','DPJP'],['data','Kualitas data']];
@@ -695,7 +729,7 @@ const J=(m,j)=>j==='RI'?m.ri:j==='RJ'?m.rj:{n:m.n,amt:m.amt};
 const JNm={ALL:'Semua',RI:'Rawat inap',RJ:'Rawat jalan'};
 function pCards(j){
   const [A,B]=SEL,a=PM(A),b=PM(B),ja=J(a,j),jb=J(b,j);
-  const card=(lab,va,vs,f,ch,hint)=>`<div class="kpi-card k-kpi"><div class="klab">${lab}</div><div class="kval${String(f(vs)).length>13?' long':''}" data-cu="${KC.push([vs,f])-1}">${f(vs)}</div><div class="krow"><span class="a">${esc(DS[0])} <b>${f(va)}</b></span><span class="s">${esc(DS[1])} ${ch}</span></div>${hint?`<div class="khint">${hint}</div>`:''}</div>`;
+  const card=(lab,va,vs,f,ch,hint)=>`<div class="kpi-card k-kpi"><div class="klab">${lab}</div><div class="kval${String(f(vs)).length>13?' long':''}" data-cu="${KC.push([vs,f])-1}">${f(vs)}</div><div class="krow"><span class="a">${esc(DS[0])} <b>${f(va)}</b></span><span class="s">${esc(DS[1])} ${ch}</span>${dlt(ch,f)}</div>${hint?`<div class="khint">${hint}</div>`:''}</div>`;
   let h='<div class="kgrid kkpis">'+
     card('SEP pending',ja.n,jb.n,nf.format,chg(ja.n,jb.n,false))+
     card('Nilai pending',ja.amt,jb.amt,rpF,chg(ja.amt,jb.amt,false),'Nilai ajuan SEP yang masih pending')+
@@ -1706,15 +1740,15 @@ const pct = (x,d=1)=>dec(x*100,d)+'%';
 const sg = (n,f)=> (n>0?'+':n<0?'−':'')+f(Math.abs(n));
 // perubahan relatif; good: true = naik baik, false = naik buruk, null = netral
 function chg(a,b,good=true){
-  if(!a) return b?'<span class="kchip flat">baru</span>':'<span class="kchip flat">–</span>';
+  if(!a) return b?`<span class="kchip flat" data-a="${a}" data-b="${b}">baru</span>`:'<span class="kchip flat">–</span>';
   const r=(b-a)/a, up=r>0.0005, dn=r<-0.0005; let c='flat';
   if(good!==null){ if(up) c=good?'good':'bad'; if(dn) c=good?'bad':'good'; }
-  return `<span class="kchip ${c}">${up?'▲':dn?'▼':'■'} ${dec(Math.abs(r)*100,1)}%</span>`;
+  return `<span class="kchip ${c}" data-a="${a}" data-b="${b}">${up?'▲':dn?'▼':'■'} ${dec(Math.abs(r)*100,1)}%</span>`;
 }
 function chgPP(a,b,good=true){
   const d=(b-a)*100, up=d>0.05, dn=d<-0.05; let c='flat';
   if(up) c=good?'good':'bad'; if(dn) c=good?'bad':'good';
-  return `<span class="kchip ${c}">${up?'▲':dn?'▼':'■'} ${dec(Math.abs(d),1)} pp</span>`;
+  return `<span class="kchip ${c}" data-a="${a}" data-b="${b}" data-pp="1">${up?'▲':dn?'▼':'■'} ${dec(Math.abs(d),1)} pp</span>`;
 }
 const title = s=>s.toLowerCase().replace(/(^|[\s\/(])([a-z])/g,(m,a,c)=>a+c.toUpperCase());
 const trunc=(s,n)=>s.length>n?s.slice(0,n-1)+'…':s;
@@ -1747,6 +1781,27 @@ function pill(cx,y,a,s,tone){
   const c=tone==='flat'||Math.abs(p)<0.05?'f':((p>0)===(tone!=='bad')?'g':'r');
   return `<g class="kpill ${c}"><rect x="${cx-wd/2}" y="${y}" width="${wd}" height="16" rx="8"/><text x="${cx}" y="${y+11.5}" text-anchor="middle">${txt}</text></g>`;
 }
+
+/* v32: teks selisih mutlak untuk grafik batang berpasangan (di bawah label baris) */
+function dtxt(a,s,fmt){
+  if(!isFinite(a)||!isFinite(s))return null;
+  const pn=x=>{const t=String(fmt(x)),v=parseFloat(t.replace(/[^\d,]/g,'').replace(',','.'));return (/^\s*[-−]/.test(t)||/[-−]\s*Rp/.test(t)?-1:1)*v};
+  const A=pn(a),B=pn(s);if(!isFinite(A)||!isFinite(B))return null;
+  const d=B-A,isP=/%$/.test(String(fmt(0.5)));
+  const body=isP?dec(Math.abs(d),1)+' pp':fmt(Math.abs(d));
+  if(!/\d/.test(body)||/^\D*0([,.]0+)?\D*$/.test(body))return {t:'±'+body,c:'f'};
+  return {t:(d>0?'+':'−')+body,d};
+}
+function DV_(cx,y,gw,a,sv,fmt,o){
+  const x=dtxt(a,sv,fmt);if(!x||!(a>0)||x.t.length*5.9>gw-2)return '';
+  const c=x.c||((x.d>0)===((o&&o.tone)!=='bad')?'g':'r');
+  return `<text class="kdl ${(o&&o.tone)==='flat'?'f':c}" x="${cx}" y="${y}" text-anchor="middle">${x.t}</text>`;
+}
+function DL_(r,y,bh,fmt,o){
+  const x=dtxt(r.a,r.s,fmt);if(!x||!(r.a>0))return '';
+  const c=x.c||((x.d>0)===((o&&o.tone)!=='bad')?'g':'r');
+  return `<text class="kdl ${(o&&o.tone)==='flat'?'f':c}" x="0" y="${y+2*bh+3}">${x.t}</text>`;
+}
 function hbars(el,rows,o={}){
   const u=++KG,w=W(el),fmt=o.fmt||nf.format,lw=o.lw||Math.min(Math.floor(w*.42),250),vp=158,rh=38,bh=11,oy=26;
   const max=Math.max(...rows.flatMap(r=>[r.a,r.s]),1),sc=(w-lw-vp)/max;
@@ -1754,7 +1809,7 @@ function hbars(el,rows,o={}){
   rows.forEach((r,i)=>{
     const y=i*rh+oy, wa=r.a*sc, ws=r.s*sc;
     s+=`<g data-ktip="${esc(tipCmp(r.label,r.a,r.s,fmt))}"><rect x="0" y="${y-4}" width="${w}" height="${rh-2}" fill="transparent"/>`+
-       `<text class="klbl v" x="0" y="${y+bh+5}">${esc(trunc(r.label,Math.floor(lw/6.3)))}</text>`+
+       `<text class="klbl v" x="0" y="${y+bh-1}">${esc(trunc(r.label,Math.floor(lw/6.3)))}</text>`+DL_(r,y,bh,fmt,o)+
        bar3(lw,y,Math.max(wa,r.a>0?2:0),bh,'fa',u,'bh',i*2)+`<text class="kv" x="${lw+wa+6}" y="${y+bh-1}">${fmt(r.a)}</text>`+
        bar3(lw,y+bh+4,Math.max(ws,r.s>0?2:0),bh,'fs',u,'bh',i*2+1)+`<text class="kv" x="${lw+ws+6}" y="${y+2*bh+3}">${fmt(r.s)}</text>`+
        pill(w-30,y+bh-8,r.a,r.s,o.tone)+`</g>`;
@@ -1762,7 +1817,7 @@ function hbars(el,rows,o={}){
   el.innerHTML=s+'</svg>';
 }
 function vbars(el,labels,a,sv,o={}){
-  const u=++KG,w=W(el),h=(o.h||240)+16,fmt=o.fmt||nf.format,ax=o.ax||(fmt===rp?rpAx:fmt),l=o.pct?44:Math.max(40,String(ax(Math.max(...a,...sv))).length*7+10),r=10,t=52,b=26;
+  const u=++KG,w=W(el),h=(o.h||240)+16,fmt=o.fmt||nf.format,ax=o.ax||(fmt===rp?rpAx:fmt),l=o.pct?44:Math.max(40,String(ax(Math.max(...a,...sv))).length*7+10),r=10,t=52,b=38;
   const mx=niceMax(Math.max(...a,...sv)),pw=w-l-r,ph=h-t-b,n=labels.length,gw=pw/n,bw=Math.min(34,gw*.3);
   let s=`<svg width="${w}" height="${h}" role="img" aria-label="${esc(o.title||'Grafik batang')}">${GLOSS(u)}${legendSvg(w)}`;
   for(let i=0;i<=4;i++){const y=t+ph-ph*i/4;s+=`<line class="kgrid" x1="${l}" x2="${w-r}" y1="${y}" y2="${y}"/><text x="${l-6}" y="${y+4}" text-anchor="end">${ax(mx*i/4)}</text>`}
@@ -1774,7 +1829,7 @@ function vbars(el,labels,a,sv,o={}){
        bar3(cx+2,t+ph-Math.max(hs,sv[i]>0?2:0),bw,Math.max(hs,sv[i]>0?2:0),'fs',u,'bv',i*2+1);
     if(gw>=86){s+=`<text class="kv" x="${cx-bw/2-2}" y="${t+ph-ha-5}" text-anchor="middle" font-size="10">${fmt(a[i])}</text><text class="kv" x="${cx+bw/2+2}" y="${t+ph-hs-5}" text-anchor="middle" font-size="10">${fmt(sv[i])}</text>`}
     if(gw>=46) s+=pill(cx,Math.max(24,top-(gw>=86?34:22)),a[i],sv[i],o.tone);
-    s+=`<text class="klbl" x="${cx}" y="${h-8}" text-anchor="middle">${esc(trunc(lb,Math.floor(gw/6.2)+2))}</text></g>`;
+    s+=`<text class="klbl" x="${cx}" y="${h-21}" text-anchor="middle">${esc(trunc(lb,Math.floor(gw/6.2)+2))}</text>${DV_(cx,h-7,gw,a[i],sv[i],fmt,o)}</g>`;
   });
   el.innerHTML=s+'</svg>';
 }
@@ -1937,9 +1992,22 @@ function countUp(root){
   if(reduceMotion())return;
   root.querySelectorAll('[data-cu]').forEach(e=>{const [v,f]=KC[+e.dataset.cu];odo(e,f(v))});
 }
+
+/* v32: selisih mutlak di bawah chip persen. chip membawa data-a/data-b (nilai asli); angka dibentuk dengan pemformat kartu */
+function dlt(chip,f){
+  const m=/data-a="([^"]*)" data-b="([^"]*)"( data-pp="1")?/.exec(chip||'');if(!m)return '';
+  const a=+m[1],b=+m[2];if(!isFinite(a)||!isFinite(b))return '';
+  const c=(/kchip (good|bad|flat|warn)/.exec(chip)||[])[1]||'flat',ar=/▲/.test(chip)?'+':/▼/.test(chip)?'−':'±';
+  const pn=x=>{const s=String(f(x)),v=parseFloat(s.replace(/[^\d,]/g,'').replace(',','.'));return (/^[\s]*[-−]/.test(s)||/[-−]\s*Rp/.test(s)?-1:1)*v};
+  let t;
+  if(m[3])t=dec(Math.abs(b-a)*100,1)+' pp';                                   /* chip sudah dalam pp: pakai nilai yang sama */
+  else if(/%$/.test(String(f(0.5))))t=dec(Math.abs(pn(b)-pn(a)),1)+' pp';     /* persen: selisih angka yang tampil */
+  else{const A=pn(a),B=pn(b);t=isFinite(A)&&isFinite(B)?f(Math.abs(B-A)):f(Math.abs(b-a))}  /* selisih angka yang tampil (bulat) */
+  return `<span class="dl ${c}">${/ksmall/.test(chip)?'Selisih bulan awal → akhir':'Selisih'} <b>${ar}${t}</b></span>`;
+}
 function kpiCards(j){
   const a=K('Agu',j),s=K('Sep',j);
-  const card=(lab,va,vs,f,ch,hint)=>`<div class="kpi-card k-kpi"><div class="klab">${lab}</div><div class="kval${String(f(vs)).length>13?' long':''}" data-cu="${KC.push([vs,f])-1}">${f(vs)}</div><div class="krow"><span class="a">${LA} <b>${f(va)}</b></span><span class="s">${LB} ${ch}</span></div>${hint?`<div class="khint">${hint}</div>`:''}</div>`;
+  const card=(lab,va,vs,f,ch,hint)=>`<div class="kpi-card k-kpi"><div class="klab">${lab}</div><div class="kval${String(f(vs)).length>13?' long':''}" data-cu="${KC.push([vs,f])-1}">${f(vs)}</div><div class="krow"><span class="a">${LA} <b>${f(va)}</b></span><span class="s">${LB} ${ch}</span>${dlt(ch,f)}</div>${hint?`<div class="khint">${hint}</div>`:''}</div>`;
   return '<div class="kgrid kkpis">'+
    card('Jumlah klaim',a.n,s.n,nf.format,chg(a.n,s.n,true))+
    card('Pendapatan klaim INA-CBG',a.tot,s.tot,rpF,chg(a.tot,s.tot,true),'Total tarif yang diajukan')+
@@ -2053,7 +2121,7 @@ R.tren=()=>{
     ['Klaim RI per hari kalender',perDay.ri[0],perDay.ri[1],true,x=>dec(x,1)],
     ['Pendapatan RI per hari kalender',perDay.riRev[0],perDay.riRev[1],true,rp]];
   document.getElementById('dk-tb-norm').innerHTML='<table><thead><tr><th class="l">Ukuran</th><th class="num">'+LA+'</th><th class="num">'+LB+'</th><th class="num">Δ</th></tr></thead><tbody>'+
-    rows.map(r=>`<tr><td class="l">${r[0]}</td><td class="num">${r[4](r[1])}</td><td class="num">${r[4](r[2])}</td><td class="num">${r[3]===null?'<span class="kchip flat">'+sg(r[2]-r[1],nf.format)+'</span>':chg(r[1],r[2],r[3])}</td></tr>`).join('')+'</tbody></table>';
+    rows.map(r=>`<tr><td class="l">${r[0]}</td><td class="num">${r[4](r[1])}</td><td class="num">${r[4](r[2])}</td><td class="num">${r[3]===null?'<span class="kchip flat">'+sg(r[2]-r[1],nf.format)+'</span>':chg(r[1],r[2],r[3])+' <span class="ksmall">'+sg(r[2]-r[1],r[4])+'</span>'}</td></tr>`).join('')+'</tbody></table>';
   vbars(document.getElementById('dk-c-dow'),dn,dowSum('Agu','RJ'),dowSum('Sep','RJ'),{tone:'flat',title:'Klaim RJ menurut hari'});
 };
 

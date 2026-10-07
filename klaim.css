@@ -323,3 +323,16 @@ html.mode-hp #appRootKlaim .krow{flex-direction:column;align-items:flex-start;ga
 html.mode-hp #appRootKlaim .krow span{white-space:normal}
 html.mode-hp #appRootKlaim .krow b,html.mode-hp #appRootKlaim .krow .kchip{white-space:nowrap}
 html.mode-hp #appRootKlaim .kval.long{font-size:13px;letter-spacing:-.3px;word-break:normal;white-space:nowrap}
+/* v32: baris selisih mutlak pada kartu KPI */
+#appRootKlaim .krow .dl{flex-basis:100%;white-space:normal;font-weight:500;}
+#appRootKlaim .krow .dl b{white-space:nowrap}
+#appRootKlaim .krow .dl::before{display:none;}
+#appRootKlaim .krow .dl b{color:inherit;font-weight:700;}
+#appRootKlaim .krow .dl.good{color:var(--k-good);}
+#appRootKlaim .krow .dl.bad{color:var(--k-bad);}
+#appRootKlaim .krow .dl.flat{color:var(--k-ink2);}
+html.mode-hp #appRootKlaim .krow .dl{white-space:normal;flex-basis:auto}
+
+/* v32: selisih mutlak di bawah label grafik batang berpasangan */
+#appRootKlaim .kdl{font-size:10.5px;font-weight:600;font-variant-numeric:tabular-nums;}
+#appRootKlaim .kdl.g{fill:var(--k-good);} #appRootKlaim .kdl.r{fill:var(--k-bad);} #appRootKlaim .kdl.f{fill:var(--k-ink2);}
