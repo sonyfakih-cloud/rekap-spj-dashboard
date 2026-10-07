@@ -727,7 +727,7 @@ function renderKomponenFallbackTable(d){
 const KOMPONEN_WARNA = {
   pegawai:     { color:'#84AAF3', label:'Belanja Pegawai' },
   barang_jasa: { color:'#63CAD3', label:'Belanja Barang & Jasa' },
-  modal:       { color:'#F4BA84', label:'Belanja Modal' },
+  modal:       { color:'#63CAD3', label:'Belanja Modal' },
 };
 
 // PENTING: "Lainnya" (kode 2.1.1 dkk) BUKAN belanja -- itu pos Utang/Kewajiban
@@ -3182,7 +3182,7 @@ function updateRingkasanPeriodeLabelP_(){
 
 const KOMPONEN_WARNA_PENDAPATAN = {
   retribusi: { color:'#84AAF3', label:'Retribusi Daerah' },
-  blud:       { color:'#F4BA84', label:'Lain-lain PAD (BLUD, dst)' },
+  blud:       { color:'#63CAD3', label:'Lain-lain PAD (BLUD, dst)' },
 };
 
 function renderRingkasanPendapatan(){
@@ -3272,7 +3272,7 @@ function renderTrenPendapatan(){
     detailTable.innerHTML = buildMultiRowDetailTableHtml_(
       labels.map(periodeLabelShort_),
       [
-        {label:'Pendapatan Bulan Ini', data:bulanIni, color:'#F4BA84'},
+        {label:'Pendapatan Bulan Ini', data:bulanIni, color:'#63CAD3'},
         {label:'Pendapatan s.d Bulan Ini (kumulatif)', data:sd, color:'#84AAF3'},
       ]
     );
@@ -3283,7 +3283,7 @@ function renderTrenPendapatan(){
     data:{
       labels,
       datasets:[
-        {type:'bar', label:'Pendapatan Bulan Ini', data:bulanIni, backgroundColor:'rgba(244,186,132,0.55)', borderRadius:6, order:2},
+        {type:'bar', label:'Pendapatan Bulan Ini', data:bulanIni, backgroundColor:'rgba(99,202,211,0.55)', borderRadius:6, order:2},
         {type:'line', label:'Pendapatan s.d Bulan Ini (kumulatif)', data:sd, borderColor:'#84AAF3', backgroundColor:'rgba(132,170,243,0.15)', tension:0, yAxisID:'y1', order:1, pointRadius:2},
       ]
     },
@@ -3604,7 +3604,7 @@ function initHub(){
    Tidak punya sumber data sendiri -- murni menggabungkan STATE.tren
    (Belanja, sudah dimuat modul Belanja) & STATE_P.tren (Pendapatan,
    sudah dimuat modul Pendapatan). Warna konsisten dipakai di ketiga
-   grafik: Belanja = biru (#84AAF3), Pendapatan = oranye (#F4BA84) --
+   grafik: Belanja = biru (#84AAF3), Pendapatan = teal (#63CAD3) --
    sama dengan warna aksen utama tiap modul aslinya.
    ================================================================ */
 
@@ -3857,7 +3857,7 @@ function renderTrenYearlyG_(){
   const wrapBelanja = $('#trenYearlyDetailWrapBelanja');
   const captionBelanja = $('#trenYearlyDetailCaptionBelanja');
   const tableBelanja = $('#trenYearlyDetailTableBelanja');
-  if(captionPendapatan) captionPendapatan.innerHTML = '<span class="range-dot" style="background:#F4BA84"></span>Pendapatan';
+  if(captionPendapatan) captionPendapatan.innerHTML = '<span class="range-dot" style="background:#63CAD3"></span>Pendapatan';
   if(tablePendapatan) tablePendapatan.innerHTML = buildAlignedRowTableHtml_(years, pendapatan);
   if(captionBelanja) captionBelanja.innerHTML = '<span class="range-dot" style="background:#84AAF3"></span>Belanja';
   if(tableBelanja) tableBelanja.innerHTML = buildAlignedRowTableHtml_(years, belanja);
@@ -3869,7 +3869,7 @@ function renderTrenYearlyG_(){
     data:{
       labels: years,
       datasets:[
-        {label:'Pendapatan', data:pendapatan, backgroundColor:'#F4BA84', borderRadius:6, maxBarThickness:70},
+        {label:'Pendapatan', data:pendapatan, backgroundColor:'#63CAD3', borderRadius:6, maxBarThickness:70},
         {label:'Belanja', data:belanja, backgroundColor:'#84AAF3', borderRadius:6, maxBarThickness:70},
       ]
     },
@@ -4240,7 +4240,7 @@ function renderTrenGabungan(){
       labels: periods,
       datasets:[
         {label:'Belanja', data:dataBelanja, borderColor:'#84AAF3', backgroundColor:'rgba(132,170,243,0.12)', tension:0, pointRadius:2, borderWidth:2.5, spanGaps:true},
-        {label:'Pendapatan', data:dataPendapatan, borderColor:'#F4BA84', backgroundColor:'rgba(244,186,132,0.12)', tension:0, pointRadius:2, borderWidth:2.5, spanGaps:true},
+        {label:'Pendapatan', data:dataPendapatan, borderColor:'#63CAD3', backgroundColor:'rgba(99,202,211,0.12)', tension:0, pointRadius:2, borderWidth:2.5, spanGaps:true},
       ]
     },
     options:{
@@ -4323,7 +4323,7 @@ function renderTrenRangeCompareG(){
 
   summary.innerHTML = `
     <div class="range-stat"><div class="lbl"><span class="range-dot" style="background:#84AAF3"></span>Total Belanja ${rangeLabel}</div><div class="val">Rp ${fmt(totalBelanja)}</div></div>
-    <div class="range-stat"><div class="lbl"><span class="range-dot" style="background:#F4BA84"></span>Total Pendapatan ${rangeLabel}</div><div class="val">Rp ${fmt(totalPendapatan)}</div></div>
+    <div class="range-stat"><div class="lbl"><span class="range-dot" style="background:#63CAD3"></span>Total Pendapatan ${rangeLabel}</div><div class="val">Rp ${fmt(totalPendapatan)}</div></div>
     <div class="range-stat diff"><div class="lbl">${selisihLabel} (Pendapatan − Belanja)</div><div class="val ${selisihClass}">${selisihText}</div></div>
   `;
 
@@ -4335,7 +4335,7 @@ function renderTrenRangeCompareG(){
       labels,
       datasets:[
         {label:'Belanja', data:dataBelanja, borderColor:'#84AAF3', backgroundColor:'rgba(132,170,243,0.12)', tension:0, pointRadius:4, borderWidth:3, spanGaps:true},
-        {label:'Pendapatan', data:dataPendapatan, borderColor:'#F4BA84', backgroundColor:'rgba(244,186,132,0.12)', tension:0, pointRadius:4, borderWidth:3, spanGaps:true},
+        {label:'Pendapatan', data:dataPendapatan, borderColor:'#63CAD3', backgroundColor:'rgba(99,202,211,0.12)', tension:0, pointRadius:4, borderWidth:3, spanGaps:true},
       ]
     },
     options:{
@@ -4413,7 +4413,7 @@ function renderTrenSameMonthCompareG(){
       labels: years,
       datasets:[
         {label:'Belanja', data:belanjaValues, backgroundColor:'#84AAF3', borderRadius:8, borderSkipped:false, maxBarThickness:60},
-        {label:'Pendapatan', data:pendapatanValues, backgroundColor:'#F4BA84', borderRadius:8, borderSkipped:false, maxBarThickness:60},
+        {label:'Pendapatan', data:pendapatanValues, backgroundColor:'#63CAD3', borderRadius:8, borderSkipped:false, maxBarThickness:60},
       ]
     },
     options:{
@@ -4630,9 +4630,9 @@ const PEND_KATEGORI_ = [
   {label:'Retrib. Sewa Tanah dan Bangunan'}, {label:'Retrib. Pelayanan Tempat Khusus Parkir'},
   {label:'Lain-lain PAD yang Sah'},
 ];
-const PEND_KAT_WARNA_ = {'2024':'#A8B5D9', '2025':'#84AAF3', '2026':'#FFFFC5'};   // 2026 = kuning pilihan user (bukan oranye/coklat)
+const PEND_KAT_WARNA_ = {'2024':'#A8B5D9', '2025':'#84AAF3', '2026':'#63CAD3'};   // 2026 = warna pilihan user (teal), bukan oranye/kuning
 // warna tiap KATEGORI (donat) -- urut sama dgn PEND_KATEGORI_
-const PEND_KAT_WARNA_KATEGORI_ = ['#84AAF3','#FFFFC5','#7ED3B2','#C3A6F0','#F28B9B','#F2D16B','#8FD0E8'];
+const PEND_KAT_WARNA_KATEGORI_ = ['#84AAF3','#63CAD3','#7ED3B2','#C3A6F0','#F28B9B','#A9B8E8','#7FA6C9'];
 const PEND_KAT_CHARTS_ = {};
 
 function pendKategoriData_(){
@@ -4786,7 +4786,7 @@ function renderPendKategoriChart_(suffix){
     type:'bar',
     data:{
       labels: cats.map(c=>wrapLabelKatP_(c, 16)),
-      datasets: d.series.map(s=>({ label: s.year, data: valsFor(s), backgroundColor: PEND_KAT_WARNA_[s.year], borderColor: s.year === '2026' ? '#E3DD8F' : 'transparent', borderWidth: s.year === '2026' ? 1 : 0, borderRadius:5, maxBarThickness:46 }))
+      datasets: d.series.map(s=>({ label: s.year, data: valsFor(s), backgroundColor: PEND_KAT_WARNA_[s.year], borderWidth: 0, borderRadius:5, maxBarThickness:46 }))
     },
     options:{
       responsive:true, maintainAspectRatio:false,
