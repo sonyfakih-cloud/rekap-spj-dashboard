@@ -2,8 +2,8 @@
    Sumber: laporan realisasi pendapatan resmi (Rekap). */
 const KATEGORI_PENDAPATAN_RESMI = {
  "sumber": "Rekap_Pendapatan_2024_2025_2026.xlsx (laporan realisasi pendapatan bulanan)",
- "dibuat": "2026-10-07 20:16",
- "bulan_terakhir": 9,
+ "dibuat": "2026-10-08 04:38",
+ "bulan_terakhir": 10,
  "kategori": [
   "Pasien Umum",
   "BPJS",
@@ -256,7 +256,8 @@ const KATEGORI_PENDAPATAN_RESMI = {
     7185637004,
     6839948078,
     6346610394,
-    6360346899
+    6494348250,
+    124565727
    ],
    "kat": {
     "Pasien Umum": [
@@ -268,7 +269,8 @@ const KATEGORI_PENDAPATAN_RESMI = {
      482393614,
      408571814,
      395780646,
-     322652925
+     405236451,
+     72578487
     ],
     "BPJS": [
      6548563156,
@@ -279,7 +281,8 @@ const KATEGORI_PENDAPATAN_RESMI = {
      6542599843,
      6215102569,
      5800280474,
-     5889710820
+     5924441620,
+     0
     ],
     "Pihak Ketiga": [
      138881222,
@@ -290,9 +293,11 @@ const KATEGORI_PENDAPATAN_RESMI = {
      90055777,
      141750436,
      82343925,
-     93662899
+     97335135,
+     31961798
     ],
     "SKTM": [
+     0,
      0,
      0,
      0,
@@ -312,7 +317,8 @@ const KATEGORI_PENDAPATAN_RESMI = {
      9094400,
      11990000,
      2050000,
-     400000
+     800000,
+     1200000
     ],
     "Retrib. Pelayanan Tempat Khusus Parkir": [
      69730977,
@@ -323,7 +329,8 @@ const KATEGORI_PENDAPATAN_RESMI = {
      54504000,
      56242000,
      50025000,
-     47429000
+     57095000,
+     12642000
     ],
     "Lain-lain PAD yang Sah": [
      6783878,
@@ -334,7 +341,8 @@ const KATEGORI_PENDAPATAN_RESMI = {
      6989370,
      6291259,
      16130349,
-     6491255
+     9440044,
+     6183442
     ]
    }
   }
