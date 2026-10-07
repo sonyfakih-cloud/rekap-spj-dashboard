@@ -4612,64 +4612,42 @@ function refreshKhususDependentViews_(){
 
 
 /* ---------------- Grafik Batang Kategori Pendapatan (Pendapatan & Gabungan) ----------------
-   7 kategori (urut sama dgn daftar yang diminta user): Pasien Umum, BPJS, Pihak Ketiga,
-   SKTM, Retrib. Sewa Tanah dan Bangunan, Retrib. Pelayanan Tempat Khusus Parkir,
-   Lain-lain PAD yang Sah. Dicari lewat NAMA akun (bukan kode) di pohon Khusus Tahun
-   Pendapatan, karena konvensi kode 2024/2025 beda dgn 2026 (nama sama -- sudah dicek
-   langsung dari ?view=khusus_pendapatan). Nilai = realisasi kumulatif Jan s.d. bulan
-   acuan (sama dgn Ringkasan/Perbandingan: perbandinganRefMonthIdxP_), 3 tahun
-   berdampingan. Akun yang tidak punya baris di suatu tahun (mis. SKTM 2026) dihitung 0
-   & dicatat di keterangan -- bukan disembunyikan. */
+   7 kategori: Pasien Umum, BPJS, Pihak Ketiga, SKTM, Retrib. Sewa Tanah dan Bangunan,
+   Retrib. Pelayanan Tempat Khusus Parkir, Lain-lain PAD yang Sah.
+   SUMBER = LAPORAN REALISASI PENDAPATAN RESMI (Rekap_Pendapatan_2024_2025_2026.xlsx),
+   BUKAN BKU -- lewat data_kategori_pendapatan.js yang dibuat skrip
+   buat_data_kategori_pendapatan.py tiap bulan. (Versi BKU dulu dibuang: BKU 2024 punya
+   bulan Jun/Ags/Sep/Okt yang transaksinya dicatat di kode induk tanpa rincian, sehingga
+   batang kategori 2024 jauh terlalu rendah.) Nilai = realisasi kumulatif Jan s.d. bulan
+   resmi terakhir (KATEGORI_PENDAPATAN_RESMI.bulan_terakhir), sama untuk 3 tahun. */
 const PEND_KATEGORI_ = [
-  {label:'Pasien Umum',                           test:n=>/\(pasien umum\)/.test(n)},
-  {label:'BPJS',                                  test:n=>n==='bpjs'},
-  {label:'Pihak Ketiga',                          test:n=>n==='pihak ketiga'},
-  {label:'SKTM',                                  test:n=>n==='pendapatan sktm'},
-  {label:'Retrib. Sewa Tanah dan Bangunan',       test:n=>n==='retribusi penyewaan tanah dan bangunan'},
-  {label:'Retrib. Pelayanan Tempat Khusus Parkir',test:n=>n==='retribusi pelayanan tempat khusus parkir'},
-  {label:'Lain-lain PAD yang Sah',                test:n=>n==='lain-lain pad yang sah'},
+  {label:'Pasien Umum'}, {label:'BPJS'}, {label:'Pihak Ketiga'}, {label:'SKTM'},
+  {label:'Retrib. Sewa Tanah dan Bangunan'}, {label:'Retrib. Pelayanan Tempat Khusus Parkir'},
+  {label:'Lain-lain PAD yang Sah'},
 ];
 const PEND_KAT_WARNA_ = {'2024':'#A8B5D9', '2025':'#84AAF3', '2026':'#F4BA84'};
 const PEND_KAT_CHARTS_ = {};
 
-function normNamaKatP_(s){ return String(s||'').replace(/^[-\s]+/,'').trim().toLowerCase(); }
-
 function pendKategoriData_(){
+  const R = (typeof KATEGORI_PENDAPATAN_RESMI !== 'undefined') ? KATEGORI_PENDAPATAN_RESMI : null;
+  if(!R || !R.tahun || !R.bulan_terakhir) return { adaData:false };
   const years = ['2024','2025','2026'];
-  const uptoIdx = perbandinganRefMonthIdxP_();
-  let adaData = false;
-  const absent = [];
-  const flagged = {};   // tahun -> nama bulan yang rinciannya tidak lengkap
+  const n = Math.min(R.bulan_terakhir, 12);
+  const sumN = arr => (arr||[]).slice(0, n).reduce((s,v)=>s+(v||0), 0);
+  const kosong = [];
   const series = years.map(y=>{
-    const kh = STATE_P.khusus && STATE_P.khusus[y];
-    if(!kh || !kh.rows || !kh.rows.length) return { year:y, vals: PEND_KATEGORI_.map(()=>null), root:null, sisa:null };
-    adaData = true;
-    const nB = (kh.bulan_label && kh.bulan_label.length) || 12;
-    const cum = row => uptoIdx >= nB ? row.total : kumulatifRowG_(kh, row, uptoIdx);
-    const rows = PEND_KATEGORI_.map(k=>kh.rows.find(r=>k.test(normNamaKatP_(r.nama))) || null);
-    const vals = rows.map((row,i)=>{
-      if(!row){ absent.push(PEND_KATEGORI_[i].label + ' (' + y + ')'); return 0; }
-      return cum(row);
+    const t = R.tahun[y];
+    if(!t) return { year:y, vals: PEND_KATEGORI_.map(()=>null), root:null, sisa:null };
+    const vals = PEND_KATEGORI_.map(k=>{
+      const v = sumN(t.kat && t.kat[k.label]);
+      if(v === 0) kosong.push(k.label + ' (' + y + ')');
+      return v;
     });
-    // Total seluruh pohon (akun induk "4") sbg pembanding: selisihnya = transaksi yang di BKU
-    // dicatat di kode induk tanpa rincian sehingga tidak bisa dimasukkan ke 7 kategori.
-    const rootRow = kh.rows.find(r=>r.kode === '4') || kh.rows.find(r=>r.depth === 0);
-    const root = rootRow ? cum(rootRow) : null;
-    const sumCat = vals.reduce((s,v)=>s+(v||0),0);
-    const sisa = (root !== null && root !== undefined) ? Math.max(0, root - sumCat) : null;
-    // bulan mana yang rinciannya bolong (selisih bulanan > 2% dari total bulan itu)
-    if(rootRow && rootRow.bulanan){
-      const bad = [];
-      for(let m=0; m<=uptoIdx && m<rootRow.bulanan.length; m++){
-        const catM = rows.reduce((s,r)=>s + ((r && r.bulanan && r.bulanan[m]) || 0), 0);
-        const diff = (rootRow.bulanan[m] || 0) - catM;
-        if(diff > Math.max(1e6, 0.02 * (rootRow.bulanan[m] || 0))) bad.push(MONTH_NAMES[m]);
-      }
-      if(bad.length) flagged[y] = bad;
-    }
+    const root = sumN(t.total);
+    const sisa = Math.max(0, root - vals.reduce((s,v)=>s+v, 0));
     return { year:y, vals, root, sisa };
   });
-  return { years, series, uptoIdx, adaData, absent, flagged };
+  return { years, series, uptoIdx: n-1, adaData:true, kosong, dibuat:R.dibuat };
 }
 
 function wrapLabelKatP_(s, max){
@@ -4739,7 +4717,7 @@ function renderPendKategoriChart_(suffix){
   const totals = d.series.map(s=> s.vals.some(v=>v!==null) ? s.vals.reduce((x,v)=>x+(v||0),0) : null);
   // "Belum terklasifikasi" ikut jadi grup ke-8 di grafik HANYA kalau material (>1% total di tahun mana pun)
   const showSisa = d.series.some(s=> s.sisa && s.root && s.sisa/s.root > 0.01);
-  const cats = PEND_KATEGORI_.map(k=>k.label).concat(showSisa ? ['Belum terklasifikasi (tanpa kode rincian)'] : []);
+  const cats = PEND_KATEGORI_.map(k=>k.label).concat(showSisa ? ['Lainnya (akun lain / selisih)'] : []);
   const valsFor = s => showSisa ? s.vals.concat([s.sisa]) : s.vals;
   const money = v => { const t = fmt(v); return t==='-' ? '-' : 'Rp ' + t; };
   const head = '<thead><tr><th>Kategori</th>' + d.years.map(y=>`<th>${y}</th>`).join('') + '</tr></thead>';
@@ -4748,15 +4726,16 @@ function renderPendKategoriChart_(suffix){
   ).join('');
   const foot =
     '<tr class="pend-kat-total"><td>Jumlah 7 kategori</td>' + totals.map(money).map(t=>`<td>${t}</td>`).join('') + '</tr>' +
-    '<tr><td>Belum terklasifikasi (dicatat di kode induk, tanpa rincian)</td>' + d.series.map(s=>`<td>${money(s.sisa)}</td>`).join('') + '</tr>' +
-    '<tr class="pend-kat-total"><td>Total Pendapatan (pohon akun BKU)</td>' + d.series.map(s=>`<td>${money(s.root)}</td>`).join('') + '</tr>';
+    '<tr><td>Lainnya (akun lain / selisih terhadap total laporan)</td>' + d.series.map(s=>`<td>${money(s.sisa)}</td>`).join('') + '</tr>' +
+    '<tr class="pend-kat-total"><td>Total Pendapatan (laporan realisasi resmi)</td>' + d.series.map(s=>`<td>${money(s.root)}</td>`).join('') + '</tr>';
   if(tbl) tbl.innerHTML = head + '<tbody>' + rows + foot + '</tbody>';
   if(note){
-    const warn = Object.keys(d.flagged).map(y=>`${y}: ${d.flagged[y].join(', ')}`);
+    const refIdx = perbandinganRefMonthIdxP_();
+    const basi = d.uptoIdx < refIdx;
     note.innerHTML =
-      (warn.length ? `<span class="pend-kat-warn">Perhatian — rincian per kategori tidak lengkap pada bulan: ${warn.join('; ')}. Transaksi bulan-bulan itu di BKU dicatat di kode induk (tanpa rincian BPJS/Pasien Umum/dst), jadi batang kategori tahun tersebut LEBIH RENDAH dari kenyataan; selisihnya ditampilkan di baris "Belum terklasifikasi".</span> ` : '') +
-      'Total pohon akun BKU bisa berbeda tipis dari angka kartu Ringkasan (sumbernya beda: BKU vs laporan resmi bulanan).' +
-      (d.absent.length ? ' Tidak ada akun/transaksi di BKU: ' + d.absent.join(', ') + ' — dihitung Rp 0.' : '');
+      (basi ? `<span class="pend-kat-warn">Perhatian — data kategori resmi baru sampai ${MONTH_NAMES[d.uptoIdx]} 2026, sedangkan Ringkasan sudah s.d. ${MONTH_NAMES[refIdx]}. Jalankan buat_data_kategori_pendapatan.py pada Rekap terbaru lalu unggah data_kategori_pendapatan.js.</span> ` : '') +
+      `Sumber: laporan realisasi pendapatan resmi (Rekap), kumulatif Jan–${MONTH_NAMES[d.uptoIdx]} tiap tahun; data dibuat ${d.dibuat || '-'}. "Lainnya" = akun lain / selisih antara total laporan dan 7 kategori.` +
+      (d.kosong.length ? ' Tidak ada realisasi di laporan: ' + d.kosong.join(', ') + ' — tampil Rp 0.' : '');
   }
 
   const ctx = canvas.getContext('2d');
