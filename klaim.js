@@ -316,6 +316,21 @@ $('pk').addEventListener('click',e=>{
 });
 
 /* ================= Helper tampilan ================= */
+/* v30: kartu KPI gaya mode dua bulan bila pilihan mencakup dua tahun: nilai besar = periode tahun kedua, baris = periode tahun pertama + persen perubahan (bulan kalender yang sama) */
+function perInfo(){
+  const yrs=[...new Set(SEL.map(k=>k.slice(0,4)))].sort();if(yrs.length<2)return null;
+  const [y1,y2]=yrs,mm=[...new Set(SEL.map(k=>k.slice(5)))].sort();
+  const ok=fn=>mm.filter(m=>SEL.includes(y1+'-'+m)&&SEL.includes(y2+'-'+m)&&fn(y1+'-'+m)&&fn(y2+'-'+m));
+  return {y1,y2,mP:ok(hasP),mK:ok(hasK)};
+}
+function mrange(ms){const a=ms.slice().sort(),n=a.map(Number),cont=n.every((x,i)=>!i||x===n[i-1]+1),sh=m=>MF[+m-1].slice(0,3);
+  return a.length===1?sh(a[0]):cont?sh(a[0])+'–'+sh(a[a.length-1]):a.map(sh).join(', ')}
+const psum=(y,ms,g)=>ms.reduce((t,m)=>t+g(y+'-'+m),0);
+function perNote(ms,sel){const ex=sel.filter(k=>!ms.includes(k.slice(5))).map(mlab);return 'bulan '+mrange(ms)+(ex.length?'; tidak ikut dibandingkan karena tanpa pasangan di tahun lain: '+ex.join(', '):'')}
+function perCard(lab,ms,pi,agg,fmt,good,hint){
+  const a=agg(pi.y1,ms),b=agg(pi.y2,ms),r=mrange(ms);
+  return kcard(lab,b,fmt,hint,`<span class="a">${r} ${pi.y1.slice(2)} <b>${fmt(a)}</b></span><span class="s">${r} ${pi.y2.slice(2)} ${chg(a,b,good)}</span>`);
+}
 /* ---- periode sejajar: total bulan terpilih 2025 vs 2026 pada bulan kalender yang sama ---- */
 function periodeBlock(){
   const yrs=[...new Set(SEL.map(k=>k.slice(0,4)))].sort();if(yrs.length<2)return '';
@@ -446,22 +461,32 @@ R.ringkasan=()=>{
     const n=sumP(ps,m=>m.n),amt=sumP(ps,m=>m.amt),riA=sumP(ps,m=>m.ri.amt),riN=sumP(ps,m=>m.ri.n);
     const f=ps[0],l=ps[ps.length-1],two=ps.length>1;
     const ch=(fn,good)=>two?chg(fn(PM(f)),fn(PM(l)),good)+`<span class="ksmall">${mlab(f)} → ${mlab(l)}</span>`:'';
-    h+=`<h3 class="ksect">Pending verifikasi · ${ps.length} bulan terpilih</h3><div class="kgrid kkpis">`+
+    const PI=perInfo(),pp=PI&&PI.mP.length?PI:null,ms=pp&&pp.mP;
+    h+=`<h3 class="ksect">Pending verifikasi · ${ps.length} bulan terpilih${pp?' · periode sejajar '+pp.y1+' vs '+pp.y2+' ('+perNote(ms,ps)+')':''}</h3><div class="kgrid kkpis">`+(pp?
+      perCard('SEP pending',ms,pp,(y,m)=>psum(y,m,k=>PM(k).n),nf.format,false,'Jumlah SEP pending pada bulan sejajar')+
+      perCard('Nilai pending',ms,pp,(y,m)=>psum(y,m,k=>PM(k).amt),rp,false,'Nilai ajuan SEP yang masih pending')+
+      perCard('Nilai per SEP pending',ms,pp,(y,m)=>psum(y,m,k=>PM(k).amt)/psum(y,m,k=>PM(k).n),rp,null,'Total nilai dibagi total SEP')+
+      perCard('Porsi nilai rawat inap',ms,pp,(y,m)=>psum(y,m,k=>PM(k).ri.amt)/psum(y,m,k=>PM(k).amt),x=>pct(x),null,'Makin tinggi, makin terkonsentrasi di rawat inap'):
       kcard('SEP pending (total)',n,nf.format,`Rata-rata ${nf.format(Math.round(n/ps.length))} SEP per bulan`,ch(m=>m.n,false))+
       kcard('Nilai pending (total)',amt,rp,`Rata-rata ${rp(amt/ps.length)} per bulan`,ch(m=>m.amt,false))+
       kcard('Nilai per SEP pending',amt/n,rp,'Total nilai dibagi total SEP',ch(m=>m.amt/m.n,null))+
-      kcard('Porsi nilai rawat inap',riA/amt,x=>pct(x),`Rawat inap hanya ${pct(riN/n)} dari jumlah SEP`,ch(m=>m.ri.amt/m.amt,null))+
+      kcard('Porsi nilai rawat inap',riA/amt,x=>pct(x),`Rawat inap hanya ${pct(riN/n)} dari jumlah SEP`,ch(m=>m.ri.amt/m.amt,null)))+
       '</div>';
   } else h+=caveat('<b>Tidak ada data pending pada bulan terpilih.</b> Pilih bulan yang bertanda titik biru untuk melihat pending.');
   /* KPI klaim */
   if(ks.length){
     const f=ks[0],l=ks[ks.length-1],two=ks.length>1,a=KQ(f),b=KQ(l);
     const ch=(fn,good)=>two?chg(fn(a),fn(b),good)+`<span class="ksmall">${mlab(f)} → ${mlab(l)}</span>`:'';
-    h+=`<h3 class="ksect">Klaim INA-CBG · ${ks.length} bulan terpilih</h3><div class="kgrid kkpis">`+
+    const PI=perInfo(),pk=PI&&PI.mK.length?PI:null,mk=pk&&pk.mK;
+    h+=`<h3 class="ksect">Klaim INA-CBG · ${ks.length} bulan terpilih${pk?' · periode sejajar '+pk.y1+' vs '+pk.y2+' ('+perNote(mk,ks)+')':''}</h3><div class="kgrid kkpis">`+(pk?
+      perCard('Jumlah klaim',mk,pk,(y,m)=>psum(y,m,k=>KQ(k).n),nf.format,true,'Rawat inap + rawat jalan')+
+      perCard('Pendapatan klaim INA-CBG',mk,pk,(y,m)=>psum(y,m,k=>KQ(k).tot),rp,true,'Total tarif INA-CBG yang diajukan')+
+      perCard('Defisit klaim vs Tarif RS',mk,pk,(y,m)=>psum(y,m,k=>-KQ(k).sel),rp,false,'Tarif RS dikurangi klaim')+
+      perCard('Rasio klaim / Tarif RS',mk,pk,(y,m)=>psum(y,m,k=>KQ(k).tot)/psum(y,m,k=>KQ(k).rs),x=>pct(x),true,'Makin rendah, makin besar selisih tarif'):
       kcard('Jumlah klaim (total)',sum(ks.map(k=>KQ(k).n)),nf.format,two?'Dijumlahkan seluruh bulan terpilih':'Rawat inap + rawat jalan',ch(x=>x.n,true))+
       kcard('Pendapatan klaim INA-CBG',sum(ks.map(k=>KQ(k).tot)),rp,'Total tarif INA-CBG yang diajukan',ch(x=>x.tot,true))+
       kcard('Defisit klaim vs Tarif RS',-sum(ks.map(k=>KQ(k).sel)),rp,'Tarif RS dikurangi klaim',ch(x=>-x.sel,false))+
-      kcard('Rasio klaim / Tarif RS',sum(ks.map(k=>KQ(k).tot))/sum(ks.map(k=>KQ(k).rs)),x=>pct(x),'Makin rendah, makin besar selisih tarif',two?chg(a.tot/a.rs,b.tot/b.rs,true):'')+
+      kcard('Rasio klaim / Tarif RS',sum(ks.map(k=>KQ(k).tot))/sum(ks.map(k=>KQ(k).rs)),x=>pct(x),'Makin rendah, makin besar selisih tarif',two?chg(a.tot/a.rs,b.tot/b.rs,true):''))+
       '</div>';
   }
   /* v29: periode sejajar 2025 vs 2026 (bulan kalender yang sama di kedua tahun) */

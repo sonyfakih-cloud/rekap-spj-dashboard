@@ -318,3 +318,8 @@ html.mode-hp #appRootKlaim .krow b{letter-spacing:-.3px}
 /* v27: odometer diperlambat (v27 3,4 dtk; v28 6,4 dtk) */
 #appRootKlaim .go .odc{transition:transform 6.4s cubic-bezier(.3,.5,.3,1) var(--dl,0s);}
 @media(prefers-reduced-motion:reduce){#appRootKlaim .go .odc{transition:none;}}
+/* v30: HP — baris periode (label bulan + nilai penuh + persen) boleh turun baris, angka tidak dipotong */
+html.mode-hp #appRootKlaim .krow{flex-direction:column;align-items:flex-start;gap:3px}
+html.mode-hp #appRootKlaim .krow span{white-space:normal}
+html.mode-hp #appRootKlaim .krow b,html.mode-hp #appRootKlaim .krow .kchip{white-space:nowrap}
+html.mode-hp #appRootKlaim .kval.long{font-size:13px;letter-spacing:-.3px;word-break:normal;white-space:nowrap}
