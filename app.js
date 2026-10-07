@@ -4676,20 +4676,25 @@ const pendKatLabelPlugin_ = {
     const ctx = chart.ctx;
     ctx.save();
     ctx.fillStyle = CHART_TEXT_();
-    ctx.font = '600 10px sans-serif';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
     chart.data.datasets.forEach((ds, di)=>{
       const meta = chart.getDatasetMeta(di);
       if(meta.hidden) return;
       meta.data.forEach((bar, i)=>{
         const v = ds.data[i];
         if(v === null || v === undefined) return;
-        ctx.save();
-        ctx.translate(bar.x, bar.y - 4);
-        ctx.rotate(-Math.PI/2);
-        ctx.fillText(compactRpKatP_(v), 0, 0);
-        ctx.restore();
+        const txt = compactRpKatP_(v);
+        // tulisan HORIZONTAL tepat di atas batang; kalau batang sempit (layar kecil)
+        // fontnya diperkecil supaya tidak bertumpuk dgn label batang sebelah.
+        let size = 11;
+        ctx.font = '600 ' + size + 'px sans-serif';
+        const lebar = bar.width || 40;
+        while(size > 8 && ctx.measureText(txt).width > lebar + 6){
+          size -= 1;
+          ctx.font = '600 ' + size + 'px sans-serif';
+        }
+        ctx.fillText(txt, bar.x, bar.y - 5);
       });
     });
     ctx.restore();
@@ -4747,7 +4752,7 @@ function renderPendKategoriChart_(suffix){
     },
     options:{
       responsive:true, maintainAspectRatio:false,
-      layout:{padding:{top:54}},
+      layout:{padding:{top:30}},
       plugins:{
         legend:{position:'top', labels:{boxWidth:12, font:{size:11}}},
         tooltip:{callbacks:{
