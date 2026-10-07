@@ -1528,13 +1528,21 @@ R.klaim=()=>{
   seg('kJ',[['ALL','Gabungan RI + RJ'],['RI','Rawat inap'],['RJ','Rawat jalan']],j,v=>{klJ=v;rendered.klaim=0;KC.length=0;R.klaim();rendered.klaim=1});
   const Kj=k=>KQ(k,j),f=ks[0],l=ks[ks.length-1],two=ks.length>1;
   const ch=(fn,good)=>two?chg(fn(Kj(f)),fn(Kj(l)),good)+`<span class="ksmall">${mlab(f)} → ${mlab(l)}</span>`:'';
-  $('k-kpis').innerHTML='<div class="kgrid kkpis">'+
+  const PIk=perInfo(),pk=PIk&&PIk.mK.length?PIk:null,mk=pk&&pk.mK,jn=j==='RI'?'rawat inap':j==='RJ'?'rawat jalan':'rawat inap + rawat jalan';
+  const sK=(y,m,g)=>psum(y,m,k=>g(Kj(k)));
+  $('k-kpis').innerHTML=(pk?'<h3 class="ksect" style="margin-top:0">Ringkasan klaim · periode sejajar '+pk.y1+' vs '+pk.y2+' ('+jn+'; '+perNote(mk,ks)+')</h3>':'')+'<div class="kgrid kkpis">'+(pk?
+    perCard('Jumlah klaim',mk,pk,(y,m)=>sK(y,m,x=>x.n),nf.format,true,'Jumlah SEP klaim pada bulan sejajar')+
+    perCard('Pendapatan klaim INA-CBG',mk,pk,(y,m)=>sK(y,m,x=>x.tot),rp,true,'Total tarif INA-CBG diajukan')+
+    perCard('Tarif RS atas layanan sama',mk,pk,(y,m)=>sK(y,m,x=>x.rs),rp,null,'Tarif RS atas layanan yang sama')+
+    perCard('Defisit klaim vs Tarif RS',mk,pk,(y,m)=>sK(y,m,x=>-x.sel),rp,false,'Tarif RS dikurangi klaim')+
+    perCard('Rasio klaim / Tarif RS',mk,pk,(y,m)=>sK(y,m,x=>x.tot)/sK(y,m,x=>x.rs),x=>pct(x),true,'Makin rendah, makin besar selisih')+
+    perCard('Rata-rata klaim per kasus',mk,pk,(y,m)=>sK(y,m,x=>x.tot)/sK(y,m,x=>x.n),rp,null,'Total klaim dibagi jumlah klaim'):
     kcard('Jumlah klaim',sum(ks.map(k=>Kj(k).n)),nf.format,two?'Total bulan terpilih':'',ch(x=>x.n,true))+
     kcard('Pendapatan klaim INA-CBG',sum(ks.map(k=>Kj(k).tot)),rp,'Total tarif INA-CBG diajukan',ch(x=>x.tot,true))+
     kcard('Tarif RS atas layanan sama',sum(ks.map(k=>Kj(k).rs)),rp,'',ch(x=>x.rs,null))+
     kcard('Defisit klaim vs Tarif RS',-sum(ks.map(k=>Kj(k).sel)),rp,'Tarif RS dikurangi klaim',ch(x=>-x.sel,false))+
     kcard('Rasio klaim / Tarif RS',sum(ks.map(k=>Kj(k).tot))/sum(ks.map(k=>Kj(k).rs)),x=>pct(x),'Makin rendah, makin besar selisih',two?chg(Kj(f).tot/Kj(f).rs,Kj(l).tot/Kj(l).rs,true):'')+
-    kcard('Rata-rata klaim per kasus',sum(ks.map(k=>Kj(k).tot))/sum(ks.map(k=>Kj(k).n)),rp,'',ch(x=>x.tot/x.n,null))+
+    kcard('Rata-rata klaim per kasus',sum(ks.map(k=>Kj(k).tot))/sum(ks.map(k=>Kj(k).n)),rp,'',ch(x=>x.tot/x.n,null)))+
     '</div>';
   countUp($('k-kpis'));
   vbarsN($('k-c1'),['Tarif INA-CBG (klaim)','Tarif RS','Defisit'],serOf(ks,k=>[Kj(k).tot,Kj(k).rs,-Kj(k).sel]),{fmt:rp,ax:rpAx,title:'Klaim vs Tarif RS'});
