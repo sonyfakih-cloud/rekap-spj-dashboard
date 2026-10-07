@@ -49,7 +49,7 @@
     '.title-block', '.toolbar', '.range-toolbar', '.year-checks', '.pill',
     '.marquee-bar', '.k-tabs', '.nav-item', '.hub-menu-card p',
     '.bku-modal-overlay', '.auth-overlay', '.intro-anim-screen',
-    '[data-odo="off"]',
+    '[data-odo="off"]', '[data-cu]', '.od', '.odc', '.oc',
     'table.data tbody td:nth-child(-n+2)'     // kolom Kode & Nama Rekening
   ].join(',');
 
@@ -101,9 +101,9 @@
 
   // ---- bangun elemen odometer untuk satu token ----
   function buildOdo(t, prev){
-    var wrap = document.createElement('span');
+    var wrap = document.createElement('odo-w');
     wrap.className = 'odo';
-    var sr = document.createElement('span');
+    var sr = document.createElement('odo-x');
     sr.className = 'odo-t';
     sr.textContent = t;
     wrap.appendChild(sr);
@@ -119,10 +119,10 @@
         var from = od;
         var to = od + ((d - od + 10) % 10) + 10 * turns;
         if(prev && d === od) to = from;                 // digit tidak berubah -> diam
-        var cell = document.createElement('span');
+        var cell = document.createElement('odo-g');
         cell.className = 'odo-d';
         cell.setAttribute('aria-hidden', 'true');
-        var col = document.createElement('span');
+        var col = document.createElement('odo-k');
         col.className = 'odo-c';
         col.style.setProperty('--to', (-to * LH) + 'em');
         if(to !== from){
@@ -134,7 +134,7 @@
         nodes.push(cell);
         di++;
       } else {
-        var sep = document.createElement('span');
+        var sep = document.createElement('odo-p');
         sep.className = 'odo-s';
         sep.setAttribute('aria-hidden', 'true');
         sep.setAttribute('data-c', ch);                // dirender lewat CSS ::before (tidak mengotori textContent)
