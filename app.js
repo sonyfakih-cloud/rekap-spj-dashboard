@@ -4630,9 +4630,9 @@ const PEND_KATEGORI_ = [
   {label:'Retrib. Sewa Tanah dan Bangunan'}, {label:'Retrib. Pelayanan Tempat Khusus Parkir'},
   {label:'Lain-lain PAD yang Sah'},
 ];
-const PEND_KAT_WARNA_ = {'2024':'#A8B5D9', '2025':'#84AAF3', '2026':'#F4BA84'};
+const PEND_KAT_WARNA_ = {'2024':'#A8B5D9', '2025':'#84AAF3', '2026':'#FFFFC5'};   // 2026 = kuning pilihan user (bukan oranye/coklat)
 // warna tiap KATEGORI (donat) -- urut sama dgn PEND_KATEGORI_
-const PEND_KAT_WARNA_KATEGORI_ = ['#84AAF3','#F4BA84','#7ED3B2','#C3A6F0','#F28B9B','#F2D16B','#8FD0E8'];
+const PEND_KAT_WARNA_KATEGORI_ = ['#84AAF3','#FFFFC5','#7ED3B2','#C3A6F0','#F28B9B','#F2D16B','#8FD0E8'];
 const PEND_KAT_CHARTS_ = {};
 
 function pendKategoriData_(){
@@ -4786,7 +4786,7 @@ function renderPendKategoriChart_(suffix){
     type:'bar',
     data:{
       labels: cats.map(c=>wrapLabelKatP_(c, 16)),
-      datasets: d.series.map(s=>({ label: s.year, data: valsFor(s), backgroundColor: PEND_KAT_WARNA_[s.year], borderRadius:5, maxBarThickness:46 }))
+      datasets: d.series.map(s=>({ label: s.year, data: valsFor(s), backgroundColor: PEND_KAT_WARNA_[s.year], borderColor: s.year === '2026' ? '#E3DD8F' : 'transparent', borderWidth: s.year === '2026' ? 1 : 0, borderRadius:5, maxBarThickness:46 }))
     },
     options:{
       responsive:true, maintainAspectRatio:false,
@@ -4807,7 +4807,7 @@ function renderPendKategoriChart_(suffix){
         x:{ grid:{display:false}, ticks:{font:{size:11}} }
       }
     },
-    plugins:[pendKatLabelPlugin_]
+    plugins:[barShadowPlugin, pendKatLabelPlugin_]
   });
 }
 

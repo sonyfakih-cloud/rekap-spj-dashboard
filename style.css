@@ -1364,3 +1364,11 @@ html.mode-hp #filterRekening, html.mode-hp #filterRekeningP{ min-width:0!importa
 .pend-donut-card .pend-donut-total b{color:var(--text);font-size:13px;}
 .komp-legend.kat-legend{grid-template-columns:1fr;gap:5px;}
 .komp-legend.kat-legend .komp-legend-label{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.3;}
+
+/* Efek shadow: tabel kategori pendapatan (sama bahasa visualnya dgn kartu & grafik batang) */
+.pend-kat-tablewrap{border-radius:14px;padding:8px 6px;background:var(--card-solid);box-shadow:var(--shadow-sm);overflow-x:auto;}
+.pend-kat-tablewrap table{border-collapse:separate;border-spacing:0;}
+.pend-kat-tablewrap tbody tr{transition:background .15s ease;}
+.pend-kat-tablewrap tbody tr:hover{background:rgba(132,170,243,0.10);}
+.pend-kat-tablewrap tr.pend-kat-total td{background:rgba(255,255,197,0.10);text-shadow:0 1px 0 rgba(255,255,255,0.35);}
+.pend-donut-card .komp-donut-svg{filter:drop-shadow(0 8px 12px rgba(0,0,0,0.28));}
