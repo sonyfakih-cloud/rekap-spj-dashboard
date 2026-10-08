@@ -1371,8 +1371,17 @@ html.mode-hp #filterRekening, html.mode-hp #filterRekeningP{ min-width:0!importa
 .pend-kat-tablewrap tbody tr{transition:background .15s ease;}
 /* Highlight kontributor terbesar per tahun (#47FF47) */
 .pend-kat-tablewrap td.pend-kat-top-cell{background:#47FF47 !important;color:#0b3d0b;font-weight:800;box-shadow:0 2px 8px rgba(71,255,71,0.45);}
-.pend-donut-card .komp-legend-item.pend-kat-top{background:#47FF47;color:#0b3d0b;font-weight:800;border-radius:6px;padding:1px 6px;margin:0 -6px;box-shadow:0 2px 6px rgba(71,255,71,0.45);}
-.pend-donut-card .komp-legend-item.pend-kat-top .komp-legend-pct{color:#0b3d0b;}
+.pend-donut-card .komp-legend-item.pend-kat-top{background:#47FF47;color:#000 !important;font-weight:800;font-size:15.5px;border-radius:8px;padding:3px 8px;margin:2px -8px;box-shadow:0 2px 8px rgba(71,255,71,0.5);}
+.pend-donut-card .komp-legend-item.pend-kat-top *,
+.pend-donut-card .komp-legend-item.pend-kat-top .komp-legend-label,
+.pend-donut-card .komp-legend-item.pend-kat-top .komp-legend-pct{color:#000 !important;font-weight:800 !important;text-shadow:none !important;}
+.pend-donut-card .komp-legend-item.pend-kat-top .komp-legend-label,
+.pend-donut-card .komp-legend-item.pend-kat-top .komp-legend-pct{font-size:1em !important;}
+.pend-donut-card .komp-legend-item.pend-kat-top .komp-legend-pct{font-size:1.1em !important;}
+.pend-donut-card .komp-legend-item.pend-kat-top .komp-dot{background:#000 !important;}
+.pend-kat-tablewrap td.pend-kat-top-cell,
+.pend-kat-tablewrap td.pend-kat-top-cell *{color:#000 !important;font-weight:800 !important;text-shadow:none !important;}
+.pend-kat-tablewrap td.pend-kat-top-cell{font-size:1.1em;}
 .pend-kat-tablewrap tbody tr:hover{background:rgba(132,170,243,0.10);}
 .pend-kat-tablewrap tr.pend-kat-total td{background:rgba(99,202,211,0.12);text-shadow:0 1px 0 rgba(255,255,255,0.35);}
 .pend-donut-card .komp-donut-svg{filter:drop-shadow(0 8px 12px rgba(0,0,0,0.28));}
