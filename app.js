@@ -4798,9 +4798,8 @@ function renderPendKategoriChart_(suffix){
     data:{
       labels: cats.map(c=>wrapLabelKatP_(c, 16)),
       datasets: d.series.map((s,si)=>({ label: s.year, data: valsFor(s),
-        backgroundColor: valsFor(s).map((_,i)=> i === topIdx[si] ? PEND_KAT_HIGHLIGHT_ : PEND_KAT_WARNA_[s.year]),
-        borderColor: valsFor(s).map((_,i)=> i === topIdx[si] ? PEND_KAT_WARNA_[s.year] : 'transparent'),
-        borderWidth: valsFor(s).map((_,i)=> i === topIdx[si] ? 3 : 0),
+        backgroundColor: PEND_KAT_WARNA_[s.year],   // warna tahun sesuai legend (highlight hijau hanya di donat & tabel)
+        borderWidth: 0,
         borderRadius:5, maxBarThickness:46 }))
     },
     options:{
