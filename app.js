@@ -4709,6 +4709,14 @@ const pendKatLabelPlugin_ = {
 };
 
 
+// Highlight kontributor terbesar per tahun (dari 7 kategori) -- warna pilihan user.
+const PEND_KAT_HIGHLIGHT_ = '#47FF47';
+function pendKatTopIdx_(vals){
+  let best = -1, bv = 0;
+  (vals || []).forEach((v,i)=>{ if((v||0) > bv){ bv = v; best = i; } });
+  return best;
+}
+
 // Donat per tahun (3 kartu, gaya sama dgn donat Retribusi/Lain-lain di kartu Ringkasan)
 // utk 7 kategori. Proporsi = porsi tiap kategori thd JUMLAH 7 kategori tahun itu.
 function renderPendKategoriDonuts_(suffix, d){
@@ -4719,13 +4727,15 @@ function renderPendKategoriDonuts_(suffix, d){
   const money = v => 'Rp ' + fmt(v);
   wrap.innerHTML = d.series.map(s=>{
     const total = s.vals.reduce((x,v)=>x+(v||0), 0);
-    const segs = PEND_KATEGORI_.map((k,i)=>({ label:k.label, value:s.vals[i]||0, color:PEND_KAT_WARNA_KATEGORI_[i] })).filter(x=>x.value>0);
+    const top = pendKatTopIdx_(s.vals);
+    const warnaK = i => (i === top ? PEND_KAT_HIGHLIGHT_ : PEND_KAT_WARNA_KATEGORI_[i]);
+    const segs = PEND_KATEGORI_.map((k,i)=>({ label:k.label, value:s.vals[i]||0, color:warnaK(i) })).filter(x=>x.value>0);
     const donutHtml = total > 0 ? buildDonutSVG(segs, total) : '<div class="anomaly-empty">Belum ada data</div>';
     const legend = PEND_KATEGORI_.map((k,i)=>{
       const v = s.vals[i] || 0;
       const pct = total > 0 ? (v/total*100).toFixed(1).replace('.',',') + '%' : '-';
-      return `<div class="komp-legend-item" title="${k.label}: ${money(v)}">
-        <span class="komp-dot" style="background:${PEND_KAT_WARNA_KATEGORI_[i]}"></span>
+      return `<div class="komp-legend-item${i === top ? ' pend-kat-top' : ''}" title="${k.label}: ${money(v)}${i === top ? ' (kontributor terbesar)' : ''}">
+        <span class="komp-dot" style="background:${warnaK(i)}"></span>
         <span class="komp-legend-label">${k.label}</span>
         <span class="komp-legend-pct">${pct}</span>
       </div>`;
@@ -4764,8 +4774,9 @@ function renderPendKategoriChart_(suffix){
   const valsFor = s => showSisa ? s.vals.concat([s.sisa]) : s.vals;
   const money = v => { const t = fmt(v); return t==='-' ? '-' : 'Rp ' + t; };
   const head = '<thead><tr><th>Kategori</th>' + d.years.map(y=>`<th>${y}</th>`).join('') + '</tr></thead>';
+  const topIdx = d.series.map(s=>pendKatTopIdx_(s.vals));
   const rows = PEND_KATEGORI_.map((k,i)=>
-    `<tr><td>${k.label}</td>` + d.series.map(s=>`<td>${money(s.vals[i])}</td>`).join('') + '</tr>'
+    `<tr><td>${k.label}</td>` + d.series.map((s,si)=>`<td${topIdx[si]===i ? ' class="pend-kat-top-cell" title="Kontributor terbesar tahun ' + s.year + '"' : ''}>${money(s.vals[i])}</td>`).join('') + '</tr>'
   ).join('');
   const foot =
     '<tr class="pend-kat-total"><td>Jumlah 7 kategori</td>' + totals.map(money).map(t=>`<td>${t}</td>`).join('') + '</tr>' +
@@ -4786,7 +4797,11 @@ function renderPendKategoriChart_(suffix){
     type:'bar',
     data:{
       labels: cats.map(c=>wrapLabelKatP_(c, 16)),
-      datasets: d.series.map(s=>({ label: s.year, data: valsFor(s), backgroundColor: PEND_KAT_WARNA_[s.year], borderWidth: 0, borderRadius:5, maxBarThickness:46 }))
+      datasets: d.series.map((s,si)=>({ label: s.year, data: valsFor(s),
+        backgroundColor: valsFor(s).map((_,i)=> i === topIdx[si] ? PEND_KAT_HIGHLIGHT_ : PEND_KAT_WARNA_[s.year]),
+        borderColor: valsFor(s).map((_,i)=> i === topIdx[si] ? PEND_KAT_WARNA_[s.year] : 'transparent'),
+        borderWidth: valsFor(s).map((_,i)=> i === topIdx[si] ? 3 : 0),
+        borderRadius:5, maxBarThickness:46 }))
     },
     options:{
       responsive:true, maintainAspectRatio:false,
