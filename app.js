@@ -190,6 +190,7 @@ async function loadKhususLive(){
       }
     });
     if(any) STATE.perbandingan = buildPerbandinganFromKhusus_();
+    applyPaguPerubahanBelanja_();
     if(json.khusus.tanggal_terakhir) STATE.tanggal_terakhir = json.khusus.tanggal_terakhir;
     updateDataPerBadge_();
   }catch(err){
@@ -562,6 +563,7 @@ async function tryLoadLive(){
         if((clamped || TREN_EXTRA_INITED_) && typeof renderTrenRangeCompare === 'function') renderTrenRangeCompare();
       }
     }
+    applyPaguPerubahanBelanja_();
     STATE.live = true;
   }catch(err){
     console.warn('Live fetch gagal, pakai data bawaan:', err);
@@ -700,7 +702,8 @@ function renderRingkasan(){
       <div class="kpi-year"><b>Tahun ${y}</b><small>s.d ${labelBulan||''}</small></div>
       <div class="kpi-ring" style="--pct:${Math.min(pct,100)}"><span>${pct.toFixed(1)}%</span></div>
       <div class="kpi-stats">
-        <div><span>Pagu Anggaran</span><b>Rp ${fmt(t.pagu)}</b></div>
+        ${(y === '2026' && t.pagu_murni) ? `<div><span>Pagu Murni</span><b>Rp ${fmt(t.pagu_murni)}</b></div>
+        <div><span>Pagu Perubahan</span><b>Rp ${fmt(t.pagu)}</b></div>` : `<div><span>Pagu Anggaran</span><b>Rp ${fmt(t.pagu)}</b></div>`}
         <div><span>SPJ Bulan Ini</span><b>Rp ${fmt(t.bulan_ini)}</b></div>
         <div><span>SPJ s.d Bulan Ini</span><b>Rp ${fmt(t.sd_bulan_ini)}</b></div>
         <div><span>Sisa Pagu</span><b>Rp ${fmt(t.sisa)}</b></div>
@@ -2882,6 +2885,82 @@ let STATE_P = {
   live: false,
 };
 
+// ====== PAGU PERUBAHAN 2026 ======
+// Total (Belanja kode 5, Pendapatan kode 4): konstanta di config.js -> window.PAGU_2026.
+// Per rekening: data_pagu_perubahan.js -> window.PAGU_PERUBAHAN_2026 (dari LPJ & LRP, kunci = kode
+// tanpa nol di depan tiap segmen). Idempotent: aman dipanggil berulang (snapshot, live, build perbandingan).
+function paguCfg_(modul){
+  const c = window.PAGU_2026 && window.PAGU_2026[modul];
+  return (c && +c.perubahan > 0) ? c : null;
+}
+function kodePaguKey_(k){
+  return String(k).split('.').map(s=>{ const n = parseInt(s, 10); return isNaN(n) ? s : String(n); }).join('.');
+}
+function paguMap_(modul){
+  const m = window.PAGU_PERUBAHAN_2026 && window.PAGU_PERUBAHAN_2026[modul];
+  return m || null;
+}
+// timpa pagu2026 satu baris (khusus / perbandingan) dari peta per rekening; total/root pakai konstanta
+function overridePaguRow_(r, map, c, kodeRoot){
+  const keys = [kodePaguKey_(r.kode)];
+  if(r.kodeByYear && r.kodeByYear['2026']) keys.unshift(kodePaguKey_(r.kodeByYear['2026']));
+  let v;
+  if(String(r.kode) === kodeRoot) v = c.perubahan;
+  else if(map){ for(const k of keys){ if(map[k] !== undefined){ v = map[k]; break; } } }
+  if(v === undefined) return;
+  if(String(r.kode) === kodeRoot) r.pagu2026_murni = c.murni;
+  r.pagu2026 = v;
+  const real = r['2026'];
+  if(real !== null && real !== undefined && v) r.persen2026 = real / v * 100;
+}
+function overrideBreakdown_(list, map, kodeKey){
+  (list||[]).forEach(b=>{
+    const v = map && map[kodePaguKey_(b.kode)];
+    if(v === undefined || v === null) return;
+    b.pagu = v;
+    b.persen = v ? (b.sd_bulan_ini||0) / v * 100 : 0;
+    if(b.sisa !== undefined) b.sisa = v - (b.sd_bulan_ini||0);
+    if(b.sisa_pagu !== undefined) b.sisa_pagu = v - (b.sd_bulan_ini||0);
+  });
+}
+function applyPaguPerubahanBelanja_(){
+  const c = paguCfg_('belanja'); if(!c) return;
+  const map = paguMap_('belanja');
+  const d = STATE.ringkasan && STATE.ringkasan['2026'];
+  if(d && d.total){
+    const t = d.total;
+    t.pagu_murni = c.murni; t.pagu = c.perubahan;
+    t.sisa = c.perubahan - (t.sd_bulan_ini||0);
+    t.persen = c.perubahan ? (t.sd_bulan_ini||0) / c.perubahan * 100 : 0;
+    overrideBreakdown_(d.breakdown, map);
+  }
+  if(Array.isArray(STATE.tren)) STATE.tren.forEach(r=>{ if(String(r.periode).indexOf('2026') === 0) r.pagu = c.perubahan; });
+  (STATE.perbandingan||[]).forEach(r=>overridePaguRow_(r, map, c, '5'));
+  if(STATE.khusus) Object.keys(STATE.khusus).forEach(y=>{
+    const k = STATE.khusus[y];
+    (k && k.rows || []).forEach(r=>overridePaguRow_(r, map, c, '5'));
+  });
+}
+function applyPaguPerubahanPendapatan_(){
+  const c = paguCfg_('pendapatan'); if(!c) return;
+  const map = paguMap_('pendapatan');
+  const d = STATE_P.ringkasan && STATE_P.ringkasan['2026'];
+  if(d && d.pagu !== undefined){
+    d.pagu_murni = c.murni; d.pagu = c.perubahan;
+    d.sisa_pagu = c.perubahan - (d.sd_bulan_ini||0);
+    d.persen = c.perubahan ? (d.sd_bulan_ini||0) / c.perubahan * 100 : 0;
+    overrideBreakdown_(d.breakdown, map);
+  }
+  if(Array.isArray(STATE_P.tren)) STATE_P.tren.forEach(r=>{ if(String(r.periode).indexOf('2026') === 0) r.pagu = c.perubahan; });
+  (STATE_P.perbandingan||[]).forEach(r=>overridePaguRow_(r, map, c, '4'));
+  if(STATE_P.khusus) Object.keys(STATE_P.khusus).forEach(y=>{
+    const k = STATE_P.khusus[y];
+    (k && k.rows || []).forEach(r=>overridePaguRow_(r, map, c, '4'));
+  });
+}
+applyPaguPerubahanBelanja_();
+applyPaguPerubahanPendapatan_();
+
 // Versi Pendapatan dari buildPerbandinganFromKhusus_() (Belanja) -- BEDA dari Belanja
 // dalam 1 hal (atas permintaan eksplisit user): baris dari kode 2024/2025 digabung
 // OTOMATIS dengan padanan kode 2026-nya.
@@ -3023,12 +3102,36 @@ async function tryLoadLivePendapatan(){
         if((clamped || TREN_EXTRA_INITED_P_) && typeof renderTrenRangeCompareP === 'function') renderTrenRangeCompareP();
       }
     }
+    applyPaguPerubahanPendapatan_();
     STATE_P.live = true;
   }catch(err){
     console.warn('Live fetch tren Pendapatan gagal, pakai data bawaan:', err);
     STATE_P.live = false;
   }
   updateLiveBadgeP();
+  await loadKategoriLivePendapatan();
+}
+
+async function loadKategoriLivePendapatan(){
+  // Grafik kategori pendapatan: ambil JSON hasil sync (view=kategori_pendapatan).
+  // Kalau gagal, grafik tetap pakai data_kategori_pendapatan.js (snapshot statis).
+  if(!window.APPS_SCRIPT_URL) return;
+  try{
+    const res = await fetch(`${APPS_SCRIPT_URL}?view=kategori_pendapatan`, {method:'GET'});
+    if(!res.ok) throw new Error('bad status ' + res.status);
+    const json = await res.json();
+    const row = (json.kategori_pendapatan || [])[0];
+    if(!row || !row.nama) throw new Error('baris kategori_pendapatan belum ada');
+    const data = JSON.parse(row.nama);
+    if(!data.tahun || !data.bulan_terakhir) throw new Error('format kategori tidak valid');
+    window.KATEGORI_LIVE = data;
+    if(typeof renderPendKategoriChart_ === 'function'){
+      renderPendKategoriChart_('P');
+      renderPendKategoriChart_('G');
+    }
+  }catch(err){
+    console.warn('Kategori Pendapatan live gagal, pakai data_kategori_pendapatan.js:', err);
+  }
 }
 
 async function loadKhususLivePendapatan(){
@@ -3052,6 +3155,7 @@ async function loadKhususLivePendapatan(){
     // load pertama (peta masih kosong) & baru bekerja setelah refresh kedua.
     if(json.konversi_pendapatan) setPendapatanKonversiMap_(json.konversi_pendapatan);
     if(any) STATE_P.perbandingan = buildPerbandinganFromKhususP_();
+    applyPaguPerubahanPendapatan_();
     if(json.khusus.tanggal_terakhir) STATE_P.tanggal_terakhir = json.khusus.tanggal_terakhir;
     updateDataPerBadgeP_();
   }catch(err){
@@ -3230,7 +3334,8 @@ function renderRingkasanPendapatan(){
       <div class="kpi-year"><b>Tahun ${y}</b><small>s.d ${labelBulan||''}</small></div>
       <div class="kpi-ring" style="--pct:${Math.min(pct,100)}"><span>${pct.toFixed(1)}%</span></div>
       <div class="kpi-stats">
-        <div><span>Target Pendapatan</span><b>Rp ${fmt(t.pagu)}</b></div>
+        ${(y === '2026' && d.pagu_murni) ? `<div><span>Target Murni</span><b>Rp ${fmt(d.pagu_murni)}</b></div>
+        <div><span>Target Perubahan</span><b>Rp ${fmt(t.pagu)}</b></div>` : `<div><span>Target Pendapatan</span><b>Rp ${fmt(t.pagu)}</b></div>`}
         <div><span>Pendapatan Bulan Ini</span><b>Rp ${fmt(t.bulan_ini)}</b></div>
         <div><span>Pendapatan s.d Bulan Ini</span><b>Rp ${fmt(t.sd_bulan_ini)}</b></div>
         <div><span>Sisa Target</span><b>Rp ${fmt(t.sisa)}</b></div>
@@ -3675,9 +3780,9 @@ function renderExecKpiRowG_(){
 
   const selisih = (p && b) ? (p.sd_bulan_ini - b.sd_bulan_ini) : null;
   const cards = [
-    { label:'Total Pendapatan (s.d bulan ini)', value: p ? 'Rp '+fmt(p.sd_bulan_ini) : '-', sub: p ? `dari target Rp ${fmt(p.pagu)}` : 'data belum tersedia' },
+    { label:'Total Pendapatan (s.d bulan ini)', value: p ? 'Rp '+fmt(p.sd_bulan_ini) : '-', sub: p ? `dari target${p.pagu_murni ? ' perubahan' : ''} Rp ${fmt(p.pagu)}${p.pagu_murni ? ' (murni Rp '+fmt(p.pagu_murni)+')' : ''}` : 'data belum tersedia' },
     { label:'% Realisasi Pendapatan', value: p ? (p.persen||0).toFixed(1)+'%' : '-', sub: p ? `sisa target Rp ${fmt(p.sisa_pagu)}` : '' },
-    { label:'Total Belanja (s.d bulan ini)', value: b ? 'Rp '+fmt(b.sd_bulan_ini) : '-', sub: b ? `dari pagu Rp ${fmt(b.pagu)}` : 'data belum tersedia' },
+    { label:'Total Belanja (s.d bulan ini)', value: b ? 'Rp '+fmt(b.sd_bulan_ini) : '-', sub: b ? `dari pagu${b.pagu_murni ? ' perubahan' : ''} Rp ${fmt(b.pagu)}${b.pagu_murni ? ' (murni Rp '+fmt(b.pagu_murni)+')' : ''}` : 'data belum tersedia' },
     { label:'% Realisasi Belanja', value: b ? (b.persen||0).toFixed(1)+'%' : '-', sub: b ? `sisa pagu Rp ${fmt(b.sisa)}` : '' },
     { label:'Sisa Anggaran Belanja', value: b ? 'Rp '+fmt(b.sisa) : '-', sub: 'pagu dikurangi realisasi SPJ berjalan' },
     { label:'Selisih Pendapatan – Belanja', value: selisih!==null ? (selisih>=0?'Rp ':'-Rp ')+fmt(Math.abs(selisih)) : '-',
@@ -4636,7 +4741,7 @@ const PEND_KAT_WARNA_KATEGORI_ = ['#84AAF3','#63CAD3','#7ED3B2','#C3A6F0','#F28B
 const PEND_KAT_CHARTS_ = {};
 
 function pendKategoriData_(){
-  const R = (typeof KATEGORI_PENDAPATAN_RESMI !== 'undefined') ? KATEGORI_PENDAPATAN_RESMI : null;
+  const R = window.KATEGORI_LIVE || ((typeof KATEGORI_PENDAPATAN_RESMI !== 'undefined') ? KATEGORI_PENDAPATAN_RESMI : null);
   if(!R || !R.tahun || !R.bulan_terakhir) return { adaData:false };
   const years = ['2024','2025','2026'];
   const n = Math.min(R.bulan_terakhir, 12);

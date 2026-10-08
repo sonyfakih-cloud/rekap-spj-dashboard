@@ -26,3 +26,15 @@ const GITHUB_TOKEN = "";
 
 // Lama sesi login tersimpan di browser (jam) sebelum diminta password lagi:
 const AUTH_SESSION_HOURS = 12;
+
+// ============ PAGU TAHUN ANGGARAN 2026 (MURNI vs PERUBAHAN) ============
+// Satu-satunya tempat angka pagu murni & pagu perubahan 2026 ditulis. Dipakai semua
+// modul (Ringkasan, Perbandingan, Khusus Tahun, Status, Anomali, Narasi): seluruh
+// realisasi 2026 (Jan s.d bulan terakhir) dihitung terhadap pagu PERUBAHAN; pagu murni
+// hanya ditampilkan sebagai pembanding. Hanya level TOTAL (Belanja kode 5, Pendapatan
+// kode 4) yang ditimpa -- pagu per rekening tetap dari laporan sumber.
+// Kalau perubahan pagu berubah lagi, cukup ubah angka di sini lalu unggah ulang config.js.
+window.PAGU_2026 = {
+  belanja:    { murni: 70000000000, perubahan: 85911437916 },
+  pendapatan: { murni: 67000000000, perubahan: 82485000000 }
+};
