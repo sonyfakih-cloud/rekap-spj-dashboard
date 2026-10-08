@@ -2,7 +2,7 @@
    Sumber: laporan realisasi pendapatan resmi (Rekap). */
 const KATEGORI_PENDAPATAN_RESMI = {
  "sumber": "Rekap_Pendapatan_2024_2025_2026.xlsx (laporan realisasi pendapatan bulanan)",
- "dibuat": "2026-10-08 04:38",
+ "dibuat": "2026-10-08 22:06",
  "bulan_terakhir": 10,
  "kategori": [
   "Pasien Umum",
@@ -257,7 +257,7 @@ const KATEGORI_PENDAPATAN_RESMI = {
     6839948078,
     6346610394,
     6494348250,
-    124565727
+    771696323
    ],
    "kat": {
     "Pasien Umum": [
@@ -270,7 +270,7 @@ const KATEGORI_PENDAPATAN_RESMI = {
      408571814,
      395780646,
      405236451,
-     72578487
+     84452778
     ],
     "BPJS": [
      6548563156,
@@ -282,7 +282,7 @@ const KATEGORI_PENDAPATAN_RESMI = {
      6215102569,
      5800280474,
      5924441620,
-     0
+     633110400
     ],
     "Pihak Ketiga": [
      138881222,
@@ -330,7 +330,7 @@ const KATEGORI_PENDAPATAN_RESMI = {
      56242000,
      50025000,
      57095000,
-     12642000
+     14738000
     ],
     "Lain-lain PAD yang Sah": [
      6783878,
@@ -342,7 +342,7 @@ const KATEGORI_PENDAPATAN_RESMI = {
      6291259,
      16130349,
      9440044,
-     6183442
+     6233347
     ]
    }
   }
