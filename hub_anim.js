@@ -21,6 +21,7 @@
     gabungan:   'M550 380 C 620 380, 650 615, 722 615',
     klaim:      'M550 380 C 480 380, 450 615, 378 615'
   };
+  var PATH_M = 'M180 96 C 180 140, 180 150, 180 190 L 180 1470';
   var current = null;
 
   function reduced() { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } }
@@ -30,11 +31,16 @@
   function svg(tag, attrs) { var n = document.createElementNS(NS, tag); for (var k in attrs) n.setAttribute(k, attrs[k]); return n; }
 
   // skala panggung agar muat di lebar layar (panggung dirancang 1100px)
+  function isMobile() { return document.documentElement.classList.contains('mode-hp') || window.innerWidth < 1000; }
   function fit() {
     var g = document.querySelector('.hub-menu-grid.hub-stage'); if (!g) return;
-    var hs = Math.max(0.6, Math.min(1, (window.innerWidth - 40) / 1100));
+    var m = isMobile();
+    g.classList.toggle('is-m', m);
+    var hs = m ? Math.max(0.6, Math.min(1, (window.innerWidth - 24) / 360))
+               : Math.max(0.6, Math.min(1, (window.innerWidth - 40) / 1100));
     g.style.setProperty('--hs', String(hs));
   }
+  try { new MutationObserver(fit).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] }); } catch (e) {}
   window.addEventListener('resize', fit);
   function hsNow(grid) { return parseFloat(grid.style.getPropertyValue('--hs')) || 1; }
 
@@ -51,10 +57,19 @@
       dot.appendChild(am);
       s.appendChild(dot);
     });
+    var sm = svg('svg', { 'class': 'hub-lines-m', viewBox: '0 0 360 1480', preserveAspectRatio: 'none', 'aria-hidden': 'true' });
+    sm.appendChild(svg('path', { 'class': 'hl-base', d: PATH_M }));
+    sm.appendChild(svg('path', { 'class': 'hl-glow', d: PATH_M, pathLength: '1' }));
+    [0, 1, 2].forEach(function (n) {
+      var d = svg('circle', { 'class': 'hl-dot', r: '4.5' });
+      d.appendChild(svg('animateMotion', { dur: '5s', repeatCount: 'indefinite', path: PATH_M, begin: (n * 1.6) + 's' }));
+      sm.appendChild(d);
+    });
     var core = document.createElement('div');
     core.className = 'hub-core'; core.setAttribute('aria-hidden', 'true'); core.innerHTML = '<div class="hc-disc"></div><div class="hc-ring"></div><div class="hc-in"></div><i></i>';
     grid.insertBefore(s, grid.firstChild);
-    grid.insertBefore(core, s.nextSibling);
+    grid.insertBefore(sm, s.nextSibling);
+    grid.insertBefore(core, sm.nextSibling);
     [].forEach.call(grid.querySelectorAll('.hub-menu-card'), function (card) {
       if (card.querySelector('.hub-face')) return;
       var face = document.createElement('div'); face.className = 'hub-face';
@@ -73,7 +88,8 @@
     if (!grid || reduced()) return;
     buildStage(grid);
     var cards = [].slice.call(grid.querySelectorAll('.hub-menu-card'));
-    var core = grid.querySelector('.hub-core'), lines = grid.querySelector('.hub-lines');
+    fit();
+    var core = grid.querySelector('.hub-core'), lines = grid.querySelector(grid.classList.contains('is-m') ? '.hub-lines-m' : '.hub-lines');
     var stage = shown(core);
     var full = !forceQuick && (ALWAYS_FULL || !played());
     var k = full ? 2 : 1;                       // faktor kecepatan
