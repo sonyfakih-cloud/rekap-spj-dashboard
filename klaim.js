@@ -1694,6 +1694,43 @@ const MNs=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','De
 const MFs=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
 const mlabK=k=>MNs[+k.slice(5)-1]+' '+k.slice(2,4), mfullK=k=>MFs[+k.slice(5)-1]+' '+k.slice(0,4);
 const pullTxt=k=>((KA.months[k].checks.pull)||[]).map(x=>(+x.slice(6))+' '+MFs[+x.slice(4,6)-1]+' '+x.slice(0,4)).join(' dan ');
+/* ===== Kalender hari libur resmi (SKB 3 Menteri: Menteri Agama, Menteri Ketenagakerjaan, Menteri PANRB) =====
+   2025: SKB No. 1017/2024, 2/2024 (sumber daftar: Setkab/Kemenko PMK) + perubahan SKB No. 933/2025, 1/2025, 3/2025 (cuti bersama 18 Agustus 2025).
+   2026: SKB No. 1497/2025, 2/2025, 5/2025 (19 September 2025; teks di setneg.go.id).
+   N = libur nasional, C = cuti bersama. Hari Minggu selalu dihitung libur (tidak perlu masuk daftar). Sabtu = hari kerja rumah sakit.
+   Catatan: tanggal Idulfitri/Iduladha 2026 mengikuti SKB; bila Menteri Agama menetapkan lain, daftar ini perlu disesuaikan. */
+const HLR={
+ '2025-01-01':['N','Tahun Baru 2025'],'2025-01-27':['N','Isra Mikraj'],'2025-01-28':['C','Cuti bersama Imlek'],'2025-01-29':['N','Tahun Baru Imlek'],
+ '2025-03-28':['C','Cuti bersama Nyepi'],'2025-03-29':['N','Hari Suci Nyepi'],'2025-03-31':['N','Idulfitri 1446 H'],'2025-04-01':['N','Idulfitri 1446 H'],
+ '2025-04-02':['C','Cuti bersama Idulfitri'],'2025-04-03':['C','Cuti bersama Idulfitri'],'2025-04-04':['C','Cuti bersama Idulfitri'],'2025-04-07':['C','Cuti bersama Idulfitri'],
+ '2025-04-18':['N','Wafat Yesus Kristus'],'2025-04-20':['N','Paskah'],'2025-05-01':['N','Hari Buruh'],'2025-05-12':['N','Hari Raya Waisak'],'2025-05-13':['C','Cuti bersama Waisak'],
+ '2025-05-29':['N','Kenaikan Yesus Kristus'],'2025-05-30':['C','Cuti bersama Kenaikan Yesus Kristus'],'2025-06-01':['N','Hari Lahir Pancasila'],'2025-06-06':['N','Iduladha 1446 H'],
+ '2025-06-09':['C','Cuti bersama Iduladha'],'2025-06-27':['N','Tahun Baru Islam 1447 H'],'2025-08-17':['N','Proklamasi Kemerdekaan'],'2025-08-18':['C','Cuti bersama HUT RI (SKB perubahan)'],
+ '2025-09-05':['N','Maulid Nabi'],'2025-12-25':['N','Natal'],'2025-12-26':['C','Cuti bersama Natal'],
+ '2026-01-01':['N','Tahun Baru 2026'],'2026-01-16':['N','Isra Mikraj'],'2026-02-16':['C','Cuti bersama Imlek'],'2026-02-17':['N','Tahun Baru Imlek'],
+ '2026-03-18':['C','Cuti bersama Nyepi'],'2026-03-19':['N','Hari Suci Nyepi'],'2026-03-20':['C','Cuti bersama Idulfitri'],'2026-03-21':['N','Idulfitri 1447 H'],'2026-03-22':['N','Idulfitri 1447 H'],
+ '2026-03-23':['C','Cuti bersama Idulfitri'],'2026-03-24':['C','Cuti bersama Idulfitri'],'2026-04-03':['N','Wafat Yesus Kristus'],'2026-04-05':['N','Paskah'],'2026-05-01':['N','Hari Buruh'],
+ '2026-05-14':['N','Kenaikan Yesus Kristus'],'2026-05-15':['C','Cuti bersama Kenaikan Yesus Kristus'],'2026-05-27':['N','Iduladha 1447 H'],'2026-05-28':['C','Cuti bersama Iduladha'],
+ '2026-05-31':['N','Hari Raya Waisak'],'2026-06-01':['N','Hari Lahir Pancasila'],'2026-06-16':['N','Tahun Baru Islam 1448 H'],'2026-08-17':['N','Proklamasi Kemerdekaan'],
+ '2026-08-25':['N','Maulid Nabi'],'2026-12-24':['C','Cuti bersama Natal'],'2026-12-25':['N','Natal']
+};
+/* hari kerja resmi = Senin–Sabtu di luar libur nasional & cuti bersama (Sabtu rumah sakit tetap buka) */
+function calMonth(key){
+  const m=KA.months[key],dw=m.daily.dow,nd=dw.length,rn=m.daily.RJ.n,rt=m.daily.RJ.tot,p2=x=>String(x).padStart(2,'0');
+  const c={key,days:nd,hk:0,sat:0,sun:0,libur:[],rjHK:0,rjRevHK:0,rjOff:0,rjAll:0,holN:0,holDays:0,satN:0,wkN:0,wkD:0};
+  for(let i=0;i<nd;i++){
+    const ds=key+'-'+p2(i+1),h=HLR[ds],d=dw[i],n=rn[i]||0;
+    c.rjAll+=n;
+    if(d===6){c.sun++;c.rjOff+=n;continue}
+    if(h){c.libur.push({tgl:i+1,jenis:h[0],ket:h[1],dow:d,n});c.holN+=n;c.holDays++;c.rjOff+=n;continue}
+    c.hk++;c.rjHK+=n;c.rjRevHK+=rt[i]||0;
+    if(d===5){c.sat++;c.satN+=n}else{c.wkD++;c.wkN+=n}
+  }
+  c.perDay=c.hk?c.rjHK/c.hk:0;c.perDayRev=c.hk?c.rjRevHK/c.hk:0;
+  c.satAvg=c.sat?c.satN/c.sat:null;c.wkAvg=c.wkD?c.wkN/c.wkD:null;
+  c.ri=m.kpi.RI;c.rj=m.kpi.RJ;
+  return c;
+}
 /* gabung data dua bulan menjadi bentuk lama {Agu:..., Sep:...} */
 function compose(a,b){
   const A=KA.months[a],B=KA.months[b],o={};
@@ -1960,21 +1997,21 @@ function seg(id,opts,cur,cb){
 /* ---------- derived data ---------- */
 const JN={ALL:'Semua',RI:'Rawat Inap',RJ:'Rawat Jalan'};
 const codes=j=>D.inacbg[j].map(r=>({code:r.k,desc:title(r.d),Agu:r.Agu,Sep:r.Sep,dt:r.Sep.tot-r.Agu.tot,dn:r.Sep.n-r.Agu.n,defA:r.Agu.rs-r.Agu.tot,defS:r.Sep.rs-r.Sep.tot}));
-let eff,daily,perDay,rjCodes,riCodes,dial,viral,dA=30,dB=30,idrgOK=false;
+let eff,daily,perDay,cal,rjCodes,riCodes,dial,viral,dA=30,dB=30,idrgOK=false;
 const cov=(p,j='ALL')=>{const k=K(p,j);return k.n?k.n_idrg/k.n:0};
 function prepare(a,b){
   KEYA=a;KEYB=b;MA=mfullK(a);MB=mfullK(b);LA=mlabK(a);LB=mlabK(b);
   D=compose(a,b);eff=D.eff;daily=D.daily;
   dA=daily.Agu.dow.length;dB=daily.Sep.dow.length;
-  const e1=Math.max(1,eff.Agu.eff),e2=Math.max(1,eff.Sep.eff);
-  perDay={rjWd:[eff.Agu.rj_wd/e1,eff.Sep.rj_wd/e2],rjWdRev:[eff.Agu.rj_wd_tot/e1,eff.Sep.rj_wd_tot/e2],
+  cal={Agu:calMonth(a),Sep:calMonth(b)};   /* kalender resmi SKB 3 Menteri; Sabtu = hari kerja */
+  perDay={rjWd:[cal.Agu.perDay,cal.Sep.perDay],rjWdRev:[cal.Agu.perDayRev,cal.Sep.perDayRev],
     ri:[K('Agu','RI').n/dA,K('Sep','RI').n/dB],riRev:[K('Agu','RI').tot/dA,K('Sep','RI').tot/dB]};
   rjCodes=codes('RJ');riCodes=codes('RI');
   dial=rjCodes.find(c=>c.code==='N-3-15-0')||null;viral=riCodes.find(c=>c.code==='A-4-13-I')||null;
   idrgOK=cov('Agu')>=0.99&&cov('Sep')>=0.99;
 }
 const fl=v=>v==null?'–':v;
-const hol=e=>e.hol.length?` (Senin–Jumat tanggal ${e.hol.join(', ')} dengan klaim rawat jalan di bawah 100, diduga libur)`:'';
+const hol=c=>{const L=c.libur;return L.length?` (libur resmi pada hari kerja: tanggal ${L.map(x=>x.tgl+(x.jenis==='C'?' cuti bersama':'')).join(', ')})`:''};
 /* ---------- KPI ---------- */
 const KC=[];
 /* angka berputar naik seperti meteran pompa bensin: tiap digit adalah kolom 0-9 yang bergulir dari bawah ke atas */
@@ -2046,7 +2083,7 @@ R.ringkasan=()=>{
   /* temuan */
   F.push(`<li><b>Pendapatan klaim ${dRev>=0?'naik':'turun'} ${rpF(Math.abs(dRev))} (${pc(a.tot,s.tot)})</b>, dari ${rpF(a.tot)} (${LA}) ke ${rpF(s.tot)} (${LB}); jumlah klaim ${nf.format(a.n)} → ${nf.format(s.n)} (${pc(a.n,s.n)}). Rawat inap ${sg(sr.tot-ar.tot,rpF)}, rawat jalan ${sg(sj.tot-aj.tot,rpF)}.</li>`);
   const rjAll=sj.n/aj.n-1, rjDay=perDay.rjWd[1]/perDay.rjWd[0]-1, calend=Math.abs(rjAll-rjDay)>=0.03;
-  F.push(`<li class="${calend?'w':''}"><b>${calend?'Jumlah hari kerja memengaruhi perbandingan rawat jalan.':'Rawat jalan per hari kerja bergerak searah dengan totalnya.'}</b> ${LA}: ${eff.Agu.eff} hari kerja efektif${hol(eff.Agu)}; ${LB}: ${eff.Sep.eff}${hol(eff.Sep)}. Klaim rawat jalan total ${sg(rjAll*100,v=>dec(v,1))}%, per hari kerja ${sg(rjDay*100,v=>dec(v,1))}% (${nf.format(Math.round(perDay.rjWd[0]))} → ${nf.format(Math.round(perDay.rjWd[1]))} klaim/hari); pendapatan rawat jalan per hari kerja ${sg((perDay.rjWdRev[1]/perDay.rjWdRev[0]-1)*100,v=>dec(v,1))}%.</li>`);
+  F.push(`<li class="${calend?'w':''}"><b>${calend?'Jumlah hari kerja memengaruhi perbandingan rawat jalan.':'Rawat jalan per hari kerja bergerak searah dengan totalnya.'}</b> ${LA}: ${cal.Agu.hk} hari kerja resmi (Senin–Sabtu di luar libur nasional dan cuti bersama)${hol(cal.Agu)}; ${LB}: ${cal.Sep.hk}${hol(cal.Sep)}. Klaim rawat jalan total ${sg(rjAll*100,v=>dec(v,1))}%, per hari kerja ${sg(rjDay*100,v=>dec(v,1))}% (${nf.format(Math.round(perDay.rjWd[0]))} → ${nf.format(Math.round(perDay.rjWd[1]))} klaim/hari); pendapatan rawat jalan per hari kerja ${sg((perDay.rjWdRev[1]/perDay.rjWdRev[0]-1)*100,v=>dec(v,1))}%.</li>`);
   const up=riCodes.slice().sort((x,y)=>y.dt-x.dt)[0], dn=riCodes.slice().sort((x,y)=>x.dt-y.dt)[0];
   let diagNote='';
   if(up&&up.code==='A-4-13-I'){const da=D.diagA.Agu,db=D.diagA.Sep;const ks=[...new Set(Object.keys(da).concat(Object.keys(db)))].slice(0,3);if(ks.length)diagNote=` Diagnosis utama kelompok ini: ${ks.map(k=>k+' ('+(da[k]||0)+' → '+(db[k]||0)+')').join(', ')}.`}
@@ -2092,6 +2129,52 @@ R.ringkasan=()=>{
     {label:'Rawat jalan · klaim',a:aj.tot,s:sj.tot},{label:'Rawat jalan · Tarif RS',a:aj.rs,s:sj.rs}],{fmt:rp,lw:140,title:'Klaim dan Tarif RS'});
 };
 
+/* ===== Rawat jalan per hari kerja, semua bulan (kalender resmi SKB 3 Menteri, Sabtu = hari kerja) ===== */
+function perHariKerja(root){
+  const q=id=>root.querySelector('#'+id);
+  const keys=Object.keys(KA.months).filter(k=>KA.months[k].daily&&KA.months[k].daily.RJ).sort();
+  const C=keys.map(calMonth);
+  if(!C.length){q('dk-hk-note').textContent='Data harian rawat jalan tidak tersedia.';return}
+  const sm=f=>sum(C.map(f));
+  const avgWk=sm(c=>c.wkN)/Math.max(1,sm(c=>c.wkD)),avgSat=sm(c=>c.satN)/Math.max(1,sm(c=>c.sat));
+  const holWork=C.flatMap(c=>c.libur.filter(x=>x.dow<6)),avgHol=holWork.length?sum(holWork.map(x=>x.n))/holWork.length:0;
+  const lbl=c=>mlabK(c.key);
+  q('dk-hk-note').innerHTML=`Metrik per hari kerja membagi klaim rawat jalan pada hari kerja dengan <b>jumlah hari kerja resmi</b> bulan itu, sehingga bulan dengan hari libur lebih banyak tidak tampak turun semu. Hari kerja = Senin–Sabtu (Sabtu rumah sakit tetap buka) di luar hari libur nasional dan cuti bersama menurut SKB 3 Menteri (Menag, Menaker, MenPANRB; 2025: SKB 1017/2024 dan perubahan 933/2025; 2026: SKB 1497/2025); Minggu selalu libur. `+
+    `Pemeriksaan terhadap data: pada ${holWork.length} hari libur resmi Senin–Sabtu rata-rata hanya ${nf.format(Math.round(avgHol))} klaim rawat jalan per hari, dibanding ${nf.format(Math.round(avgWk))} pada hari Senin–Jumat biasa, jadi kalender sesuai dengan pola pelayanan. `+
+    `Perhatian: klaim hari Sabtu rata-rata ${nf.format(Math.round(avgSat))} per hari (±${pct(avgSat/avgWk,0)} dari hari Senin–Jumat), sehingga bulan dengan lebih banyak Sabtu cenderung memiliki rata-rata per hari kerja sedikit lebih rendah.`;
+  const f1=x=>nf.format(Math.round(x));
+  const draw=mm=>{
+    const val=c=>mm==='n'?c.perDay:c.perDayRev,fm=mm==='n'?f1:rp,axf=mm==='n'?nf.format:rpAx;
+    const el=q('dk-c-hk'),u=++KG,w=W(el),h=330,l=Math.max(46,String(axf(niceMax(Math.max(...C.map(val))))).length*7+14),r=12,t=44,b=46;
+    const vals=C.map(val),mx=niceMax(Math.max(...vals)),pw=w-l-r,ph=h-t-b,gw=pw/C.length,bw=Math.min(30,gw*.64),avg=sum(vals)/vals.length;
+    let s=`<svg width="${w}" height="${h}" role="img" aria-label="Rawat jalan per hari kerja">${GLOSS(u)}`;
+    s+=`<g class="klg"><rect x="${l}" y="8" width="10" height="10" rx="2" style="fill:var(--k-agu)"/><text x="${l+14}" y="17">${LA}</text><rect x="${l+14+LA.length*6.3+22}" y="8" width="10" height="10" rx="2" style="fill:var(--k-sep)"/><text x="${l+14+LA.length*6.3+36}" y="17">${LB}</text><rect x="${l+14+LA.length*6.3+36+LB.length*6.3+22}" y="8" width="10" height="10" rx="2" style="fill:var(--k-agu);opacity:.38"/><text x="${l+14+LA.length*6.3+36+LB.length*6.3+36}" y="17">bulan lain</text></g>`;
+    for(let i=0;i<=4;i++){const y=t+ph-ph*i/4;s+=`<line class="kgrid" x1="${l}" x2="${w-r}" y1="${y}" y2="${y}"/><text x="${l-6}" y="${y+4}" text-anchor="end">${axf(mx*i/4)}</text>`}
+    s+=`<line class="axis" x1="${l}" x2="${w-r}" y1="${t+ph}" y2="${t+ph}"/>`;
+    C.forEach((c,i)=>{
+      const v=vals[i],bh=Math.max(v/mx*ph,v>0?2:0),cx=l+gw*i+gw/2,isA=c.key===KEYA,isB=c.key===KEYB;
+      const fill=isB?'var(--k-sep)':'var(--k-agu)',op=(isA||isB)?1:.38;
+      const libur=c.libur.length?c.libur.map(x=>x.tgl+' '+x.ket).join('; '):'tidak ada';
+      const tip=`<b>${esc(mfullK(c.key))}</b><br>Hari kalender ${c.days} · Minggu ${c.sun} · libur resmi ${c.libur.length} → <b>${c.hk} hari kerja</b> (${c.sat} Sabtu)<br><span class="m">Libur: ${esc(libur)}</span><br>Klaim RJ pada hari kerja <span class="m">${nf.format(c.rjHK)}</span> (total semua hari ${nf.format(c.rjAll)})<br>Per hari kerja <span class="m">${mm==='n'?f1(c.perDay)+' klaim':rp(c.perDayRev)}</span>`;
+      s+=`<g data-ktip="${esc(tip)}"><rect x="${l+gw*i}" y="${t-8}" width="${gw}" height="${ph+8}" fill="transparent"/>`+
+         `<rect x="${cx-bw/2}" y="${t+ph-bh}" width="${bw}" height="${bh}" rx="${Math.min(6,bw/2)}" style="fill:${fill};opacity:${op}"/>`;
+      if(gw>=38)s+=`<text class="kv" x="${cx}" y="${t+ph-bh-5}" text-anchor="middle" font-size="9.5">${mm==='n'?f1(v):rpAx(v)}</text>`;
+      if(gw>=34||i%2===0)s+=`<text class="klbl" x="${cx}" y="${h-28}" text-anchor="middle" font-size="10">${esc(lbl(c))}</text>`;
+      s+=`<text class="klbl" x="${cx}" y="${h-14}" text-anchor="middle" font-size="9">${gw>=30?c.hk+' hr':''}</text></g>`;
+    });
+    const ya=t+ph-avg/mx*ph;
+    s+=`<line x1="${l}" x2="${w-r}" y1="${ya}" y2="${ya}" stroke="currentColor" stroke-dasharray="4 4" opacity=".45"/><text x="${w-r-2}" y="${ya-4}" text-anchor="end" font-size="10">rata-rata ${mm==='n'?f1(avg):rpAx(avg)}</text>`;
+    el.innerHTML=s+'</svg>';
+  };
+  seg('hm',[['n','Klaim per hari kerja'],['tot','Pendapatan per hari kerja']],'n',draw);
+  draw('n');
+  const rows=C.map((c,i)=>{
+    const p=C[i-1],hl=c.key===KEYA||c.key===KEYB;
+    return `<tr${hl?' style="font-weight:700"':''}><td class="l">${esc(mfullK(c.key))}</td><td class="num">${c.days}</td><td class="num" title="${esc(c.libur.map(x=>x.tgl+' '+x.ket).join('; '))}">${c.libur.length}</td><td class="num">${c.hk}</td><td class="num">${nf.format(c.rjAll)}</td><td class="num">${f1(c.perDay)}</td><td class="num">${rp(c.perDayRev)}</td><td class="num">${p?chg(p.perDay,c.perDay,true):'–'}</td></tr>`;
+  }).join('');
+  q('dk-tb-hk').innerHTML='<table><thead><tr><th class="l">Bulan</th><th class="num">Hari kalender</th><th class="num">Libur resmi (bukan Minggu)</th><th class="num">Hari kerja</th><th class="num">Klaim RJ total</th><th class="num">Klaim RJ / hari kerja</th><th class="num">Pendapatan RJ / hari kerja</th><th class="num">Δ klaim/hari vs bulan lalu</th></tr></thead><tbody>'+rows+'</tbody></table>';
+}
+
 /* ===== Tren ===== */
 R.tren=()=>{
   const el=document.getElementById('dkview-tren');
@@ -2101,9 +2184,14 @@ R.tren=()=>{
   <div class="card"><h2>Klaim per tanggal pulang</h2><p class="knote">Sumbu x adalah tanggal dalam bulan; arahkan kursor untuk melihat hari dan nilainya. Rawat jalan hampir berhenti di Minggu dan hari libur, rawat inap berjalan setiap hari. Jumlah hari tiap bulan bisa berbeda.</p>
    <div class="ktoolbar"><div class="kseg" id="dk-sj"></div><div class="kseg" id="dk-sm"></div></div><div id="dk-c-line"></div></div>
   <div class="kgrid kg2" style="margin-top:14px">
-   <div class="card"><h2>Normalisasi hari kerja</h2><p class="knote">Hari kerja efektif: Senin–Jumat dengan sedikitnya 100 klaim rawat jalan. Hari Senin–Jumat di bawah ambang itu: ${LA} ${eff.Agu.hol.length?'tanggal '+eff.Agu.hol.join(', '):'tidak ada'}; ${LB} ${eff.Sep.hol.length?'tanggal '+eff.Sep.hol.join(', '):'tidak ada'}. Diduga libur; ini inferensi dari data, bukan kalender resmi.</p><div class="ktbl" id="dk-tb-norm"></div></div>
+   <div class="card"><h2>Normalisasi hari kerja</h2><p class="knote">Hari kerja resmi: Senin–Sabtu (Sabtu rumah sakit tetap buka) di luar hari libur nasional dan cuti bersama menurut SKB 3 Menteri. Libur pada ${LA}: ${cal.Agu.libur.length?cal.Agu.libur.map(x=>x.tgl+' ('+x.ket+')').join(', '):'tidak ada'}. ${LB}: ${cal.Sep.libur.length?cal.Sep.libur.map(x=>x.tgl+' ('+x.ket+')').join(', '):'tidak ada'}. Hari Minggu selalu dihitung libur.</p><div class="ktbl" id="dk-tb-norm"></div></div>
    <div class="card"><h2>Klaim rawat jalan menurut hari dalam minggu</h2><p class="knote">Total klaim per hari dalam minggu. Jumlah tiap hari dalam minggu berbeda antarbulan: ${LA} memuat ${daily.Agu.dow.filter(d=>d===5).length} Sabtu dan ${daily.Agu.dow.filter(d=>d===6).length} Minggu, ${LB} ${daily.Sep.dow.filter(d=>d===5).length} Sabtu dan ${daily.Sep.dow.filter(d=>d===6).length} Minggu.</p><div id="dk-c-dow"></div></div>
-  </div>`;
+  </div>
+  <div class="card" style="margin-top:14px"><h2>Rawat jalan per hari kerja — semua bulan</h2>
+   <p class="knote" id="dk-hk-note"></p>
+   <div class="ktoolbar"><div class="kseg" id="dk-hm"></div></div><div id="dk-c-hk"></div>
+   <div class="ktbl" id="dk-tb-hk" style="margin-top:12px"></div></div>`;
+  perHariKerja(el);
   let jj='RJ',mm='n';
   const draw=()=>{
     const f=mm==='n'?nf.format:rp;
@@ -2114,10 +2202,10 @@ R.tren=()=>{
   seg('sm',[['n','Jumlah klaim'],['tot','Pendapatan']],mm,v=>{mm=v;draw()});
   draw();
   const rows=[
-    ['Hari kalender',dA,dB,null,nf.format],['Hari Senin–Jumat',eff.Agu.weekdays,eff.Sep.weekdays,null,nf.format],['Hari kerja efektif',eff.Agu.eff,eff.Sep.eff,true,nf.format],
+    ['Hari kalender',dA,dB,null,nf.format],['Hari libur resmi di luar Minggu',cal.Agu.libur.length,cal.Sep.libur.length,null,nf.format],['Hari kerja resmi (Sen–Sab)',cal.Agu.hk,cal.Sep.hk,null,nf.format],
     ['Klaim RJ total',K('Agu','RJ').n,K('Sep','RJ').n,true,nf.format],
-    ['Klaim RJ per hari kerja efektif',perDay.rjWd[0],perDay.rjWd[1],true,x=>dec(x,1)],
-    ['Pendapatan RJ per hari kerja efektif',perDay.rjWdRev[0],perDay.rjWdRev[1],true,rp],
+    ['Klaim RJ per hari kerja resmi',perDay.rjWd[0],perDay.rjWd[1],true,x=>dec(x,1)],
+    ['Pendapatan RJ per hari kerja resmi',perDay.rjWdRev[0],perDay.rjWdRev[1],true,rp],
     ['Klaim RI per hari kalender',perDay.ri[0],perDay.ri[1],true,x=>dec(x,1)],
     ['Pendapatan RI per hari kalender',perDay.riRev[0],perDay.riRev[1],true,rp]];
   document.getElementById('dk-tb-norm').innerHTML='<table><thead><tr><th class="l">Ukuran</th><th class="num">'+LA+'</th><th class="num">'+LB+'</th><th class="num">Δ</th></tr></thead><tbody>'+
