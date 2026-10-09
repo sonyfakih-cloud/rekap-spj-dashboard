@@ -15,11 +15,11 @@
   var EASE_OUT = 'cubic-bezier(.22,1,.36,1)';
   var EASE_BACK = 'cubic-bezier(.34,1.45,.5,1)';
   var NS = 'http://www.w3.org/2000/svg';
-  var PATHS = {           // koordinat viewBox 1060x580, pusat (530,290)
-    belanja:    'M530 290 C 440 290, 420 125, 329 125',
-    pendapatan: 'M530 290 C 620 290, 640 125, 731 125',
-    gabungan:   'M530 290 C 440 290, 420 455, 329 455',
-    klaim:      'M530 290 C 620 290, 640 455, 731 455'
+  var PATHS = {           // koordinat viewBox 1100x760, pusat (550,380); ujung = sudut panggung
+    belanja:    'M550 380 C 480 380, 450 235, 378 235',
+    pendapatan: 'M550 380 C 620 380, 650 255, 722 255',
+    gabungan:   'M550 380 C 620 380, 650 615, 722 615',
+    klaim:      'M550 380 C 480 380, 450 615, 378 615'
   };
   var current = null;
 
@@ -29,10 +29,19 @@
   function shown(n) { return !!n && getComputedStyle(n).display !== 'none'; }
   function svg(tag, attrs) { var n = document.createElementNS(NS, tag); for (var k in attrs) n.setAttribute(k, attrs[k]); return n; }
 
+  // skala panggung agar muat di lebar layar (panggung dirancang 1100px)
+  function fit() {
+    var g = document.querySelector('.hub-menu-grid.hub-stage'); if (!g) return;
+    var hs = Math.max(0.6, Math.min(1, (window.innerWidth - 40) / 1100));
+    g.style.setProperty('--hs', String(hs));
+  }
+  window.addEventListener('resize', fit);
+  function hsNow(grid) { return parseFloat(grid.style.getPropertyValue('--hs')) || 1; }
+
   // sisipkan lingkaran pusat + jalur cahaya (sekali)
   function buildStage(grid) {
     if (grid.classList.contains('hub-stage')) return;
-    var s = svg('svg', { 'class': 'hub-lines', viewBox: '0 0 1060 580', preserveAspectRatio: 'none', 'aria-hidden': 'true' });
+    var s = svg('svg', { 'class': 'hub-lines', viewBox: '0 0 1100 760', preserveAspectRatio: 'none', 'aria-hidden': 'true' });
     Object.keys(PATHS).forEach(function (k, i) {
       var d = PATHS[k];
       s.appendChild(svg('path', { 'class': 'hl-base', d: d, 'data-k': k }));
@@ -43,10 +52,19 @@
       s.appendChild(dot);
     });
     var core = document.createElement('div');
-    core.className = 'hub-core'; core.setAttribute('aria-hidden', 'true'); core.innerHTML = '<i></i>';
+    core.className = 'hub-core'; core.setAttribute('aria-hidden', 'true'); core.innerHTML = '<div class="hc-disc"></div><div class="hc-ring"></div><div class="hc-in"></div><i></i>';
     grid.insertBefore(s, grid.firstChild);
     grid.insertBefore(core, s.nextSibling);
+    [].forEach.call(grid.querySelectorAll('.hub-menu-card'), function (card) {
+      if (card.querySelector('.hub-face')) return;
+      var face = document.createElement('div'); face.className = 'hub-face';
+      while (card.firstChild) face.appendChild(card.firstChild);
+      var wrap = document.createElement('div'); wrap.className = 'hub-slabwrap'; wrap.innerHTML = '<div class="hub-slab"></div>';
+      var deco = document.createElement('div'); deco.className = 'hub-deco'; deco.innerHTML = '<b class="o"></b><b></b><b class="o"></b>';
+      card.appendChild(wrap); card.appendChild(deco); card.appendChild(face);
+    });
     grid.classList.add('hub-stage');
+    fit();
   }
 
   function play(hub, forceQuick) {
@@ -58,7 +76,7 @@
     var core = grid.querySelector('.hub-core'), lines = grid.querySelector('.hub-lines');
     var stage = shown(core);
     var full = !forceQuick && (ALWAYS_FULL || !played());
-    var k = full ? 1 : 0.55;                       // faktor kecepatan
+    var k = full ? 2 : 1;                       // faktor kecepatan
     var top = hub.querySelector('.hub-topbar');
     var anims = [], done = false, timers = [];
 
@@ -92,9 +110,12 @@
 
     if (stage) {
       track(core.animate([
-        { opacity: 0, transform: 'translateY(30px) scale(.2)' },
-        { opacity: 1, transform: 'none' }
-      ], { duration: 650 * k, easing: EASE_BACK, fill: 'backwards' }));
+        { opacity: 0, transform: 'translateY(40px) scale(.2)', offset: 0, easing: 'cubic-bezier(.25,.8,.35,1)' },
+        { opacity: 1, transform: 'translateY(-10px) scale(1.16)', offset: 0.5, easing: 'ease-in-out' },
+        { transform: 'translateY(4px) scale(.93)', offset: 0.72, easing: 'ease-in-out' },
+        { transform: 'translateY(-2px) scale(1.04)', offset: 0.88, easing: 'ease-in-out' },
+        { opacity: 1, transform: 'none', offset: 1 }
+      ], { duration: 700 * k, fill: 'backwards' }));
 
       [].forEach.call(lines.querySelectorAll('.hl-base'), function (p, i) {
         track(p.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 500 * k, delay: (450 + i * 130) * k, easing: 'ease-out', fill: 'backwards' }));
@@ -112,19 +133,23 @@
     cards.forEach(function (card, i) {
       var delay = (stage ? 820 : 120) * k + i * 170 * k;
       var r = card.getBoundingClientRect();
-      var dx = ox - (r.left + r.width / 2), dy = oy - (r.top + r.height / 2);
+      var zs = stage ? hsNow(grid) : 1;
+      var dx = (ox - (r.left + r.width / 2)) / zs, dy = (oy - (r.top + r.height / 2)) / zs;
       timers.push(setTimeout(function () {
         if (done) return;
         var a = track(card.animate([
-          { opacity: 0, transform: 'translate(' + dx + 'px,' + dy + 'px) scale(.22)', offset: 0 },
-          { opacity: 1, transform: 'translate(' + dx * 0.12 + 'px,' + (dy * 0.12 - 18) + 'px) scale(1.04)', offset: 0.72 },
+          { opacity: 0, transform: 'translate(' + dx + 'px,' + dy + 'px) scale(.22)', offset: 0, easing: 'cubic-bezier(.2,.75,.3,1)' },
+          { opacity: 1, transform: 'translate(' + dx * 0.03 + 'px,' + (dy * 0.03 - 34) + 'px) scale(1.09)', offset: 0.5, easing: 'cubic-bezier(.5,0,.8,.6)' },
+          { transform: 'translate(0,14px) scale(.96,.94)', offset: 0.68, easing: 'ease-out' },
+          { transform: 'translate(0,-9px) scale(1.02)', offset: 0.82, easing: 'ease-in' },
+          { transform: 'translate(0,3px) scale(.995)', offset: 0.92, easing: 'ease-out' },
           { opacity: 1, transform: 'none', offset: 1 }
-        ], { duration: 950 * k, easing: EASE_OUT, fill: 'both' }));
+        ], { duration: 1000 * k, fill: 'both' }));
         release(card);
         a.onfinish = function () { try { a.cancel(); } catch (e) {} };
       }, delay));
     });
-    var total = (stage ? 820 : 120) * k + cards.length * 170 * k + 950 * k + 300;
+    var total = (stage ? 820 : 120) * k + cards.length * 170 * k + 1000 * k + 300;
     timers.push(setTimeout(finish, total));
   }
 
