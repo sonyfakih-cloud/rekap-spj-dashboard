@@ -28,7 +28,7 @@
      pengunjung yang sudah pernah buka situs ini masih bisa melihat versi lama (ini akar
      masalah "kok belum berubah" yang pernah dilaporkan). Setiap kali app.js/style.css
      diupdate, NAIKKAN angka v= di bawah supaya browser dipaksa ambil versi baru. -->
-<link rel="stylesheet" href="style.css?v=45">
+<link rel="stylesheet" href="style.css?v=47">
 <link rel="stylesheet" href="klaim.css?v=32">
 <script src="chart.umd.min.js"></script>
 <script src="xlsx.full.min.js?v=8"></script>
@@ -102,60 +102,18 @@
      seluruh animasi CSS lewat auth.js begitu layar ini ditampilkan. ===== -->
 <div id="introAnimScreen" class="intro-anim-screen">
   <div id="introStage" class="intro-stage">
-    <div id="introBadgeWrap" class="intro-badge-wrap">
-      <svg viewBox="0 0 400 400">
-        <defs>
-          <g id="introCoin">
-            <ellipse cx="0" cy="12" rx="30" ry="8" fill="#c69a44" stroke="#a8823a"/>
-            <rect x="-30" y="0" width="60" height="12" fill="#d8b45c" stroke="#a8823a"/>
-            <rect x="-30" y="4" width="60" height="4" fill="#1c7a4a"/>
-            <ellipse cx="0" cy="0" rx="30" ry="8" fill="#e8c878" stroke="#a8823a"/>
-          </g>
-        </defs>
-        <circle class="intro-ring intro-r1" cx="200" cy="200" r="170" fill="#1e4a6d"/>
-        <circle class="intro-ring intro-r2" cx="200" cy="200" r="146" fill="#f7f3e9"/>
-        <circle class="intro-ring intro-r3" cx="200" cy="200" r="128" fill="#1e4a6d"/>
-        <circle class="intro-ring intro-r4" cx="200" cy="200" r="104" fill="#1a4260"/>
-        <circle class="intro-ring intro-r5" cx="200" cy="200" r="80"  fill="#163a55"/>
-        <circle class="intro-ring intro-r6" cx="200" cy="200" r="56"  fill="#12324a"/>
-
-        <path id="introArrowPath" pathLength="1" d="M105 265 L175 180 L205 220 L268 140"
-              fill="none" stroke="#d8b45c" stroke-width="24" stroke-linejoin="miter"/>
-        <polygon class="intro-head" points="305,95 245,112 288,152" fill="#d8b45c"/>
-
-        <g fill="#1c8a4e">
-          <rect class="intro-px" style="animation-delay:2.05s" x="260" y="118" width="7" height="7"/>
-          <rect class="intro-px" style="animation-delay:2.10s" x="268" y="126" width="7" height="7"/>
-          <rect class="intro-px" style="animation-delay:2.15s" x="276" y="118" width="7" height="7"/>
-          <rect class="intro-px" style="animation-delay:2.20s" x="284" y="110" width="7" height="7"/>
-          <rect class="intro-px" style="animation-delay:2.25s" x="262" y="100" width="7" height="7"/>
-          <rect class="intro-px" style="animation-delay:2.30s" x="274" y="100" width="7" height="7"/>
-          <rect class="intro-px" style="animation-delay:2.35s" x="268" y="134" width="7" height="7"/>
-          <rect class="intro-px" style="animation-delay:2.40s" x="280" y="134" width="7" height="7"/>
-        </g>
-
-        <use class="intro-coin" style="animation-delay:1.50s" href="#introCoin" x="148" y="284"/>
-        <use class="intro-coin" style="animation-delay:1.62s" href="#introCoin" x="148" y="270"/>
-        <use class="intro-coin" style="animation-delay:1.60s" href="#introCoin" x="204" y="288"/>
-        <use class="intro-coin" style="animation-delay:1.72s" href="#introCoin" x="204" y="274"/>
-        <use class="intro-coin" style="animation-delay:1.84s" href="#introCoin" x="204" y="260"/>
-        <use class="intro-coin" style="animation-delay:1.96s" href="#introCoin" x="204" y="246"/>
-        <use class="intro-coin" style="animation-delay:1.70s" href="#introCoin" x="260" y="282"/>
-        <use class="intro-coin" style="animation-delay:1.82s" href="#introCoin" x="260" y="268"/>
-        <use class="intro-coin" style="animation-delay:1.94s" href="#introCoin" x="260" y="254"/>
-        <use class="intro-coin" style="animation-delay:2.06s" href="#introCoin" x="260" y="240"/>
-        <use class="intro-coin" style="animation-delay:2.18s" href="#introCoin" x="260" y="226"/>
-      </svg>
-      <div class="intro-shine"></div>
-      <span class="intro-spark" style="top:4%;  left:-6%;  animation-delay:3.4s">✦</span>
-      <span class="intro-spark" style="top:12%; right:-8%; animation-delay:4.1s">✦</span>
-      <span class="intro-spark" style="bottom:6%; left:-10%; animation-delay:4.8s">✦</span>
-      <span class="intro-spark" style="bottom:14%; right:-5%; animation-delay:5.5s">✦</span>
+    <!-- Adegan isometrik (konsep sama dengan Menu Utama): lingkaran pusat -> jalur cahaya -> panggung modul -> logo MonEv P3A muncul dari pusat -->
+    <div class="ia-scene" id="iaScene" aria-hidden="true">
+      <svg class="ia-lines" viewBox="0 0 1100 760"><path class="ia-base" d="M550 380 C 480 380, 450 235, 378 235"/><path class="ia-glow" pathLength="1" d="M550 380 C 480 380, 450 235, 378 235" style="--d:1.0s"/><path class="ia-base" d="M550 380 C 620 380, 650 255, 722 255"/><path class="ia-glow" pathLength="1" d="M550 380 C 620 380, 650 255, 722 255" style="--d:1.12s"/><path class="ia-base" d="M550 380 C 620 380, 650 615, 722 615"/><path class="ia-glow" pathLength="1" d="M550 380 C 620 380, 650 615, 722 615" style="--d:1.24s"/><path class="ia-base" d="M550 380 C 480 380, 450 615, 378 615"/><path class="ia-glow" pathLength="1" d="M550 380 C 480 380, 450 615, 378 615" style="--d:1.3599999999999999s"/></svg>
+      <div class="ia-unit ia-belanja" style="--d:1.45s"><div class="ia-slabwrap"><div class="ia-slab"></div></div><div class="ia-tag"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></i><span>Belanja</span></div></div><div class="ia-unit ia-pendapatan" style="--d:1.6199999999999999s"><div class="ia-slabwrap"><div class="ia-slab"></div></div><div class="ia-tag"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></i><span>Pendapatan</span></div></div><div class="ia-unit ia-klaim" style="--d:1.79s"><div class="ia-slabwrap"><div class="ia-slab"></div></div><div class="ia-tag"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><polyline points="9 14 11 16 15 12"/></svg></i><span>BPJS 2025-2026</span></div></div><div class="ia-unit ia-gabungan" style="--d:1.96s"><div class="ia-slabwrap"><div class="ia-slab"></div></div><div class="ia-tag"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></i><span>Pendapatan &amp; Belanja</span></div></div>
+      <div class="ia-core"><div class="hc-disc"></div><div class="hc-ring"></div><div class="hc-in"></div><i></i></div>
+      <div class="ia-logo"><svg viewBox="0 0 400 400"><use href="#logoBadge"/></svg></div>
+      <div class="ia-title"><div class="ia-h1">MonEv P3A</div><div class="ia-s1">Seksi Program Perencanaan Pendapatan dan Anggaran</div><div class="ia-s2">RSUD Dr. R. Soeprapto Cepu</div></div>
+      <span class="ia-spark" style="left:470px;top:250px;--d:3.9s">&#10022;</span>
+      <span class="ia-spark" style="left:640px;top:270px;--d:4.5s">&#10022;</span>
+      <span class="ia-spark" style="left:420px;top:380px;--d:5.1s">&#10022;</span>
+      <span class="ia-spark" style="left:690px;top:400px;--d:4.2s">&#10022;</span>
     </div>
-
-    <h1 id="introTitle">MonEv P3A</h1>
-    <p class="intro-s1">Seksi Program Perencanaan Pendapatan dan Anggaran</p>
-    <p class="intro-s2">RSUD Dr. R. Soeprapto Cepu</p>
   </div>
   <button type="button" id="introSkip" class="intro-skip">Lewati ⟶</button>
 </div>
@@ -912,15 +870,15 @@
 </div>
 
 <script src="config.js?v=11"></script>
-<script src="auth.js?v=13"></script>
+<script src="auth.js?v=14"></script>
 <script src="data.js?v=8"></script>
 <script src="data_pendapatan.js?v=2"></script>
 <script src="data_kategori_pendapatan.js?v=2"></script>
 <script src="data_pagu_perubahan.js?v=1"></script>
 <script src="app.js?v=75"></script>
-<script src="hub_anim.js?v=5"></script>
+<script src="hub_anim.js?v=6"></script>
 <script src="klaim_data.js?v=26"></script>
-<script src="klaim.js?v=33"></script>
+<script src="klaim.js?v=32"></script>
 <script src="odometer.js?v=3"></script>
 </body>
 </html>

@@ -124,6 +124,28 @@
     var ox = stage ? (function () { var r = core.getBoundingClientRect(); return r.left + r.width / 2; })() : gr.left + gr.width / 2;
     var oy = stage ? (function () { var r = core.getBoundingClientRect(); return r.top + r.height / 2; })() : gr.top + Math.min(gr.height / 2, 260);
 
+    // Baru saja melihat adegan isometrik di layar cover: pusat & jalur langsung tampil,
+    // hanya kartu modul yang naik perlahan ke panggungnya.
+    var afterIntro = false;
+    try { afterIntro = sessionStorage.getItem('hubAfterIntro') === '1'; sessionStorage.removeItem('hubAfterIntro'); } catch (e) {}
+    if (afterIntro && stage) {
+      markPlayed();
+      cards.forEach(function (card, i) {
+        var delay = 350 + i * 140;
+        timers.push(setTimeout(function () {
+          if (done) return;
+          var a = track(card.animate([
+            { opacity: 0, transform: 'translateY(46px) scale(.96)' },
+            { opacity: 1, transform: 'none' }
+          ], { duration: 1100, easing: 'cubic-bezier(.22,.7,.2,1)', fill: 'both' }));
+          release(card);
+          a.onfinish = function () { try { a.cancel(); } catch (e) {} };
+        }, delay));
+      });
+      timers.push(setTimeout(finish, 350 + cards.length * 140 + 1300));
+      return;
+    }
+
     if (stage) {
       track(core.animate([
         { opacity: 0, transform: 'translateY(40px) scale(.2)', offset: 0, easing: 'cubic-bezier(.25,.8,.35,1)' },

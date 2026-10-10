@@ -50,7 +50,7 @@
     // kalau login ulang di sesi tab yang sama (tanpa reload halaman).
     const intro = document.getElementById('introAnimScreen');
     const stage = document.getElementById('introStage');
-    if(intro) intro.classList.remove('show');
+    if(intro) intro.classList.remove('show','leaving');
     if(stage) stage.classList.remove('play');
   }
 
@@ -70,26 +70,41 @@
     // sama tanpa reload halaman, mis. logout lalu login lagi) supaya animasi
     // selalu mulai dari awal, bukan lanjut dari state lama.
     stage.classList.remove('play');
-    intro.classList.remove('show');
+    intro.classList.remove('show','leaving');
     void intro.offsetWidth; // paksa reflow biar restart animasi bersih
     intro.classList.add('show');
     requestAnimationFrame(function(){ stage.classList.add('play'); });
+
+    // Skala adegan agar muat di layar (desain 1100x760; HP 360x520)
+    function fitIntro(){
+      var sc=document.getElementById('introStage'); if(!sc) return;
+      var mob = window.innerWidth < 1000;
+      var w = mob ? 360 : 1100, h = mob ? 520 : 760;
+      var s = Math.max(0.35, Math.min(1, (window.innerWidth-24)/w, (window.innerHeight-70)/h));
+      sc.style.setProperty('--ia-s', String(s));
+    }
+    fitIntro();
 
     let advanced = false;
     function goToApp(){
       if(advanced) return;
       advanced = true;
-      intro.classList.remove('show');
-      stage.classList.remove('play');
-      showApp();
+      // Beri tahu animasi Menu Utama bahwa adegan isometrik baru saja diputar:
+      // panggung/jalur sudah terlihat, jadi tinggal kartu yang naik.
+      try{ sessionStorage.setItem('hubAfterIntro','1'); }catch(e){}
+      showApp();                       // Menu Utama dirender di bawah layar intro
+      intro.classList.add('leaving');  // intro memudar halus (transition .75s)
+      setTimeout(function(){
+        intro.classList.remove('show','leaving');
+        stage.classList.remove('play');
+      }, 800);
     }
     const skipBtn = document.getElementById('introSkip');
     if(skipBtn) skipBtn.onclick = goToApp;
     stage.onclick = goToApp;
-    // Total durasi koreografi (rings -> panah -> checklist -> koin -> teks)
-    // selesai sekitar detik ke-3.7; ditahan sebentar lagi (termasuk sedikit
-    // efek floaty) baru otomatis lanjut ke Menu Utama kalau tidak di-skip.
-    setTimeout(goToApp, 4800);
+    // Koreografi: pusat (0.15s) -> jalur (1.0s) -> panggung (1.45s) -> logo (2.7s)
+    // -> judul (3.5-4.0s); ditahan sejenak lalu otomatis lanjut ke Menu Utama.
+    setTimeout(goToApp, 7000);
   }
 
   async function fetchRemotePassword(){
