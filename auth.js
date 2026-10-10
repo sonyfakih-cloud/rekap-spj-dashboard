@@ -78,9 +78,8 @@
     // Skala adegan agar muat di layar (desain 1100x760; HP 360x520)
     function fitIntro(){
       var sc=document.getElementById('introStage'); if(!sc) return;
-      var mob = window.innerWidth < 1000;
-      var w = mob ? 360 : 1100, h = mob ? 520 : 760;
-      var s = Math.max(0.35, Math.min(1, (window.innerWidth-24)/w, (window.innerHeight-70)/h));
+      var w = 360, h = 520;
+      var s = Math.max(0.35, Math.min(1.5, (window.innerWidth-24)/w, (window.innerHeight-90)/h));
       sc.style.setProperty('--ia-s', String(s));
     }
     fitIntro();
@@ -104,7 +103,7 @@
     stage.onclick = goToApp;
     // Koreografi: pusat (0.15s) -> jalur (1.0s) -> panggung (1.45s) -> logo (2.7s)
     // -> judul (3.5-4.0s); ditahan sejenak lalu otomatis lanjut ke Menu Utama.
-    setTimeout(goToApp, 7000);
+    setTimeout(goToApp, 8500);
   }
 
   async function fetchRemotePassword(){
